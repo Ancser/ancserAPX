@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "Bash(.venv/Scripts/python -c \"import psutil; print\\(psutil.__version__\\)\")",
+      "Bash(.venv/Scripts/python.exe -c \"import psutil; print\\(psutil.__version__\\)\")",
+      "Bash(echo \"started pid $!\")",
+      "Bash(curl -s http://127.0.0.1:7780/)",
+      "Bash(curl -s http://127.0.0.1:7780/config)",
+      "Bash(curl -s -o /dev/null -w \"ancserTPX.css %{http_code}\\\\n\" http://127.0.0.1:7780/static/ancserTPX.css)",
+      "Bash(curl -s -o /dev/null -w \"ancserFX.js %{http_code}\\\\n\" http://127.0.0.1:7780/static/ancserFX.js)",
+      "Bash(curl -s \"http://127.0.0.1:7780/data/status\")",
+      "Bash(curl -s -X POST http://127.0.0.1:7780/backtest/run -H \"Content-Type: application/json\" -d '{\"universe\":\"custom\",\"symbols\":[\"AAPL\",\"MSFT\",\"NVDA\",\"GOOGL\",\"AMZN\"],\"start_date\":\"2021-01-01\",\"end_date\":\"2021-12-31\",\"active_factors\":[\"Momentum\",\"Reversion\",\"EMA200 Distance\"],\"top_n\":3}')"
+    ]
+  }
+}

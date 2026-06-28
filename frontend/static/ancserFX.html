@@ -1,0 +1,272 @@
+<!--
+  ============================================================
+  ancserFX — ancserTPX 視覺外觀 + ancserFX 因子後端
+        ├─ reuses ancserTPX.css  (設計系統 / 元件樣式)
+        └─ ancserFX.js           (邏輯，改寫自 ancserFX.js)
+  功能:
+    1. .env Alpaca 連線 → 抓日線資料 → 沒存過就存。
+    2. Backtest:預設(preset)選擇 + 因子(model factor)選擇。
+    3. 中央圖表同時疊加 回測曲線 / 實盤曲線 / SPY 基準 做績效對比。
+  ============================================================
+-->
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ancserFX</title>
+    <link rel="icon" href="/static/favicon.ico" sizes="any">
+    <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+TC:wght@300;400;500;700&family=Orbitron:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Reuse the ancserTPX design system / component styles -->
+    <link rel="stylesheet" href="/static/ancserTPX.css?v=fx1">
+    <style>
+        /* ── ancserFX-specific overrides ── */
+        .factor-checks { display: flex; flex-wrap: wrap; gap: 6px 10px; padding: 4px 0; }
+        .factor-chk { display: flex; align-items: center; gap: 4px; font-size: 11px; cursor: pointer; color: var(--text); }
+        .factor-chk input { accent-color: var(--amber); }
+
+        .conn-panel .info-row {
+            display: flex; justify-content: space-between;
+            font-family: 'IBM Plex Mono', monospace; font-size: 10px;
+            color: var(--text2); line-height: 2;
+        }
+        .conn-panel .info-row .iv { color: var(--cyan); }
+        .conn-note { font-size: 9px; color: var(--text3); letter-spacing: 0.5px; margin: 2px 0 6px; }
+
+        #chart-container { position: relative; }
+        .chart-placeholder {
+            position: absolute; inset: 0;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 10px; pointer-events: none; z-index: 5;
+        }
+        .chart-placeholder .ph-title {
+            font-family: 'Orbitron', sans-serif; font-size: 14px; color: var(--text3);
+            letter-spacing: 4px; text-transform: uppercase;
+        }
+        .chart-placeholder .ph-sub { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text3); }
+
+        #chart-legend {
+            position: absolute; top: 8px; left: 12px; z-index: 18; display: none;
+            gap: 14px; align-items: center;
+            background: rgba(8,9,13,0.78); border: 1px solid var(--border);
+            border-radius: 4px; padding: 4px 10px; backdrop-filter: blur(6px);
+            font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.5px;
+        }
+        #chart-legend .lg { display: flex; align-items: center; gap: 5px; color: var(--text2); }
+        #chart-legend .swatch { width: 14px; height: 2px; display: inline-block; }
+        .metric-card .label { text-transform: none; }
+    </style>
+</head>
+<body>
+
+<!-- ── Header ─────────────────────────────────────────────────────────────── -->
+<div class="header">
+    <h1><span style="color:var(--amber);">ancser</span>FX
+        <span style="font-size:10px;color:rgba(255,255,255,0.5);font-weight:normal;letter-spacing:2px;margin-left:4px;">ALPACA · 1.0</span>
+    </h1>
+    <div class="header-tabs">
+        <div class="tab active" data-tab="backtest">Backtest</div>
+    </div>
+    <div class="header-right">
+        <div class="account-switcher">
+            <span class="account-badge practice" id="account-badge">--</span>
+        </div>
+        <div class="conn-dropdown-wrap">
+            <div class="conn-trigger" id="conn-trigger" onclick="toggleConnDropdown()">
+                <span class="status-dot loading" id="api-status"></span>
+                <span id="api-status-text">READY</span>
+                <span class="conn-arrow">▼</span>
+            </div>
+            <div class="conn-panel" id="conn-panel">
+                <div class="conn-note">CREDENTIALS LOADED FROM .env (Alpaca)</div>
+                <div class="info-row"><span>DATA FEED</span><span class="iv" id="data-feed-info">--</span></div>
+                <div class="info-row"><span>ACCOUNT</span><span class="iv" id="conn-account-info">--</span></div>
+                <div class="info-row"><span>LOCAL DATA</span><span class="iv" id="data-coverage-pct">--</span></div>
+                <div class="info-row"><span>COVERAGE</span><span class="iv" id="data-coverage-detail" style="font-size:9px;">--</span></div>
+                <button type="button" class="btn btn-outline" id="btn-fetch-full" onclick="triggerFetch('bulk')">FETCH FULL HISTORY (10Y)</button>
+                <button class="btn btn-primary" id="btn-connect" onclick="connectAPI()">CONNECT &amp; SYNC</button>
+            </div>
+        </div>
+        <div id="clock">--:--:-- UTC</div>
+    </div>
+</div>
+
+<div class="main">
+    <!-- Sidebar -->
+    <div class="sidebar">
+
+        <!-- Universe -->
+        <div class="panel">
+            <div class="panel-title">UNIVERSE</div>
+            <div class="form-group">
+                <label>SYMBOL SET</label>
+                <select id="universe-select" onchange="onUniverseChange()">
+                    <option value="spy_qqq" selected>SPY + QQQ (全部成分股)</option>
+                    <option value="custom">Custom…</option>
+                </select>
+            </div>
+            <div id="custom-symbols-wrap" class="form-group" style="display:none;">
+                <label>SYMBOLS <span class="lbl-hint">(space / comma separated)</span></label>
+                <textarea id="custom-symbols" rows="3"
+                          style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:11px;padding:6px;resize:vertical;"
+                          placeholder="AAPL MSFT NVDA TSLA…"></textarea>
+            </div>
+        </div>
+
+        <!-- Strategy: preset + factor model -->
+        <div class="panel">
+            <div class="panel-title">STRATEGY</div>
+            <div class="form-group">
+                <label>PRESET</label>
+                <select id="preset-select" onchange="applyPreset(this.value)">
+                    <option value="">— custom —</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>MODEL FACTORS</label>
+                <div class="factor-checks" id="factor-checks"></div>
+            </div>
+            <div class="form-row" style="margin-top:6px;">
+                <div class="form-group" style="flex:1;">
+                    <label>MWU <span class="lbl-hint">(dynamic w)</span></label>
+                    <button type="button" class="toggle-field" id="mwu-toggle" onclick="toggleField('mwu-toggle','mwu-hidden')">OFF</button>
+                    <input type="hidden" id="mwu-hidden" value="0">
+                </div>
+                <div class="form-group" style="flex:1;">
+                    <label>SECTOR NEUTRAL</label>
+                    <button type="button" class="toggle-field" id="sector-toggle" onclick="toggleField('sector-toggle','sector-hidden')">OFF</button>
+                    <input type="hidden" id="sector-hidden" value="0">
+                </div>
+            </div>
+        </div>
+
+        <!-- Parameters -->
+        <div class="panel">
+            <div class="panel-title">PARAMETERS</div>
+            <div class="form-row">
+                <div class="form-group" style="flex:2;">
+                    <label>CAPITAL ($)</label>
+                    <input type="number" id="capital-input" value="10000" min="1000" step="1000">
+                </div>
+                <div class="form-group" style="flex:1;">
+                    <label>TOP N</label>
+                    <select id="top-n-select">
+                        <option value="10">10</option>
+                        <option value="20">20</option>
+                        <option value="30" selected>30</option>
+                        <option value="50">50</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group" style="flex:1;">
+                    <label>START YEAR</label>
+                    <select id="start-year-select"></select>
+                </div>
+                <div class="form-group" style="flex:1;">
+                    <label>END YEAR</label>
+                    <select id="end-year-select"></select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>LEVERAGE <span id="leverage-val" style="color:var(--amber);">1.0x</span></label>
+                <input type="range" id="leverage-slider" min="0.5" max="2.0" step="0.1" value="1.0"
+                       oninput="document.getElementById('leverage-val').textContent=parseFloat(this.value).toFixed(1)+'x'">
+            </div>
+            <div class="form-group">
+                <label>STRATEGY MODE</label>
+                <select id="strategy-mode-select">
+                    <option value="long_only" selected>Long Only</option>
+                    <option value="long_short">Long / Short</option>
+                </select>
+            </div>
+            <div class="form-row">
+                <div class="form-group" style="flex:1;">
+                    <label>VOL TARGET</label>
+                    <button type="button" class="toggle-field" id="vol-toggle" onclick="toggleField('vol-toggle','vol-hidden')">OFF</button>
+                    <input type="hidden" id="vol-hidden" value="0">
+                </div>
+                <div class="form-group" style="flex:1;">
+                    <label>TARGET VOL <span id="vol-pct-val" style="color:var(--amber)">20%</span></label>
+                    <input type="range" id="vol-pct-slider" min="5" max="60" step="5" value="20"
+                           oninput="document.getElementById('vol-pct-val').textContent=this.value+'%'">
+                </div>
+            </div>
+        </div>
+
+        <!-- Run -->
+        <div class="panel">
+            <div style="display:flex;flex-direction:column;gap:6px;">
+                <button class="btn btn-green" id="btn-run-backtest" onclick="runBacktest()">EXECUTE BACKTEST</button>
+                <button class="btn" id="btn-apply-live" onclick="applyLive()"
+                        style="background:var(--amber,#ffa726);color:#000;font-weight:600;">APPLY LIVE</button>
+                <div id="backtest-progress-wrap" style="display:none;">
+                    <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+                        <span style="font-size:9px;letter-spacing:1px;color:var(--text3);">BACKTEST</span>
+                        <span id="backtest-progress-text" style="font-size:9px;font-family:'IBM Plex Mono',monospace;color:var(--text2);">running…</span>
+                    </div>
+                    <div style="height:2px;background:rgba(255,255,255,0.07);border-radius:1px;overflow:hidden;">
+                        <div id="backtest-progress-bar" style="height:100%;width:0%;background:var(--green);transition:width 0.4s linear;box-shadow:0 0 6px rgba(0,229,160,0.5);"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Metrics -->
+        <div class="panel" id="metrics-panel" style="display:none;">
+            <div class="panel-title">PERFORMANCE</div>
+            <div class="metrics-grid" id="metrics-grid"></div>
+        </div>
+    </div><!-- /sidebar -->
+
+    <!-- Main content -->
+    <div class="content">
+        <div id="chart-container">
+            <div id="chart-legend">
+                <span class="lg"><span class="swatch" style="background:#00e5a0;"></span>STRATEGY (BACKTEST)</span>
+                <span class="lg"><span class="swatch" style="background:#64dcff;"></span>LIVE ACCOUNT</span>
+                <span class="lg"><span class="swatch" style="background:#ffa726;border-top:1px dashed #ffa726;"></span>QQQ BENCHMARK</span>
+            </div>
+            <div class="chart-placeholder" id="chart-placeholder">
+                <div class="ph-title">ancserFX</div>
+                <div class="ph-sub">Run a backtest to see the performance curve comparison</div>
+            </div>
+        </div>
+
+        <div class="bottom-panel" id="bottom-panel">
+            <div id="bottom-drag-handle" title="Drag to resize"><div class="drag-pill"></div></div>
+            <div class="bottom-tabs">
+                <div class="bottom-tab active" data-btab="holdings">HOLDINGS LOG</div>
+                <div class="bottom-tab" data-btab="weights">FACTOR WEIGHTS</div>
+                <div class="bottom-tab" data-btab="log">SYSTEM LOG</div>
+            </div>
+            <div class="bottom-content">
+                <div id="btab-holdings">
+                    <div class="trade-table-wrap">
+                        <table>
+                            <thead><tr><th>DATE</th><th>LONG PORTFOLIO</th><th>SHORT PORTFOLIO</th></tr></thead>
+                            <tbody id="holdings-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div id="btab-weights" class="hidden">
+                    <div class="trade-table-wrap">
+                        <table id="weights-table">
+                            <thead><tr id="weights-thead-row"><th>DATE</th></tr></thead>
+                            <tbody id="weights-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div id="btab-log" class="hidden">
+                    <div class="log" id="log-container"></div>
+                </div>
+            </div>
+        </div>
+    </div><!-- /content -->
+</div>
+
+<script src="/static/ancserFX.js?v=fx1"></script>
+</body>
+</html>

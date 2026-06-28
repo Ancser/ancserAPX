@@ -1,0 +1,11 @@
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+alpaca-py>=0.20.0
+polars>=0.20.0
+pandas>=2.0.0
+numpy>=1.26.0
+python-dotenv>=1.0.0
+pyarrow>=14.0.0
+apscheduler>=3.10.4
+httpx>=0.27.0
+websockets>=12.0

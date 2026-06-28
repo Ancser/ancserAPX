@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "ancserFX",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "uvicorn", "frontend.server:app", "--host", "127.0.0.1", "--port", "7780"],
+      "port": 7780
+    }
+  ]
+}

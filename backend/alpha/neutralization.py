@@ -1,0 +1,123 @@
+"""Sector neutralization — ported from ancserFX."""
+
+import pandas as pd
+from typing import Dict
+
+# Simplified sector map (GICS sectors for S&P 500 names)
+SECTOR_MAP: Dict[str, str] = {
+    # Technology
+    "AAPL":"Technology","MSFT":"Technology","NVDA":"Technology","AMD":"Technology",
+    "INTC":"Technology","AVGO":"Technology","QCOM":"Technology","TXN":"Technology",
+    "AMAT":"Technology","KLAC":"Technology","LRCX":"Technology","MCHP":"Technology",
+    "NXPI":"Technology","CDNS":"Technology","SNPS":"Technology","ADI":"Technology",
+    "FTNT":"Technology","CRWD":"Technology","PANW":"Technology","CSCO":"Technology",
+    "IBM":"Technology","ORCL":"Technology","CRM":"Technology","NOW":"Technology",
+    "ADBE":"Technology","INTU":"Technology","MSCI":"Technology","ADSK":"Technology",
+    "ANSS":"Technology","PTC":"Technology","SMCI":"Technology","HPQ":"Technology",
+    "HPE":"Technology","DELL":"Technology","WDC":"Technology","STX":"Technology",
+    "NTAP":"Technology","FFIV":"Technology","JNPR":"Technology","ACN":"Technology",
+    # Communication
+    "META":"Communication","GOOG":"Communication","GOOGL":"Communication",
+    "NFLX":"Communication","DIS":"Communication","CMCSA":"Communication",
+    "T":"Communication","VZ":"Communication","TMUS":"Communication",
+    "WBD":"Communication","CHTR":"Communication","FOXA":"Communication",
+    "LYV":"Communication","EA":"Communication","TTWO":"Communication",
+    "MTCH":"Communication","ZM":"Communication","DASH":"Communication",
+    # Consumer Discretionary
+    "AMZN":"ConsDisc","TSLA":"ConsDisc","HD":"ConsDisc","MCD":"ConsDisc",
+    "NKE":"ConsDisc","LOW":"ConsDisc","SBUX":"ConsDisc","BKNG":"ConsDisc",
+    "MAR":"ConsDisc","HLT":"ConsDisc","TJX":"ConsDisc","ROST":"ConsDisc",
+    "LULU":"ConsDisc","DHI":"ConsDisc","PHM":"ConsDisc","LEN":"ConsDisc",
+    "F":"ConsDisc","GM":"ConsDisc","APTV":"ConsDisc","CCL":"ConsDisc",
+    "RCL":"ConsDisc","NCLH":"ConsDisc","DRI":"ConsDisc","YUM":"ConsDisc",
+    "CMG":"ConsDisc","ULTA":"ConsDisc","BBWI":"ConsDisc","RL":"ConsDisc",
+    "TPR":"ConsDisc","PVH":"ConsDisc","GPC":"ConsDisc","AZO":"ConsDisc",
+    "ORLY":"ConsDisc","BBY":"ConsDisc","DECK":"ConsDisc",
+    # Consumer Staples
+    "PG":"ConsStaples","KO":"ConsStaples","PEP":"ConsStaples","WMT":"ConsStaples",
+    "COST":"ConsStaples","PM":"ConsStaples","MO":"ConsStaples","MDLZ":"ConsStaples",
+    "CL":"ConsStaples","GIS":"ConsStaples","KHC":"ConsStaples","KR":"ConsStaples",
+    "SYY":"ConsStaples","HRL":"ConsStaples","MKC":"ConsStaples","CPB":"ConsStaples",
+    "CAG":"ConsStaples","SJM":"ConsStaples","CLX":"ConsStaples","CHD":"ConsStaples",
+    "EL":"ConsStaples","KMB":"ConsStaples","TAP":"ConsStaples","BG":"ConsStaples",
+    # Healthcare
+    "LLY":"Healthcare","JNJ":"Healthcare","UNH":"Healthcare","ABBV":"Healthcare",
+    "MRK":"Healthcare","ABT":"Healthcare","TMO":"Healthcare","DHR":"Healthcare",
+    "ISRG":"Healthcare","BSX":"Healthcare","MDT":"Healthcare","SYK":"Healthcare",
+    "EW":"Healthcare","BDX":"Healthcare","VRTX":"Healthcare","REGN":"Healthcare",
+    "BIIB":"Healthcare","AMGN":"Healthcare","GILD":"Healthcare","MRNA":"Healthcare",
+    "ZBH":"Healthcare","BAX":"Healthcare","HOLX":"Healthcare","IDXX":"Healthcare",
+    "IQV":"Healthcare","CRL":"Healthcare","MTD":"Healthcare","DXCM":"Healthcare",
+    "PODD":"Healthcare","HCA":"Healthcare","UHS":"Healthcare","HUM":"Healthcare",
+    "CVS":"Healthcare","CI":"Healthcare","ELV":"Healthcare","MOH":"Healthcare",
+    "MCK":"Healthcare","CAH":"Healthcare","COR":"Healthcare","DGX":"Healthcare",
+    "LH":"Healthcare","HSIC":"Healthcare","SOLV":"Healthcare",
+    # Financials
+    "JPM":"Financials","BAC":"Financials","WFC":"Financials","GS":"Financials",
+    "MS":"Financials","C":"Financials","BLK":"Financials","SCHW":"Financials",
+    "AXP":"Financials","COF":"Financials","V":"Financials","MA":"Financials",
+    "PYPL":"Financials","FIS":"Financials","FISV":"Financials","GPN":"Financials",
+    "ICE":"Financials","CME":"Financials","CBOE":"Financials","NDAQ":"Financials",
+    "SPGI":"Financials","MCO":"Financials","BK":"Financials","STT":"Financials",
+    "NTRS":"Financials","USB":"Financials","PNC":"Financials","TFC":"Financials",
+    "FITB":"Financials","KEY":"Financials","HBAN":"Financials","RF":"Financials",
+    "CFG":"Financials","MTB":"Financials","PRU":"Financials","MET":"Financials",
+    "AFL":"Financials","ALL":"Financials","TRV":"Financials","HIG":"Financials",
+    "AIG":"Financials","CB":"Financials","PGR":"Financials","BRO":"Financials",
+    "CINF":"Financials","AIZ":"Financials","GL":"Financials","ERIE":"Financials",
+    "WRB":"Financials","AMP":"Financials","PFG":"Financials","IVZ":"Financials",
+    "BEN":"Financials","TROW":"Financials","BX":"Financials","KKR":"Financials",
+    "APO":"Financials","ARES":"Financials","RJF":"Financials","IBKR":"Financials",
+    "HOOD":"Financials","COIN":"Financials","MSTR":"Financials",
+    # Energy
+    "XOM":"Energy","CVX":"Energy","COP":"Energy","EOG":"Energy","SLB":"Energy",
+    "MPC":"Energy","VLO":"Energy","PSX":"Energy","OXY":"Energy","HAL":"Energy",
+    "DVN":"Energy","APA":"Energy","FANG":"Energy","BKR":"Energy","CTRA":"Energy",
+    "EQT":"Energy","KMI":"Energy","WMB":"Energy","OKE":"Energy","TRGP":"Energy",
+    "NRG":"Energy","VST":"Energy","CEG":"Energy","EXE":"Energy",
+    # Industrials
+    "GE":"Industrials","HON":"Industrials","RTX":"Industrials","CAT":"Industrials",
+    "DE":"Industrials","MMM":"Industrials","ITW":"Industrials","EMR":"Industrials",
+    "ETN":"Industrials","PH":"Industrials","ROK":"Industrials","DOV":"Industrials",
+    "GD":"Industrials","LMT":"Industrials","NOC":"Industrials","HII":"Industrials",
+    "BA":"Industrials","TDG":"Industrials","HWM":"Industrials","TT":"Industrials",
+    "AME":"Industrials","VRSK":"Industrials","CPRT":"Industrials","FAST":"Industrials",
+    "GWW":"Industrials","CTAS":"Industrials","RSG":"Industrials","WM":"Industrials",
+    "FTV":"Industrials","RVTY":"Industrials","IR":"Industrials","IEX":"Industrials",
+    "XYL":"Industrials","HUBB":"Industrials","SNA":"Industrials","PNR":"Industrials",
+    "GPN":"Industrials","JBHT":"Industrials","CSX":"Industrials","NSC":"Industrials",
+    "UNP":"Industrials","UPS":"Industrials","FDX":"Industrials","DAL":"Industrials",
+    "UAL":"Industrials","LUV":"Industrials","LDOS":"Industrials","SAIC":"Industrials",
+    "LHX":"Industrials","L":"Industrials","J":"Industrials","JCI":"Industrials",
+    "OTIS":"Industrials","CARR":"Industrials","PWR":"Industrials","EME":"Industrials",
+    "FIX":"Industrials","BLDR":"Industrials","MLM":"Industrials","VMC":"Industrials",
+    "NUE":"Industrials","STLD":"Industrials","NVR":"Industrials","TRI":"Industrials",
+    # Materials
+    "LIN":"Materials","APD":"Materials","ECL":"Materials","PPG":"Materials",
+    "SHW":"Materials","ALB":"Materials","FCX":"Materials","NEM":"Materials",
+    "DOW":"Materials","DD":"Materials","LYB":"Materials","PKG":"Materials",
+    "IP":"Materials","AVY":"Materials","MOS":"Materials","CF":"Materials",
+    "FMC":"Materials","CE":"Materials","WY":"Materials",
+    # Real Estate
+    "PLD":"RealEstate","AMT":"RealEstate","EQIX":"RealEstate","CCI":"RealEstate",
+    "SPG":"RealEstate","O":"RealEstate","DLR":"RealEstate","WELL":"RealEstate",
+    "PSA":"RealEstate","EXR":"RealEstate","INVH":"RealEstate","AVB":"RealEstate",
+    "EQR":"RealEstate","ESS":"RealEstate","MAA":"RealEstate","CPT":"RealEstate",
+    "UDR":"RealEstate","BXP":"RealEstate","VTR":"RealEstate","DOC":"RealEstate",
+    "IRM":"RealEstate","SBAC":"RealEstate","ARE":"RealEstate","REG":"RealEstate",
+    "FRT":"RealEstate","KIM":"RealEstate","HST":"RealEstate",
+    # Utilities
+    "NEE":"Utilities","DUK":"Utilities","SO":"Utilities","D":"Utilities",
+    "AEP":"Utilities","EXC":"Utilities","SRE":"Utilities","PEG":"Utilities",
+    "XEL":"Utilities","ED":"Utilities","EIX":"Utilities","ES":"Utilities",
+    "WEC":"Utilities","DTE":"Utilities","ETR":"Utilities","PPL":"Utilities",
+    "CMS":"Utilities","CNP":"Utilities","NI":"Utilities","LNT":"Utilities",
+    "AES":"Utilities","EE":"Utilities","EVRG":"Utilities","PNW":"Utilities",
+    "AEE":"Utilities","AWK":"Utilities",
+}
+
+
+
+def add_sector_column(df: pd.DataFrame, symbol_col: str = "symbol") -> pd.DataFrame:
+    df["sector"] = df[symbol_col].map(lambda s: SECTOR_MAP.get(s, "Unknown"))
+    return df
