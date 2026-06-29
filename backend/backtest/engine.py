@@ -96,6 +96,61 @@ def _compute_benchmark_curve(
 _compute_spy_curve = _compute_benchmark_curve
 
 
+def _load_regime_ema(
+    start_date: str,
+    end_date: str,
+    warmup_days: int = 450,
+    span_slow: int = 200,
+    span_fast: int = 20,
+) -> Optional[pd.DataFrame]:
+    """Load the market-regime gauge (QQQ, SPY fallback) with a warm-up buffer and
+    return a DataFrame indexed by timestamp with columns [close, ema_slow,
+    ema_fast]. Used by the risk-management kill-switch: liquidate when close drops
+    below the slow EMA (200), re-enter when it reclaims the fast EMA (20).
+
+    The warm-up buffer is essential — a 200-period EMA needs ~200 prior bars to
+    be meaningful, so we load `warmup_days` before start_date, compute the EMAs on
+    the full series, and the caller slices to its simulation dates."""
+    from datetime import timedelta
+    try:
+        sim_start = datetime.strptime(start_date[:10], "%Y-%m-%d")
+        load_start = (sim_start - timedelta(days=warmup_days)).strftime("%Y-%m-%d")
+    except Exception:
+        load_start = start_date
+
+    df = None
+    for sym in ("QQQ", "SPY"):
+        try:
+            d = store.load([sym], load_start, end_date).collect()
+            if d.is_empty():
+                try:
+                    from backend.data.alpaca_adapter import AlpacaAdapter
+                    d = AlpacaAdapter().fetch_history([sym], load_start, end_date).collect()
+                except Exception:
+                    d = None
+            if d is not None and not d.is_empty():
+                df = d
+                break
+        except Exception:
+            continue
+    if df is None or df.is_empty():
+        return None
+
+    df = df.sort("timestamp")
+    pdf = df.select(["timestamp", "close"]).to_pandas()
+    ts = pd.to_datetime(pdf["timestamp"])
+    if getattr(ts.dt, "tz", None) is not None:
+        ts = ts.dt.tz_localize(None)   # match the tz-naive simulation dates
+    pdf["timestamp"] = ts
+    pdf = pdf.set_index("timestamp").sort_index()
+    s = pdf["close"].astype(float)
+    return pd.DataFrame({
+        "close": s,
+        "ema_slow": s.ewm(span=span_slow, adjust=False).mean(),
+        "ema_fast": s.ewm(span=span_fast, adjust=False).mean(),
+    })
+
+
 # ── Engine ────────────────────────────────────────────────────────────────────
 
 class BacktestEngine:
@@ -106,6 +161,12 @@ class BacktestEngine:
     # Data preparation
     # ------------------------------------------------------------------
 
+    # Calendar-day warm-up buffer loaded BEFORE start_date so long-lookback
+    # factors (252-trading-day momentum ≈ 365 calendar days) are already valid
+    # on the very first simulation day. Without this the equity curve is a flat
+    # line for the first ~year and no holdings are logged (the warm-up bug).
+    WARMUP_DAYS = 450  # matches LiveStrategy's 450-day load → identical factor values
+
     def fetch_and_prepare_data(
         self,
         symbols: List[str],
@@ -114,9 +175,20 @@ class BacktestEngine:
     ) -> pd.DataFrame:
         """
         Load from local store. Falls back to Alpaca live-fetch if data is missing.
+
+        Loads an extra WARMUP_DAYS of history before `start_date` so momentum /
+        long-lookback factors are warmed up, computes factors over the full
+        window, then trims the returned frame to timestamps >= start_date.
         """
-        # Try local store first
-        lf = store.load(symbols, start_date, end_date)
+        from datetime import timedelta
+        try:
+            sim_start = datetime.strptime(start_date[:10], "%Y-%m-%d")
+            load_start = (sim_start - timedelta(days=self.WARMUP_DAYS)).strftime("%Y-%m-%d")
+        except Exception:
+            load_start = start_date
+
+        # Try local store first (with warm-up buffer)
+        lf = store.load(symbols, load_start, end_date)
         try:
             schema_df = lf.collect()
         except Exception:
@@ -136,7 +208,7 @@ class BacktestEngine:
                 frames = []
                 for chunk in chunks:
                     try:
-                        df = adapter.fetch_history(chunk, start_date, end_date).collect()
+                        df = adapter.fetch_history(chunk, load_start, end_date).collect()
                         if not df.is_empty():
                             frames.append(df)
                     except Exception as e:
@@ -160,6 +232,14 @@ class BacktestEngine:
 
         pdf = factor_df.to_pandas()
         pdf["timestamp"] = pd.to_datetime(pdf["timestamp"])
+
+        # Trim the warm-up buffer: factors are now computed, so the simulation
+        # only sees dates from the requested start_date onward.
+        try:
+            sim_start_ts = pd.to_datetime(start_date[:10])
+            pdf = pdf[pdf["timestamp"] >= sim_start_ts].reset_index(drop=True)
+        except Exception:
+            pass
         return pdf
 
     # ------------------------------------------------------------------
@@ -375,10 +455,17 @@ class BacktestEngine:
         lock_rules: Optional[Dict[str, float]] = None,
         rebalance_days: int = 5,
         borrow_rate: float = 0.0,
+        ema_kill_switch: bool = False,
     ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         """Weekly-rebalanced, weight-based multi-sleeve simulation that mirrors
         live execution exactly. Returns (equity_df, weights_df, holdings_df)
-        shaped like run() so the server consumes it unchanged."""
+        shaped like run() so the server consumes it unchanged.
+
+        Risk-management overlay (checked DAILY, off the weekly cadence):
+          • ema_kill_switch — when the market gauge (QQQ) closes below its 200-EMA,
+            liquidate the whole book to cash; stay in cash until it reclaims its
+            20-EMA, then re-enter IMMEDIATELY (not bound by the weekly schedule).
+        """
         from backend.alpha.portfolio import combined_target_weights
 
         lock_rules = lock_rules or {}
@@ -402,22 +489,58 @@ class BacktestEngine:
             for f in all_factors if col_map.get(f) in data.columns
         }
 
+        # Market-regime gauge for the 200-EMA kill-switch (aligned to sim dates).
+        regime = None
+        if ema_kill_switch:
+            r = _load_regime_ema(start_date, end_date)
+            if r is not None:
+                regime = r.reindex(pd.DatetimeIndex(dates), method="ffill")
+
         state: Dict[str, Dict] = {}     # winner-lock state, carried across rebalances
         target_w: Dict[str, float] = {}  # combined target weights (already ×leverage)
+        in_market = True                # kill-switch regime state
         equity = [self.initial_capital]
         holdings_history = []
 
+        def _rebalance(date):
+            factor_values = {
+                f: fac_pivot[f].loc[date].dropna()
+                for f in fac_pivot if date in fac_pivot[f].index
+            }
+            price = close_pivot.loc[date].dropna() if date in close_pivot.index else pd.Series(dtype=float)
+            return combined_target_weights(
+                sleeves, factor_values, price, state, top_n, lock_rules, leverage,
+            )
+
         for i, date in enumerate(dates[:-1]):
-            # ── Weekly rebalance: rebuild target weights via SHARED logic ────
-            if i % rebalance_days == 0:
-                factor_values = {
-                    f: fac_pivot[f].loc[date].dropna()
-                    for f in fac_pivot if date in fac_pivot[f].index
-                }
-                price = close_pivot.loc[date].dropna() if date in close_pivot.index else pd.Series(dtype=float)
-                target_w, state = combined_target_weights(
-                    sleeves, factor_values, price, state, top_n, lock_rules, leverage,
-                )
+            # ── Risk: 200-EMA kill-switch regime transitions (daily) ─────────
+            prev_in_market = in_market
+            if ema_kill_switch and regime is not None:
+                row = regime.iloc[i]
+                mc, es, ef = row["close"], row["ema_slow"], row["ema_fast"]
+                if in_market and pd.notna(es) and mc < es:
+                    in_market = False
+                elif (not in_market) and pd.notna(ef) and mc > ef:
+                    in_market = True
+
+            # ── Decide whether to (re)build target weights today ─────────────
+            if ema_kill_switch:
+                if not in_market:
+                    do_rebalance = False
+                    if prev_in_market:  # just dropped below 200-EMA → go to cash
+                        target_w = {}
+                        holdings_history.append({
+                            "date": date, "long": "(cash · 200EMA kill-switch)", "short": "",
+                        })
+                elif not prev_in_market:
+                    do_rebalance = True   # reclaimed 20-EMA → re-enter off-schedule
+                else:
+                    do_rebalance = (i % rebalance_days == 0)
+            else:
+                do_rebalance = (i % rebalance_days == 0)
+
+            if do_rebalance:
+                target_w, state = _rebalance(date)
                 holdings_history.append({
                     "date": date,
                     "long": ", ".join(sorted(target_w.keys())),
@@ -428,6 +551,7 @@ class BacktestEngine:
             if date not in fwd_pivot.index or not target_w:
                 equity.append(equity[-1])
                 continue
+
             fwd_row = fwd_pivot.loc[date]
             port_ret = 0.0
             for s, w in target_w.items():

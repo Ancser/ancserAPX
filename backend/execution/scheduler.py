@@ -81,16 +81,49 @@ def _last_rebalance_date(account: str):
         return None
 
 
+def _last_trading_day_of_week(today, account: str, target_dow: int = 4):
+    """The day we *want* to rebalance this calendar week = the last NYSE trading
+    day on/before the configured weekday (default Friday). If Friday is a market
+    holiday (e.g. Fri 2026-07-03, July 4th observed) this returns the Thursday.
+
+    Uses Alpaca's official calendar; falls back to the plain target weekday
+    (Friday) if the calendar API is unavailable.
+    """
+    monday = today - timedelta(days=today.weekday())          # Mon of this week
+    target_day = monday + timedelta(days=target_dow)          # e.g. Friday
+    try:
+        adapter = AlpacaAdapter(account)
+        days = adapter.get_trading_days(monday, target_day)   # Mon..Fri trading days
+        days = [d for d in days if d <= target_day]
+        if days:
+            return max(days)                                  # last trading day <= Friday
+    except Exception as e:
+        logger.warning(f"calendar lookup failed ({e}); falling back to weekday {target_dow}")
+    return target_day
+
+
 def _should_rebalance_today(config: dict, account: str, force: bool = False) -> bool:
     """
-    Decide whether today's daily trigger should actually rebalance.
+    Decide whether today's trigger should actually rebalance.
 
-    The Windows schedule (or APScheduler cron) fires every weekday, but with
-    weekly rebalancing we only place orders once per week. Rule:
-      - force            -> always rebalance
-      - frequency=daily  -> always rebalance
-      - frequency=weekly -> rebalance only if it's the configured weekday
-                            (default Friday) OR >= 7 days since last rebalance
+    The schedule fires every weekday (and the user also runs it daily), but a
+    WEEKLY strategy must trade at most once per week. Policy:
+      - force            -> always
+      - frequency=daily  -> always
+      - frequency=weekly -> rebalance ONLY on this week's rebalance day, which is
+                            the last NYSE trading day on/before the configured
+                            weekday (default Friday; Thursday if Friday is a
+                            holiday) AND only if we haven't already rebalanced
+                            this calendar week.
+      - first run ever   -> rebalance immediately to establish the position.
+      - long-term failsafe: if the bot was down and it's been >= max_stale_days
+                            (default 10) since the last rebalance, rebalance on
+                            the next run so the book never drifts stale.
+
+    Note: the weekly rule is the PRIMARY one. The stale failsafe threshold is
+    deliberately > 8 days so a normal (or holiday-shortened) week never triggers
+    an off-Friday catch-up — that was the old bug that anchored rebalances to
+    Monday after an off-cycle first run.
     """
     if force:
         return True
@@ -100,18 +133,22 @@ def _should_rebalance_today(config: dict, account: str, force: bool = False) -> 
 
     today = datetime.now().date()
     last = _last_rebalance_date(account)
-    if last is not None and (today - last).days >= 7:
+
+    # First run ever — establish the position immediately, any day.
+    if last is None:
         return True
 
-    # rebalance_weekday: 0=Mon ... 4=Fri (default Friday)
-    target_dow = int(config.get("rebalance_weekday", 4))
-    if today.weekday() == target_dow:
-        # avoid double-rebalance if already done within the last 6 days
-        if last is None or (today - last).days >= 6:
-            return True
+    target_dow = int(config.get("rebalance_weekday", 4))      # 0=Mon..4=Fri
+    rebalance_day = _last_trading_day_of_week(today, account, target_dow)
+    week_start = today - timedelta(days=today.weekday())       # Monday of this week
 
-    # First run ever (no history) — establish the position immediately.
-    if last is None:
+    # PRIMARY: it's this week's rebalance day and we haven't traded this week.
+    if today == rebalance_day and last < week_start:
+        return True
+
+    # FAILSAFE: bot was down long enough that we missed a whole cycle.
+    max_stale = int(config.get("max_stale_days", 10))
+    if (today - last).days >= max_stale:
         return True
 
     return False

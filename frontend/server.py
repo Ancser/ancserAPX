@@ -31,7 +31,10 @@ sys.path.insert(0, str(_ROOT))
 load_dotenv(_ROOT / ".env")
 
 from backend.data.constituents import SP500_TICKERS, NASDAQ100_TICKERS, SPY_QQQ_TICKERS, UNIVERSE_PRESETS
-from backend.alpha.factors import ALL_FACTORS, FACTOR_PRESETS, FACTOR_WEIGHT_PRESETS, PRESET_DEFAULTS, STRATEGY_PRESETS
+from backend.alpha.factors import (
+    ALL_FACTORS, FACTOR_PRESETS, FACTOR_WEIGHT_PRESETS, PRESET_DEFAULTS,
+    STRATEGY_PRESETS, SECONDARY_FACTORS, PRIMARY_FACTORS,
+)
 from backend.utils.accounts import get_configured_accounts
 
 # ── Logging ───────────────────────────────────────────────────────────────────
@@ -129,6 +132,8 @@ async def get_config():
         pass
     return {
         "factors": ALL_FACTORS,
+        "primary_factors": PRIMARY_FACTORS,
+        "secondary_factors": SECONDARY_FACTORS,
         "factor_presets": FACTOR_PRESETS,
         "factor_weight_presets": FACTOR_WEIGHT_PRESETS,
         "preset_defaults": PRESET_DEFAULTS,
@@ -183,13 +188,13 @@ class BacktestRequest(BaseModel):
     capital: float = 100_000.0
     leverage: float = 1.0
     use_mwu: bool = False
-    use_vol_target: bool = True
-    vol_target_pct: float = 0.20
-    strategy_mode: str = "long_only"
     top_n: int = 30
     neutralize_sector: bool = False
     factor_weights: Optional[Dict[str, float]] = None
+    winner_lock: Optional[Dict[str, float]] = None  # secondary winner-lock rules
     strategy_preset: Optional[str] = None   # e.g. "Claude #1" → sleeve/lock run
+    # Risk management (daily check, off the weekly cadence)
+    ema_kill_switch: bool = False           # liquidate <200EMA, re-enter >20EMA
 
 
 @app.post("/backtest/run")
@@ -213,6 +218,10 @@ async def run_backtest(req: BacktestRequest):
 
         engine = BacktestEngine(initial_capital=req.capital)
 
+        risk_on = req.ema_kill_switch
+        if risk_on:
+            _notify("info", "Risk mgmt: 200EMA kill-switch")
+
         sp = STRATEGY_PRESETS.get(req.strategy_preset) if req.strategy_preset else None
         if sp:
             _notify("info", f"Strategy preset: {sp.get('label', req.strategy_preset)} "
@@ -226,6 +235,27 @@ async def run_backtest(req: BacktestRequest):
                 leverage=float(sp.get("leverage", req.leverage)),
                 top_n=int(sp.get("top_n", req.top_n)),
                 lock_rules=sp.get("winner_lock", {}),
+                ema_kill_switch=req.ema_kill_switch,
+            )
+        elif risk_on:
+            # Risk overlays only exist in the weekly-hold path, so route custom
+            # factors through run_strategy as a single sleeve when risk is on.
+            sleeve = {
+                "name": "Custom",
+                "alloc": 1.0,
+                "factors": req.active_factors,
+                "weights": req.factor_weights or {},
+                "winner_lock": False,
+            }
+            res_df, w_df, h_df = engine.run_strategy(
+                symbols=symbols,
+                start_date=req.start_date,
+                end_date=end_date,
+                sleeves=[sleeve],
+                leverage=req.leverage,
+                top_n=req.top_n,
+                lock_rules={},
+                ema_kill_switch=req.ema_kill_switch,
             )
         else:
             res_df, w_df, h_df = engine.run(
@@ -235,9 +265,9 @@ async def run_backtest(req: BacktestRequest):
                 active_factors=req.active_factors,
                 leverage=req.leverage,
                 use_mwu=req.use_mwu,
-                use_vol_target=req.use_vol_target,
-                vol_target_pct=req.vol_target_pct,
-                strategy_mode=req.strategy_mode,
+                use_vol_target=False,
+                vol_target_pct=0.20,
+                strategy_mode="long_only",
                 top_n=req.top_n,
                 neutralize_sector=req.neutralize_sector,
                 factor_weights=req.factor_weights,
@@ -293,6 +323,7 @@ async def run_backtest(req: BacktestRequest):
                 "start_date": req.start_date,
                 "end_date": end_date,
                 "factors": req.active_factors,
+                "leverage": float(sp.get("leverage", req.leverage)) if sp else req.leverage,
             },
         }
 
@@ -435,6 +466,11 @@ class ApplyLiveRequest(BaseModel):
     leverage: float = 1.0
     top_n: int = 20
     factor_weights: Optional[Dict[str, float]] = None
+    use_mwu: bool = False
+    neutralize_sector: bool = False
+    winner_lock: Optional[Dict[str, float]] = None  # secondary winner-lock rules
+    # Risk management (applies to both preset and custom)
+    ema_kill_switch: bool = False
 
 
 @app.post("/live/apply")
@@ -442,7 +478,8 @@ async def live_apply(req: ApplyLiveRequest):
     """Write the currently-selected backtest strategy into the live config so the
     next daily/weekly rebalance executes it. Logs exactly what was applied."""
     sp = STRATEGY_PRESETS.get(req.strategy_preset) if req.strategy_preset else None
-    symbols = UNIVERSE_PRESETS.get(req.universe, SPY_QQQ_TICKERS)
+    # Universe is a backtest-only knob — live always trades the full SPY+QQQ set.
+    symbols = SPY_QQQ_TICKERS
 
     if sp:
         # union of all sleeve factors (so the live executor has the full set)
@@ -470,13 +507,15 @@ async def live_apply(req: ApplyLiveRequest):
             "use_mwu": False,
             "use_vol_target": False,
             "strategy_mode": "long_only",
+            "ema_kill_switch": req.ema_kill_switch,
             "saved_at": datetime.now().isoformat(),
         }
         desc = (f"{sp.get('label', req.strategy_preset)} | "
                 f"leverage {config['leverage']}x | top{config['top_n']} | "
                 f"sleeves " + ", ".join(f"{s['name']} {int(s['alloc']*100)}%"
                                         + ("+lock" if s.get("winner_lock") else "")
-                                        for s in sp.get("sleeves", [])))
+                                        for s in sp.get("sleeves", []))
+                + (" | 200EMA-kill" if req.ema_kill_switch else ""))
     else:
         config = {
             "strategy_preset": None,
@@ -485,15 +524,20 @@ async def live_apply(req: ApplyLiveRequest):
             "universe": symbols,
             "leverage": req.leverage,
             "top_n": req.top_n,
+            "use_mwu": req.use_mwu,
+            "neutralize_sector": req.neutralize_sector,
+            "winner_lock": req.winner_lock or {},
             "rebalance_frequency": "weekly",
             "rebalance_weekday": 4,
-            "use_mwu": False,
             "use_vol_target": False,
             "strategy_mode": "long_only",
+            "ema_kill_switch": req.ema_kill_switch,
             "saved_at": datetime.now().isoformat(),
         }
         desc = (f"custom | leverage {req.leverage}x | top{req.top_n} | "
-                f"factors {', '.join(req.active_factors or [])}")
+                f"factors {', '.join(req.active_factors or [])}"
+                + (" | MWU" if req.use_mwu else "")
+                + (" | 200EMA-kill" if req.ema_kill_switch else ""))
 
     cfg_path = f"config/live_strategy_{req.account}.json" if req.account != "Main" else "config/live_strategy.json"
     os.makedirs("config", exist_ok=True)

@@ -1,0 +1,118 @@
+[02:58:54] loading store 2020-07-01..2026-06-30 ...
+  rows=744975 symbols=507
+[02:58:54] computing factors ...
+F:\ancserQuant\ancserFX\scripts\preset_search.py:55: FutureWarning: The default of observed=False is deprecated and will be changed to True in a future version of pandas. Pass observed=False to retain current behavior or observed=True to adopt the future default and silence this warning.
+  fdf["fwd_ret"] = fdf.groupby("symbol")["close"].shift(-1) / fdf["close"] - 1.0
+F:\ancserQuant\ancserFX\scripts\preset_search.py:57: FutureWarning: The default value of observed=False is deprecated and will change to observed=True in a future version of pandas. Specify observed=False to silence this warning and retain the current behavior
+  close_pivot = fdf.pivot_table(index="timestamp", columns="symbol", values="close")
+F:\ancserQuant\ancserFX\scripts\preset_search.py:58: FutureWarning: The default value of observed=False is deprecated and will change to observed=True in a future version of pandas. Specify observed=False to silence this warning and retain the current behavior
+  fwd_pivot   = fdf.pivot_table(index="timestamp", columns="symbol", values="fwd_ret")
+F:\ancserQuant\ancserFX\scripts\preset_search.py:62: FutureWarning: The default value of observed=False is deprecated and will change to observed=True in a future version of pandas. Specify observed=False to silence this warning and retain the current behavior
+  FAC_PIVOT[name] = fdf.pivot_table(index="timestamp", columns="symbol", values=col)
+F:\ancserQuant\ancserFX\scripts\preset_search.py:62: FutureWarning: The default value of observed=False is deprecated and will change to observed=True in a future version of pandas. Specify observed=False to silence this warning and retain the current behavior
+  FAC_PIVOT[name] = fdf.pivot_table(index="timestamp", columns="symbol", values=col)
+F:\ancserQuant\ancserFX\scripts\preset_search.py:62: FutureWarning: The default value of observed=False is deprecated and will change to observed=True in a future version of pandas. Specify observed=False to silence this warning and retain the current behavior
+  FAC_PIVOT[name] = fdf.pivot_table(index="timestamp", columns="symbol", values=col)
+F:\ancserQuant\ancserFX\scripts\preset_search.py:62: FutureWarning: The default value of observed=False is deprecated and will change to observed=True in a future version of pandas. Specify observed=False to silence this warning and retain the current behavior
+  FAC_PIVOT[name] = fdf.pivot_table(index="timestamp", columns="symbol", values=col)
+F:\ancserQuant\ancserFX\scripts\preset_search.py:62: FutureWarning: The default value of observed=False is deprecated and will change to observed=True in a future version of pandas. Specify observed=False to silence this warning and retain the current behavior
+  FAC_PIVOT[name] = fdf.pivot_table(index="timestamp", columns="symbol", values=col)
+F:\ancserQuant\ancserFX\scripts\preset_search.py:62: FutureWarning: The default value of observed=False is deprecated and will change to observed=True in a future version of pandas. Specify observed=False to silence this warning and retain the current behavior
+  FAC_PIVOT[name] = fdf.pivot_table(index="timestamp", columns="symbol", values=col)
+F:\ancserQuant\ancserFX\scripts\preset_search.py:62: FutureWarning: The default value of observed=False is deprecated and will change to observed=True in a future version of pandas. Specify observed=False to silence this warning and retain the current behavior
+  FAC_PIVOT[name] = fdf.pivot_table(index="timestamp", columns="symbol", values=col)
+F:\ancserQuant\ancserFX\scripts\preset_search.py:62: FutureWarning: The default value of observed=False is deprecated and will change to observed=True in a future version of pandas. Specify observed=False to silence this warning and retain the current behavior
+  FAC_PIVOT[name] = fdf.pivot_table(index="timestamp", columns="symbol", values=col)
+F:\ancserQuant\ancserFX\scripts\preset_search.py:62: FutureWarning: The default value of observed=False is deprecated and will change to observed=True in a future version of pandas. Specify observed=False to silence this warning and retain the current behavior
+  FAC_PIVOT[name] = fdf.pivot_table(index="timestamp", columns="symbol", values=col)
+F:\ancserQuant\ancserFX\scripts\preset_search.py:62: FutureWarning: The default value of observed=False is deprecated and will change to observed=True in a future version of pandas. Specify observed=False to silence this warning and retain the current behavior
+  FAC_PIVOT[name] = fdf.pivot_table(index="timestamp", columns="symbol", values=col)
+F:\ancserQuant\ancserFX\scripts\preset_search.py:62: FutureWarning: The default value of observed=False is deprecated and will change to observed=True in a future version of pandas. Specify observed=False to silence this warning and retain the current behavior
+  FAC_PIVOT[name] = fdf.pivot_table(index="timestamp", columns="symbol", values=col)
+F:\ancserQuant\ancserFX\scripts\preset_search.py:62: FutureWarning: The default value of observed=False is deprecated and will change to observed=True in a future version of pandas. Specify observed=False to silence this warning and retain the current behavior
+  FAC_PIVOT[name] = fdf.pivot_table(index="timestamp", columns="symbol", values=col)
+F:\ancserQuant\ancserFX\scripts\preset_search.py:62: FutureWarning: The default value of observed=False is deprecated and will change to observed=True in a future version of pandas. Specify observed=False to silence this warning and retain the current behavior
+  FAC_PIVOT[name] = fdf.pivot_table(index="timestamp", columns="symbol", values=col)
+[02:58:59] backtest dates: 1252 (2021-07-01..2026-06-26)
+
+Liquidation (爆倉) equity-DD thresholds @ Reg-T 25% maint margin:
+  1.0x -> MaxDD must stay above -100.0% (we require a buffer)
+  1.25x -> MaxDD must stay above -91.7% (we require a buffer)
+  1.5x -> MaxDD must stay above -83.3% (we require a buffer)
+  1.75x -> MaxDD must stay above -75.0% (we require a buffer)
+  2.0x -> MaxDD must stay above -66.7% (we require a buffer)
+
+[02:58:59] STAGE A: core factor combos (1x top20 weekly)
+  v15s_70_30         cagr=  31.1% sharpe=1.10 dd= -28.6% | minSharpe=-0.27 worstDD= -27.9%
+  accel_80_20        cagr=  31.2% sharpe=1.17 dd= -27.2% | minSharpe=-0.02 worstDD= -22.4%
+  mom121_only        cagr=  55.8% sharpe=1.53 dd= -30.2% | minSharpe=-0.02 worstDD= -31.0%
+  tsmom_only         cagr=  52.0% sharpe=1.47 dd= -30.4% | minSharpe=0.03 worstDD= -29.9%
+  ema200_only        cagr=  44.3% sharpe=1.40 dd= -32.3% | minSharpe=0.30 worstDD= -31.0%
+  mom_ema            cagr=  44.5% sharpe=1.36 dd= -32.7% | minSharpe=-0.14 worstDD= -30.5%
+  mom_pull_ema       cagr=  34.1% sharpe=1.24 dd= -28.1% | minSharpe=0.08 worstDD= -27.7%
+  unicorn            cagr=  17.5% sharpe=1.09 dd= -19.4% | minSharpe=-0.30 worstDD= -18.3%
+  mom_unicorn        cagr=  29.4% sharpe=1.26 dd= -22.3% | minSharpe=0.11 worstDD= -22.9%
+  defensive          cagr=  11.5% sharpe=0.77 dd= -18.2% | minSharpe=-0.25 worstDD= -24.2%
+  mom_lowvol         cagr=  13.7% sharpe=0.93 dd= -18.3% | minSharpe=-0.47 worstDD= -18.8%
+  mom_pull_lowvol    cagr=  15.2% sharpe=0.95 dd= -18.2% | minSharpe=-0.37 worstDD= -18.2%
+  -> top cores: ['ema200_only', 'mom_unicorn', 'mom_pull_ema', 'tsmom_only']
+
+[02:59:51] STAGE B: structures on top cores (1x)
+  ema200_only|single                 cagr=  44.3% sharpe=1.40 dd= -32.3% | minSharpe=0.30 worstDD= -31.0%
+  ema200_only|sat_accel_70_lock      cagr=  40.7% sharpe=1.41 dd= -29.1% | minSharpe=0.23 worstDD= -27.1%
+  ema200_only|sat_accel_70_nolock    cagr=  40.8% sharpe=1.41 dd= -29.1% | minSharpe=0.22 worstDD= -27.4%
+  ema200_only|sat_accel_80_lock      cagr=  42.0% sharpe=1.41 dd= -30.2% | minSharpe=0.26 worstDD= -28.4%
+  ema200_only|sat_accel_80_nolock    cagr=  42.0% sharpe=1.41 dd= -30.2% | minSharpe=0.25 worstDD= -28.6%
+  ema200_only|sat_def_70             cagr=  34.8% sharpe=1.47 dd= -26.5% | minSharpe=0.25 worstDD= -25.8%
+  mom_unicorn|single                 cagr=  29.4% sharpe=1.26 dd= -22.3% | minSharpe=0.11 worstDD= -22.9%
+  mom_unicorn|sat_accel_70_lock      cagr=  30.3% sharpe=1.29 dd= -21.6% | minSharpe=0.07 worstDD= -22.4%
+  mom_unicorn|sat_accel_70_nolock    cagr=  30.3% sharpe=1.29 dd= -21.6% | minSharpe=0.07 worstDD= -22.4%
+  mom_unicorn|sat_accel_80_lock      cagr=  30.0% sharpe=1.29 dd= -21.8% | minSharpe=0.08 worstDD= -22.5%
+  mom_unicorn|sat_accel_80_nolock    cagr=  30.0% sharpe=1.29 dd= -21.8% | minSharpe=0.08 worstDD= -22.5%
+  mom_unicorn|sat_def_70             cagr=  24.3% sharpe=1.29 dd= -18.2% | minSharpe=0.07 worstDD= -18.4%
+  mom_pull_ema|single                cagr=  34.1% sharpe=1.24 dd= -28.1% | minSharpe=0.08 worstDD= -27.7%
+  mom_pull_ema|sat_accel_70_lock     cagr=  33.4% sharpe=1.25 dd= -26.1% | minSharpe=0.07 worstDD= -25.2%
+  mom_pull_ema|sat_accel_70_nolock   cagr=  33.4% sharpe=1.25 dd= -26.1% | minSharpe=0.07 worstDD= -25.2%
+  mom_pull_ema|sat_accel_80_lock     cagr=  33.6% sharpe=1.25 dd= -26.7% | minSharpe=0.08 worstDD= -25.9%
+  mom_pull_ema|sat_accel_80_nolock   cagr=  33.7% sharpe=1.25 dd= -26.7% | minSharpe=0.08 worstDD= -25.9%
+  mom_pull_ema|sat_def_70            cagr=  27.8% sharpe=1.28 dd= -23.4% | minSharpe=0.31 worstDD= -23.7%
+  tsmom_only|single                  cagr=  52.0% sharpe=1.47 dd= -30.4% | minSharpe=0.03 worstDD= -29.9%
+  tsmom_only|sat_accel_70_lock       cagr=  45.9% sharpe=1.44 dd= -27.8% | minSharpe=0.03 worstDD= -26.6%
+  tsmom_only|sat_accel_70_nolock     cagr=  46.0% sharpe=1.44 dd= -27.8% | minSharpe=0.03 worstDD= -26.6%
+  tsmom_only|sat_accel_80_lock       cagr=  48.0% sharpe=1.45 dd= -28.6% | minSharpe=0.03 worstDD= -27.5%
+  tsmom_only|sat_accel_80_nolock     cagr=  48.0% sharpe=1.45 dd= -28.6% | minSharpe=0.03 worstDD= -27.7%
+  tsmom_only|sat_def_70              cagr=  40.0% sharpe=1.51 dd= -25.0% | minSharpe=0.26 worstDD= -24.8%
+  -> top structures: ['mom_pull_ema|sat_def_70', 'ema200_only|single', 'tsmom_only|sat_def_70', 'ema200_only|sat_accel_80_lock', 'ema200_only|sat_accel_80_nolock']
+
+[03:02:01] STAGE C: leverage/top_n/rebalance sweep (margin-constrained)
+  swept mom_pull_ema|sat_def_70
+  swept ema200_only|single
+  swept tsmom_only|sat_def_70
+  swept ema200_only|sat_accel_80_lock
+  swept ema200_only|sat_accel_80_nolock
+
+[03:16:57] margin-safe candidates: 214 / 225
+
+TOP 15 margin-safe by robustness (min rolling Sharpe):
+                          label  leverage  top_n  reb lock  full_cagr  full_sharpe  full_dd  min_sharpe  median_sharpe  worst_dd  median_cagr
+          tsmom_only|sat_def_70      2.00     15   10  off     0.9971        1.583  -0.4790       0.468          1.463   -0.4867       0.8660
+          tsmom_only|sat_def_70      1.75     15   10  off     0.8603        1.585  -0.4294       0.459          1.461   -0.4373       0.7421
+             ema200_only|single      1.75     20   10  off     0.7869        1.390  -0.4844       0.451          1.299   -0.4906       0.7318
+          tsmom_only|sat_def_70      1.50     15   10  off     0.7255        1.587  -0.3771       0.451          1.460   -0.3850       0.6220
+             ema200_only|single      1.50     20   10  off     0.6694        1.387  -0.4267       0.445          1.303   -0.4334       0.6312
+          tsmom_only|sat_def_70      1.25     15   10  off     0.5934        1.590  -0.3218       0.443          1.462   -0.3294       0.5061
+             ema200_only|single      1.25     20   10  off     0.5518        1.383  -0.3653       0.440          1.306   -0.3722       0.5223
+             ema200_only|single      1.00     20   10  off     0.4353        1.379  -0.3002       0.435          1.308   -0.3070       0.4102
+          tsmom_only|sat_def_70      1.00     15   10  off     0.4651        1.592  -0.2636       0.435          1.465   -0.2706       0.3948
+          tsmom_only|sat_def_70      2.00     20   10  off     0.8703        1.533  -0.4447       0.369          1.397   -0.4570       0.7496
+          tsmom_only|sat_def_70      1.75     20   10  off     0.7521        1.534  -0.3978       0.359          1.395   -0.4099       0.6444
+  ema200_only|sat_accel_80_lock      2.00     20   10   on     0.8681        1.401  -0.5144       0.349          1.268   -0.5131       0.7722
+          tsmom_only|sat_def_70      1.50     20   10  off     0.6354        1.535  -0.3486       0.349          1.392   -0.3602       0.5419
+ema200_only|sat_accel_80_nolock      2.00     20   10  off     0.8660        1.400  -0.5144       0.344          1.251   -0.5131       0.7546
+  ema200_only|sat_accel_80_lock      1.75     20   10   on     0.7557        1.400  -0.4622       0.343          1.268   -0.4614       0.6791
+
+*** WINNER: tsmom_only|sat_def_70  2.0x top15 reb10 lock=off ***
+    full: CAGR 99.7% Sharpe 1.58 DD -47.9%
+    robust: minSharpe 0.47 worstDD -48.7% (liq -66.7%, safe<-53.3%)
+
+[03:16:57] done in 18.0 min. Results in F:\ancserQuant\ancserFX\scripts\out

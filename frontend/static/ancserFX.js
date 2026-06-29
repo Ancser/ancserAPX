@@ -5,7 +5,6 @@
 // ── State ───────────────────────────────────────────────────────────────────
 let _ws = null;
 let _config = null;
-let _presetWeights = null;   // static factor weights for current preset (e.g. v1.5S 70/30)
 let _strategyPreset = null;  // active full-strategy preset name (e.g. "Claude #1")
 let _activeBtab = 'holdings';
 let _chart = null;
@@ -15,13 +14,14 @@ let _spySeries = null;
 let _lastBacktestResult = null;
 let _progressInterval = null;
 let _connected = false;
+let _secondaryFactors = [];  // factor names treated as secondary (二级)
 
 // ── Init ─────────────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
     startClock();
     initWebSocket();
     loadConfig();
-    populateYearSelects();
+    initYearRange();
     initBottomDrag();
     initBottomTabs();
     loadDataStatus();
@@ -107,6 +107,7 @@ async function loadConfig() {
     try {
         const r = await fetch('/config');
         _config = await r.json();
+        _secondaryFactors = _config.secondary_factors || [];
         buildFactorChecks(_config.factors || [], _config.factor_presets || {});
         buildPresetSelect(_config.factor_presets || {});
         setText('data-feed-info', _config.data_feed || 'IEX');
@@ -117,25 +118,261 @@ async function loadConfig() {
     } catch (e) {
         appendLog('error', `Config load failed: ${e.message}`);
         setApiStatus('error');
+    } finally {
+        // Decorate option labels with "?" help dots (fixed labels + MODEL
+        // FACTORS header). Per-factor dots are added inside buildFactorChecks.
+        decorateParamHelpDots();
     }
 }
 
+// ── Help dots + hover tooltips (ported from ancserTPX) ───────────────────────
+// A small "?" dot is appended to each option's <label>. Hovering it shows a
+// floating bilingual (中文 / English) tooltip explaining the option's usage.
+
+function addHelpDot(label, tip) {
+    if (!label || !tip || label.querySelector('.help-dot')) return;
+    const dot = document.createElement('span');
+    dot.className = 'help-dot';
+    dot.textContent = '?';
+    dot.setAttribute('data-tip', tip);
+    dot.addEventListener('mouseenter', () => showHelpTooltip(dot));
+    dot.addEventListener('mouseleave', hideHelpTooltip);
+    // clicking the dot inside a <label> shouldn't toggle the checkbox
+    dot.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); });
+    label.appendChild(dot);
+}
+
+function getHelpTooltip() {
+    let tip = document.getElementById('global-help-tooltip');
+    if (!tip) {
+        tip = document.createElement('div');
+        tip.id = 'global-help-tooltip';
+        tip.className = 'help-tooltip';
+        document.body.appendChild(tip);
+    }
+    return tip;
+}
+
+function showHelpTooltip(dot) {
+    const text = dot ? dot.getAttribute('data-tip') : '';
+    if (!text) return;
+    const tip = getHelpTooltip();
+    tip.textContent = text;
+    tip.style.visibility = 'hidden';
+    tip.classList.add('open');
+    const rect = dot.getBoundingClientRect();
+    const pad = 10;
+    const tipW = tip.offsetWidth;
+    const tipH = tip.offsetHeight;
+    const top = Math.max(pad, Math.min(
+        rect.top + rect.height / 2 - tipH / 2,
+        window.innerHeight - tipH - pad));
+    const left = Math.max(pad, Math.min(
+        rect.right + pad,
+        window.innerWidth - tipW - pad));
+    tip.style.left = left + 'px';
+    tip.style.top = top + 'px';
+    tip.style.visibility = 'visible';
+}
+
+function hideHelpTooltip() {
+    const tip = document.getElementById('global-help-tooltip');
+    if (tip) tip.classList.remove('open');
+}
+
+// Per-factor bilingual tips. Keyed by the factor's display name (see backend
+// FACTOR_META). Used by buildFactorChecks() when rendering each factor row.
+const FACTOR_HELP = {
+    'Momentum':
+        '一年期動量：過去 252 個交易日的總報酬，越高代表趨勢越強。買強勢股。\n' +
+        '12-month total return (252d). Higher = stronger trend. Buys winners.',
+    'Momentum 12-1':
+        '經典橫斷面動量：12 個月報酬扣掉最近 1 個月（~21 日），避開短期反轉。\n' +
+        '12-month return excluding the most recent month — classic cross-sectional momentum.',
+    'Pullback 5d':
+        '短期回檔：取近 5 日報酬的負值，跌得越多分數越高 → 在上升趨勢中逢低買入。\n' +
+        'Negated 5-day return: bigger recent dip scores higher (buy-the-dip).',
+    'Reversion':
+        '均值回歸：以 RSI(14) 衡量超賣，RSI 越低分數越高，押注反彈。\n' +
+        'Mean-reversion via RSI(14): lower RSI (oversold) scores higher.',
+    'Skew':
+        '已實現偏度（60 日）：偏好報酬分布右偏（偶有大漲）的股票。\n' +
+        '60-day realized return skew — favors positively-skewed names.',
+    'Microstructure':
+        'Amihud 非流動性（20 日）：偏好流動性高、衝擊成本低的股票。\n' +
+        '20-day Amihud illiquidity — prefers liquid, low-impact names.',
+    'Alpha 101':
+        'WorldQuant Alpha#6：open 與 volume 的 10 日負相關，捕捉量價背離。\n' +
+        'WorldQuant Alpha#6: negative 10-day corr of open vs volume.',
+    'Volatility':
+        '特異波動率（20 日）：偏好低波動股票（低波動異象）。\n' +
+        '20-day idiosyncratic volatility — prefers low-vol names (low-vol anomaly).',
+    'Drift-Reversion':
+        '漂移過濾的 RSI：只有在「非趨勢」盤整 regime 才啟用 RSI 回歸，趨勢中關閉。\n' +
+        'RSI reversion that only activates outside drift (trending) regimes.',
+    'Unicorn Edge':
+        'Unicorn Edge：低價值 70% + 短期反轉 30%，且僅在多頭漂移 regime 啟動。\n' +
+        'Low-price value (70%) + short-term reversal (30%), gated to drift regime.',
+    'EMA200 Distance':
+        '收盤價相對 200 日 EMA 的距離；越高代表越站在長期均線之上、越強勢。\n' +
+        'Distance of close above/below the 200-day EMA. Higher = stronger.',
+    'Rank Acceleration':
+        '排名加速（二級）：過去 21 日綜合分排名是否往上爬升，捕捉「正在轉強」的股票。\n' +
+        'Secondary: whether a name climbed in composite-score rank over ~21 days.',
+    'Sector Rank':
+        '板塊輪動（二級）：所屬 GICS 板塊 21 日總成交額成長率；資金流入的熱門板塊會抬升其中所有成分股。\n' +
+        'Secondary: 21-day growth of the stock\u2019s GICS sector dollar-volume (hot-sector rotation).',
+};
+
+// Attach help dots to the fixed sidebar option labels. Factor-row dots are
+// added separately inside buildFactorChecks(). Called once after the DOM and
+// config have loaded.
+function decorateParamHelpDots() {
+    const labelTips = {
+        'universe-select':
+            '選股池。SPY + QQQ = S&P 500 與 NASDAQ 100 全部成分股（約 510 檔）；Custom = 自填代碼。\n' +
+            '注意：此名單為「當前」成分，含倖存者偏差（已退市/被剔除股票未納入）。\n' +
+            'Backtest universe. SPY+QQQ = current S&P 500 + NASDAQ 100 members (~510). Note: current membership only (survivorship bias).',
+        'custom-symbols':
+            '自訂股票代碼，用空格或逗號分隔。僅在 UNIVERSE = Custom 時生效。\n' +
+            'Custom tickers (space/comma separated). Only used when UNIVERSE = Custom.',
+        'capital-input':
+            '回測起始資金（美元）。只影響回測曲線的金額尺度，不影響選股或實盤。\n' +
+            'Starting capital (USD) for the backtest only. Scales the equity curve.',
+        'year-start-slider':
+            '回測年份範圍。拖動兩端設定起始與結束年（資料涵蓋約 2015–2026）。\n' +
+            'Backtest year range — drag the two handles to set start/end year.',
+        'preset-select':
+            '策略預設。★ = 完整策略（含因子權重、槓桿、Top N、勝者鎖定）；其餘為純因子組合。\n' +
+            '選「— custom —」則完全依照目前畫面上的手動設定。\n' +
+            'Preset. ★ = full strategy (weights+leverage+TopN+lock); others = factor-only sets. "custom" uses the on-screen config.',
+        'mwu-toggle':
+            'MWU（Multiplicative Weights Update）動態權重。開啟後系統依各因子的歷史表現自動調整權重，手動權重欄位會變灰停用。\n' +
+            'Dynamic factor weighting by past performance. When ON, manual weight dropdowns are grayed out.',
+        'top-n-select':
+            '每次調倉持有的股票數量 —— 取因子綜合分最高的前 N 檔等權持有。\n' +
+            'Number of stocks held each rebalance — the top-N by composite factor score.',
+        'leverage-slider':
+            '槓桿倍數。1.0 = 滿倉不借錢；>1.0 = 借錢加倉（放大盈虧）；<1.0 = 保留部分現金。\n' +
+            'Leverage. 1.0 = fully invested; >1 borrows (amplifies P&L); <1 holds cash.',
+        'ema-kill-toggle':
+            '200EMA 清倉開關。大盤（QQQ，缺則 SPY）跌破 200EMA 即全部清倉轉現金；之後每日檢查，直到站回 20EMA 才重新進場（重啟不受週五固定調倉限制）。\n' +
+            '對高回撤策略有效降低 MaxDD；對純動量策略可能拖累報酬。\n' +
+            '200EMA kill-switch: liquidate to cash when the market (QQQ/SPY) falls below its 200EMA; re-enter only after reclaiming the 20EMA (off the weekly cadence).',
+    };
+    Object.entries(labelTips).forEach(([id, tip]) => {
+        const el = document.getElementById(id);
+        const group = el ? el.closest('.form-group') : null;
+        const label = group ? group.querySelector('label') : null;
+        addHelpDot(label, tip);
+    });
+    // MODEL FACTORS section header (label has no input id of its own)
+    const fLabel = [...document.querySelectorAll('.panel .form-group label')]
+        .find(l => l.textContent.trim().startsWith('MODEL FACTORS'));
+    addHelpDot(fLabel,
+        '選股因子。勾選要使用的因子，右側下拉設定權重（— = 自動均權）。一級為主因子，二級為輔助微調。各因子的問號有詳細說明。\n' +
+        'Stock-selection factors. Tick to enable, set weight on the right (— = auto/equal). Primary = core, Secondary = fine-tuning. Hover each factor\u2019s ? for details.');
+}
+
+// Build the weight dropdown for one factor row: "—" (auto/equal) then 0.0–1.0
+// in steps of 0.1. The number is right-aligned (see .factor-weight CSS).
+function _buildWeightSelect(factor) {
+    const sel = document.createElement('select');
+    sel.className = 'factor-weight';
+    sel.dataset.factor = factor;
+    const auto = document.createElement('option');
+    auto.value = ''; auto.textContent = '—';
+    sel.appendChild(auto);
+    for (let i = 0; i <= 10; i++) {
+        const v = (i / 10).toFixed(1);
+        const o = document.createElement('option');
+        o.value = v; o.textContent = v;
+        sel.appendChild(o);
+    }
+    sel.onchange = (e) => { e.preventDefault(); markCustomPreset(); };
+    // clicking the dropdown shouldn't toggle the parent <label>'s checkbox
+    sel.onclick = (e) => e.stopPropagation();
+    return sel;
+}
+
 function buildFactorChecks(factors, presets) {
-    const c = document.getElementById('factor-checks');
-    if (!c) return;
-    c.innerHTML = '';
-    const defaultOn = presets['Balanced'] || factors.slice(0, 3);
+    const primaryC = document.getElementById('factor-checks-primary');
+    const secondaryC = document.getElementById('factor-checks-secondary');
+    if (!primaryC || !secondaryC) return;
+    primaryC.innerHTML = '';
+    secondaryC.innerHTML = '';
+    const defaultOn = presets['Baseline 70/30'] || presets['Balanced'] || factors.slice(0, 2);
     factors.forEach(f => {
+        const isSecondary = _secondaryFactors.includes(f);
         const label = document.createElement('label');
         label.className = 'factor-chk';
         const cb = document.createElement('input');
         cb.type = 'checkbox';
         cb.value = f;
         cb.checked = defaultOn.includes(f);
-        cb.onchange = () => { document.getElementById('preset-select').value = ''; _presetWeights = null; _strategyPreset = null; };
+        cb.onchange = () => { markCustomPreset(); updateWeightDisabled(); };
+        const name = document.createElement('span');
+        name.className = 'factor-name';
+        name.textContent = f;
+        const wsel = _buildWeightSelect(f);
         label.appendChild(cb);
-        label.appendChild(document.createTextNode(' ' + f));
-        c.appendChild(label);
+        label.appendChild(name);
+        if (FACTOR_HELP[f]) addHelpDot(label, FACTOR_HELP[f]);
+        label.appendChild(wsel);
+        (isSecondary ? secondaryC : primaryC).appendChild(label);
+    });
+    updateWeightDisabled();
+}
+
+// Any factor-checkbox or live-affecting param change drops the preset to custom
+// so Apply Live picks up the exact on-screen configuration.
+function markCustomPreset() {
+    const sel = document.getElementById('preset-select');
+    if (sel) sel.value = '';
+    _strategyPreset = null;
+}
+
+// Gray-out (disable) every weight dropdown while MWU is ON — MWU derives weights
+// dynamically, so manual entry is meaningless. Also disable a factor's weight
+// dropdown while that factor is unchecked.
+function updateWeightDisabled() {
+    const mwuOn = document.getElementById('mwu-hidden').value === '1';
+    document.querySelectorAll('.factor-chk').forEach(row => {
+        const cb = row.querySelector('input[type=checkbox]');
+        const sel = row.querySelector('select.factor-weight');
+        if (sel) sel.disabled = mwuOn || !cb || !cb.checked;
+    });
+}
+
+// Read each row's weight dropdown into a {factor: weight} map. Returns null when
+// no checked factor has an explicit weight (→ backend uses equal weighting).
+// "—" (auto) factors mixed with explicit ones are sent as 0 (excluded).
+function getFactorWeights() {
+    const rows = [...document.querySelectorAll('.factor-chk')]
+        .filter(r => r.querySelector('input[type=checkbox]')?.checked);
+    const explicit = rows.filter(r => (r.querySelector('select.factor-weight')?.value || '') !== '');
+    if (explicit.length === 0) return null;
+    const out = {};
+    rows.forEach(r => {
+        const f = r.querySelector('input[type=checkbox]').value;
+        const v = r.querySelector('select.factor-weight').value;
+        out[f] = v === '' ? 0 : parseFloat(v);
+    });
+    return out;
+}
+
+// Apply a {factor: weight} map to the dropdowns (used by presets). Factors not
+// in the map are reset to "—" (auto).
+function setFactorWeights(weights) {
+    document.querySelectorAll('.factor-chk').forEach(row => {
+        const f = row.querySelector('input[type=checkbox]')?.value;
+        const sel = row.querySelector('select.factor-weight');
+        if (!sel) return;
+        if (weights && weights[f] != null) {
+            sel.value = parseFloat(weights[f]).toFixed(1);
+        } else {
+            sel.value = '';
+        }
     });
 }
 
@@ -151,7 +388,7 @@ function buildPresetSelect(presets) {
         sel.appendChild(o);
     });
     // Then plain factor presets
-    const defaultPreset = presets['v1.5S 70/30 Top20'] ? 'v1.5S 70/30 Top20' : 'Balanced';
+    const defaultPreset = presets['Baseline 70/30'] ? 'Baseline 70/30' : 'Balanced';
     Object.keys(presets).forEach(name => {
         const o = document.createElement('option');
         o.value = name;
@@ -172,15 +409,19 @@ function applyPreset(name) {
     const sp = (_config.strategy_presets || {})[name];
     if (sp) {
         _strategyPreset = name;
-        _presetWeights = null;
         // check the union of all sleeve factors so the UI reflects what runs
         const union = [];
+        const mergedW = {};
         (sp.sleeves || []).forEach(sl => (sl.factors || []).forEach(f => {
             if (!union.includes(f)) union.push(f);
+            // surface each sleeve's within-sleeve weights on the dropdowns
+            if (sl.weights && sl.weights[f] != null) mergedW[f] = sl.weights[f];
         }));
-        document.querySelectorAll('#factor-checks input[type=checkbox]').forEach(cb => {
+        document.querySelectorAll('#factor-checks-primary input[type=checkbox], #factor-checks-secondary input[type=checkbox]').forEach(cb => {
             cb.checked = union.includes(cb.value);
         });
+        setFactorWeights(mergedW);
+        updateWeightDisabled();
         if (sp.leverage != null) {
             const lev = document.getElementById('leverage-slider');
             if (lev) { lev.value = sp.leverage; document.getElementById('leverage-val').textContent = parseFloat(sp.leverage).toFixed(1) + 'x'; }
@@ -194,25 +435,23 @@ function applyPreset(name) {
             if (uniSel && [...uniSel.options].some(o => o.value === sp.universe)) { uniSel.value = sp.universe; onUniverseChange(); }
         }
         const sleeveStr = (sp.sleeves || []).map(s =>
-            `${s.name} ${Math.round(s.alloc * 100)}%${s.winner_lock ? '+lock' : ''}`).join(' / ');
-        const wl = sp.winner_lock || {};
+            `${s.name} ${Math.round(s.alloc * 100)}%`).join(' / ');
         appendLog('info', `★ Strategy "${name}" — ${sp.label || ''}`);
         appendLog('info', `   leverage ${sp.leverage}x · top${sp.top_n} · sleeves: ${sleeveStr}`);
-        if (Object.keys(wl).length) appendLog('info',
-            `   winner-lock: profit≥${Math.round((wl.profit_lock||0)*100)}% · cap ${Math.round((wl.max_weight||0)*100)}% · rank≤${wl.lock_rank}`);
         return;
     }
 
     // ── Plain factor preset ──────────────────────────────────────────────────
     _strategyPreset = null;
     const factors = _config.factor_presets[name] || [];
-    document.querySelectorAll('#factor-checks input[type=checkbox]').forEach(cb => {
+    document.querySelectorAll('#factor-checks-primary input[type=checkbox], #factor-checks-secondary input[type=checkbox]').forEach(cb => {
         cb.checked = factors.includes(cb.value);
     });
 
-    // Static factor weights for this preset (e.g. v1.5S 70/30). null → equal/MWU.
+    // Static factor weights for this preset → populate the weight dropdowns.
     const wp = (_config.factor_weight_presets || {})[name] || null;
-    _presetWeights = wp;
+    setFactorWeights(wp);
+    updateWeightDisabled();
 
     // Preset-recommended defaults: top_n, universe, etc.
     const defaults = (_config.preset_defaults || {})[name];
@@ -237,21 +476,49 @@ function applyPreset(name) {
         : `Preset "${name}" applied.`);
 }
 
-// ── Year selects ──────────────────────────────────────────────────────────────────
-function populateYearSelects() {
-    const startSel = document.getElementById('start-year-select');
-    const endSel = document.getElementById('end-year-select');
+// ── Year range (dual-handle slider) ────────────────────────────────────────────────
+function initYearRange() {
     const cur = new Date().getFullYear();
-    for (let y = 2015; y <= cur; y++) {
-        const o1 = document.createElement('option');
-        o1.value = `${y}-01-01`; o1.textContent = y;
-        if (y === 2020) o1.selected = true;
-        startSel.appendChild(o1);
-        const o2 = document.createElement('option');
-        o2.value = `${y}-12-31`; o2.textContent = y;
-        if (y === cur) o2.selected = true;
-        endSel.appendChild(o2);
+    const a = document.getElementById('year-start-slider');
+    const b = document.getElementById('year-end-slider');
+    if (!a || !b) return;
+    a.max = String(cur); b.max = String(cur);
+    a.value = String(Math.min(2020, cur)); b.value = String(cur);
+    const onInput = () => {
+        let s = parseInt(a.value), e = parseInt(b.value);
+        if (s > e) { // keep handles from crossing
+            if (document.activeElement === a) { e = s; b.value = String(e); }
+            else { s = e; a.value = String(s); }
+        }
+        updateYearRangeUI();
+    };
+    a.addEventListener('input', onInput);
+    b.addEventListener('input', onInput);
+    updateYearRangeUI();
+}
+
+function updateYearRangeUI() {
+    const a = document.getElementById('year-start-slider');
+    const b = document.getElementById('year-end-slider');
+    const lbl = document.getElementById('year-range-val');
+    const fill = document.getElementById('year-fill');
+    if (!a || !b) return;
+    const s = parseInt(a.value), e = parseInt(b.value);
+    const lo = parseInt(a.min), hi = parseInt(a.max);
+    const span = (hi - lo) || 1;
+    if (lbl) lbl.textContent = `${s} — ${e}`;
+    if (fill) {
+        const left = ((s - lo) / span) * 100;
+        const right = ((e - lo) / span) * 100;
+        fill.style.left = left + '%';
+        fill.style.width = Math.max(0, right - left) + '%';
     }
+}
+
+function getYearRange() {
+    const s = parseInt(document.getElementById('year-start-slider').value);
+    const e = parseInt(document.getElementById('year-end-slider').value);
+    return { start_date: `${s}-01-01`, end_date: `${e}-12-31` };
 }
 
 function onUniverseChange() {
@@ -266,6 +533,10 @@ function toggleField(btnId, hiddenId) {
     hidden.value = isOn ? '0' : '1';
     btn.textContent = isOn ? 'OFF' : 'ON';
     btn.classList.toggle('on', !isOn);
+    // MWU affects LIVE trading → drop to custom preset so Apply Live reflects it.
+    markCustomPreset();
+    // MWU toggle grays/ungrays the per-factor weight dropdowns.
+    if (hiddenId === 'mwu-hidden') updateWeightDisabled();
 }
 
 // ── Bottom tabs / drag ──────────────────────────────────────────────────────────
@@ -366,7 +637,7 @@ async function triggerFetch(mode) {
 // ── Backtest ──────────────────────────────────────────────────────────────────────
 function getActiveFactors() {
     const out = [];
-    document.querySelectorAll('#factor-checks input[type=checkbox]:checked').forEach(cb => out.push(cb.value));
+    document.querySelectorAll('#factor-checks-primary input[type=checkbox]:checked, #factor-checks-secondary input[type=checkbox]:checked').forEach(cb => out.push(cb.value));
     return out;
 }
 
@@ -383,22 +654,20 @@ async function runBacktest() {
         return;
     }
     const universe = document.getElementById('universe-select').value;
+    const yr = getYearRange();
     const body = {
         universe,
         symbols: universe === 'custom' ? getCustomSymbols() : null,
-        start_date: document.getElementById('start-year-select').value,
-        end_date: document.getElementById('end-year-select').value,
+        start_date: yr.start_date,
+        end_date: yr.end_date,
         active_factors: factors,
         capital: parseFloat(document.getElementById('capital-input').value) || 100000,
         leverage: parseFloat(document.getElementById('leverage-slider').value) || 1.0,
         use_mwu: document.getElementById('mwu-hidden').value === '1',
-        use_vol_target: document.getElementById('vol-hidden').value === '1',
-        vol_target_pct: parseInt(document.getElementById('vol-pct-slider').value) / 100,
-        strategy_mode: document.getElementById('strategy-mode-select').value,
         top_n: parseInt(document.getElementById('top-n-select').value) || 30,
-        neutralize_sector: document.getElementById('sector-hidden').value === '1',
-        factor_weights: _presetWeights || null,
+        factor_weights: getFactorWeights(),
         strategy_preset: _strategyPreset || null,
+        ema_kill_switch: document.getElementById('ema-kill-hidden').value === '1',
     };
 
     const btn = document.getElementById('btn-run-backtest');
@@ -434,15 +703,17 @@ async function runBacktest() {
 
 async function applyLive() {
     const factors = getActiveFactors();
-    const universe = document.getElementById('universe-select').value;
     const body = {
         account: (_config && _config.accounts && _config.accounts[0]) || 'Main',
         strategy_preset: _strategyPreset || null,
         active_factors: factors,
-        universe: universe === 'custom' ? 'spy_qqq' : universe,
+        // universe is a backtest-only knob — live always trades the full SPY+QQQ set
+        universe: 'spy_qqq',
         leverage: parseFloat(document.getElementById('leverage-slider').value) || 1.0,
         top_n: parseInt(document.getElementById('top-n-select').value) || 20,
-        factor_weights: _presetWeights || null,
+        factor_weights: getFactorWeights(),
+        use_mwu: document.getElementById('mwu-hidden').value === '1',
+        ema_kill_switch: document.getElementById('ema-kill-hidden').value === '1',
     };
 
     const label = _strategyPreset ? `strategy "${_strategyPreset}"` : `custom factors [${factors.join(', ')}]`;
@@ -499,16 +770,27 @@ function renderMetrics(m) {
     if (!m) return;
     document.getElementById('metrics-panel').style.display = '';
     const grid = document.getElementById('metrics-grid');
+
+    // Liquidation (爆倉) drawdown for the leverage used: Reg-T 25% maintenance
+    // margin → equity-DD threshold = (1 − 0.25·L)/(1 − 0.25). If MaxDD breaches
+    // it, flag with a "!".
+    const lev = (_lastBacktestResult && _lastBacktestResult.params && _lastBacktestResult.params.leverage) || 1.0;
+    const liqDD = (1 - 0.25 * lev) / 0.75;            // fraction, e.g. L=1.5 → 0.833
+    const maxddFrac = Math.abs(m.max_dd_pct || 0) / 100;
+    const breached = maxddFrac >= liqDD;
+    const maxddStr = fmtNum(m.max_dd_pct, 1) + '%' + (breached ? ' !' : '');
+
     const rows = [
         { l: 'FINAL EQUITY', v: '$' + fmtNum(m.final_equity, 0), c: 'pos' },
         { l: 'TOTAL RETURN', v: fmtNum(m.total_return_pct, 1) + '%', c: m.total_return_pct >= 0 ? 'pos' : 'neg' },
         { l: 'CAGR', v: fmtNum(m.cagr_pct, 1) + '%', c: m.cagr_pct >= 0 ? 'pos' : 'neg' },
         { l: 'SHARPE', v: fmtNum(m.sharpe, 2), c: m.sharpe >= 1 ? 'pos' : '' },
         { l: 'CALMAR', v: fmtNum(m.calmar, 2), c: '' },
-        { l: 'MAX DD', v: fmtNum(m.max_dd_pct, 1) + '%', c: 'neg' },
+        { l: 'MAX DD', v: maxddStr, c: 'neg' },
         { l: 'WIN RATE', v: fmtNum(m.win_rate_pct, 1) + '%', c: '' },
         { l: 'DAYS', v: (m.total_days || 0).toLocaleString(), c: '' },
     ];
+    if (breached) appendLog('warn', `MaxDD ${fmtNum(m.max_dd_pct,1)}% breaches the ${(liqDD*100).toFixed(1)}% liquidation drawdown at ${lev}x leverage (爆倉風險).`);
     grid.innerHTML = rows.map(r =>
         `<div class="metric-card"><div class="label">${r.l}</div><div class="value ${r.c}">${r.v}</div></div>`
     ).join('');
@@ -621,9 +903,36 @@ function renderHoldings(rows) {
     const tbody = document.getElementById('holdings-tbody');
     if (!tbody) return;
     tbody.innerHTML = '';
-    rows.slice(-60).reverse().forEach(r => {
+
+    const data = rows.slice(-60);
+    const parse = (s) => String(s || '').split(/[\s,]+/).map(x => x.trim().toUpperCase()).filter(Boolean);
+    const symsByRow = data.map(r => parse(r.long));
+
+    // Current holding tenure = number of consecutive most-recent rows a symbol
+    // appears in (counting backwards from the latest row, stops at first gap).
+    const tenure = {};
+    const allSyms = new Set();
+    symsByRow.forEach(arr => arr.forEach(s => allSyms.add(s)));
+    allSyms.forEach(sym => {
+        let streak = 0;
+        for (let i = symsByRow.length - 1; i >= 0; i--) {
+            if (symsByRow[i].includes(sym)) streak++;
+            else break;
+        }
+        tenure[sym] = streak;
+    });
+    // Global ordering: longest tenure first, ties alphabetical → columns align.
+    const rank = (sym) => -tenure[sym] * 1000 + sym.charCodeAt(0);
+
+    data.reverse().forEach((r, idx) => {
+        const ordered = parse(r.long).sort((a, b) => rank(a) - rank(b));
+        const chips = ordered.map(s => {
+            // brighten names held the entire visible window
+            const long = tenure[s] >= symsByRow.length;
+            return `<span class="hold-chip"${long ? ' style="color:var(--amber)"' : ''}>${s}</span>`;
+        }).join('');
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${r.date}</td><td style="color:var(--green);font-size:10px;">${r.long || '--'}</td><td style="color:var(--red);font-size:10px;">${r.short || '--'}</td>`;
+        tr.innerHTML = `<td>${r.date}</td><td>${chips || '--'}</td>`;
         tbody.appendChild(tr);
     });
 }

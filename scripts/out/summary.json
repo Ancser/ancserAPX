@@ -1,0 +1,39 @@
+{
+  "liq_thresholds": {
+    "1.0": 1.0,
+    "1.25": 0.9167,
+    "1.5": 0.8333,
+    "1.75": 0.75,
+    "2.0": 0.6667
+  },
+  "stageA_top_cores": [
+    "ema200_only",
+    "mom_unicorn",
+    "mom_pull_ema",
+    "tsmom_only"
+  ],
+  "stageB_top_structs": [
+    "mom_pull_ema|sat_def_70",
+    "ema200_only|single",
+    "tsmom_only|sat_def_70",
+    "ema200_only|sat_accel_80_lock",
+    "ema200_only|sat_accel_80_nolock"
+  ],
+  "winner": {
+    "label": "tsmom_only|sat_def_70",
+    "leverage": 2.0,
+    "top_n": 15,
+    "reb": 10,
+    "lock": "off",
+    "full_cagr": 0.9971,
+    "full_sharpe": 1.583,
+    "full_dd": -0.479,
+    "min_sharpe": 0.468,
+    "median_sharpe": 1.463,
+    "worst_dd": -0.4867,
+    "median_cagr": 0.866,
+    "liq_thr": 0.6667,
+    "safe_thr": 0.5333,
+    "margin_safe": true
+  }
+}

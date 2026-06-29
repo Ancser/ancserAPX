@@ -174,6 +174,25 @@ def compute_all_factors(df: pl.LazyFrame) -> pl.LazyFrame:
         .alias("factor_rank_accel"),
     ])
 
+    # ── Sector Rank (sector-rotation / volume-acceleration) ────────────────────
+    # "When a sector's total market dollar-volume is increasing, rank the fastest
+    # sector highest." Each stock inherits the 21-day growth rate of its GICS
+    # sector's aggregate dollar volume (Σ close·volume across the sector). A
+    # sector whose trading volume is accelerating (capital rotating IN — e.g. a
+    # semiconductor/AI take-off) lifts every name in it. Higher ⇒ hotter sector.
+    from backend.alpha.neutralization import SECTOR_MAP
+    df = df.with_columns([
+        pl.col("symbol").replace_strict(SECTOR_MAP, default="Unknown").alias("_sector"),
+        (pl.col("close") * pl.col("volume")).alias("_dollar_vol"),
+    ])
+    df = df.with_columns([
+        pl.col("_dollar_vol").sum().over(["timestamp", "_sector"]).alias("_sector_dvol"),
+    ])
+    df = df.with_columns([
+        (pl.col("_sector_dvol") / pl.col("_sector_dvol").shift(21).over("symbol") - 1.0)
+        .alias("factor_sector_rank"),
+    ])
+
     return df
 
 
@@ -191,15 +210,26 @@ FACTOR_META = {
     "Drift-Reversion":{"col": "factor_rsi_filtered",   "descending": True},
     "Unicorn Edge":   {"col": "factor_unicorn_edge",   "descending": False},
     "EMA200 Distance":{"col": "factor_ema200_distance","descending": False},
-    "v1.5S Score":    {"col": "factor_v15s_score",      "descending": False},
     "Rank Acceleration":{"col": "factor_rank_accel",    "descending": False},
+    "Sector Rank":    {"col": "factor_sector_rank",     "descending": False},
 }
+# NOTE: factor_v15s_score is still COMPUTED in compute_all_factors (Rank
+# Acceleration is derived from it) but is no longer exposed as a selectable
+# factor — the "v1.5S Score" entry was removed per the strategy redesign.
 
 ALL_FACTORS = list(FACTOR_META.keys())
 
+# Secondary (二级) factors — overlay/booster signals layered on top of a primary
+# factor model. Rank Acceleration (momentum-of-rank) and Sector Rank (sector
+# volume rotation) describe *which names are heating up* rather than a standalone
+# alpha, so they live under the "Secondary 二级" subhead in the UI.
+SECONDARY_FACTORS = ["Rank Acceleration", "Sector Rank"]
+PRIMARY_FACTORS = [f for f in ALL_FACTORS if f not in SECONDARY_FACTORS]
+
 FACTOR_PRESETS = {
+    "Baseline 70/30": ["Momentum", "Reversion"],
+    "Sector Rotation": ["Momentum", "Sector Rank"],
     "v1.5S 70/30 Top20": ["Momentum 12-1", "Pullback 5d"],
-    "v1.5S RankAccel Top20": ["v1.5S Score", "Rank Acceleration"],
     "Balanced":       ["Momentum", "Reversion", "EMA200 Distance"],
     "Momentum-Heavy": ["Momentum", "Unicorn Edge", "EMA200 Distance"],
     "Defensive":      ["Reversion", "Volatility", "Drift-Reversion"],
@@ -208,25 +238,29 @@ FACTOR_PRESETS = {
 }
 
 # Fixed factor weighting per preset. When a preset appears here the backtest
-# uses these static weights instead of equal/MWU weights. This reproduces the
-# SeikiChan v1.5S "70/30" score = 0.70·z(12-1 mom) + 0.30·z(5d pullback).
+# uses these static weights instead of equal/MWU weights.
 FACTOR_WEIGHT_PRESETS = {
+    "Baseline 70/30": {"Momentum": 0.70, "Reversion": 0.30},
+    "Sector Rotation": {"Momentum": 0.60, "Sector Rank": 0.40},
     "v1.5S 70/30 Top20": {"Momentum 12-1": 0.70, "Pullback 5d": 0.30},
-    # score_rank_accel = 0.80·base_score + 0.20·z(rank_acceleration)
-    "v1.5S RankAccel Top20": {"v1.5S Score": 0.80, "Rank Acceleration": 0.20},
 }
 
 # Recommended defaults that ship with each preset (applied by the frontend).
 PRESET_DEFAULTS = {
+    "Baseline 70/30": {
+        "top_n": 20,
+        "universe": "spy_qqq",
+        "factor_weights": {"Momentum": 0.70, "Reversion": 0.30},
+    },
+    "Sector Rotation": {
+        "top_n": 20,
+        "universe": "spy_qqq",
+        "factor_weights": {"Momentum": 0.60, "Sector Rank": 0.40},
+    },
     "v1.5S 70/30 Top20": {
         "top_n": 20,
         "universe": "spy_qqq",
         "factor_weights": {"Momentum 12-1": 0.70, "Pullback 5d": 0.30},
-    },
-    "v1.5S RankAccel Top20": {
-        "top_n": 20,
-        "universe": "spy_qqq",
-        "factor_weights": {"v1.5S Score": 0.80, "Rank Acceleration": 0.20},
     },
 }
 
@@ -237,14 +271,16 @@ PRESET_DEFAULTS = {
 # multiple sleeves, portfolio leverage, and an optional winner-lock overlay on a
 # sleeve. The engine's run_strategy() consumes these.
 #
-# "Claude #1" reproduces the SeikiChan primary/secondary design that tested best
-# in our comparison:
-#   • Core sleeve  (70% capital): v1.5S 70/30 top20  — the proven base.
-#   • Satellite    (30% capital): RankAccel top20 + winner-lock — let winners run.
-#   • 1.5x portfolio leverage — the return/drawdown sweet spot (vs 1x and 2x).
+# "Claude #1" is the BASELINE: a single-sleeve classic factor blend, no leverage
+# tricks, no winner-lock — the clean reference every experiment is measured
+# against.
+#   • One sleeve (100% capital): composite score = 0.70·rank(Momentum) +
+#     0.30·rank(Reversion). Trend-following core with a mean-reversion ballast.
+#   • top20, weekly rebalance, NO winner-lock.
+#   • 1.5x portfolio leverage.
 STRATEGY_PRESETS = {
     "Claude #1": {
-        "label": "Claude #1 — Sleeve 70/30 + RankAccel WinnerLock @1.5x",
+        "label": "Claude #1 — Baseline 70/30 Momentum + Reversion @1.5x",
         "leverage": 1.5,
         "top_n": 20,
         "universe": "spy_qqq",
@@ -252,23 +288,87 @@ STRATEGY_PRESETS = {
         "sleeves": [
             {
                 "name": "Core",
+                "alloc": 1.0,
+                "factors": ["Momentum", "Reversion"],
+                "weights": {"Momentum": 0.70, "Reversion": 0.30},
+                "winner_lock": False,
+            },
+        ],
+        "winner_lock": {},
+    },
+
+    # "Claude #2" is the SECTOR-ROTATION experiment: blend trend with a sector
+    # volume-acceleration overlay so the book tilts toward whichever GICS sector
+    # is heating up (capital rotating in — e.g. a semiconductor/AI take-off).
+    #   • One sleeve (100% capital): score = 0.60·rank(Momentum) +
+    #     0.40·rank(Sector Rank). Sector Rank = 21-day growth of the stock's
+    #     sector aggregate dollar volume.
+    #   • top20, weekly rebalance, NO winner-lock, 1.5x leverage.
+    "Claude #2": {
+        "label": "Claude #2 — Sector Rotation (Momentum 60 + Sector Rank 40) @1.5x",
+        "leverage": 1.5,
+        "top_n": 20,
+        "universe": "spy_qqq",
+        "rebalance_frequency": "weekly",
+        "sleeves": [
+            {
+                "name": "Core",
+                "alloc": 1.0,
+                "factors": ["Momentum", "Sector Rank"],
+                "weights": {"Momentum": 0.60, "Sector Rank": 0.40},
+                "winner_lock": False,
+            },
+        ],
+        "winner_lock": {},
+    },
+
+    # "Claude #3" is the winner of the overnight rolling-window robustness search
+    # (scripts/preset_search.py). It was selected for the HIGHEST worst-case
+    # rolling-window Sharpe across every market regime 2021-2026, under a hard
+    # margin/liquidation (爆倉) constraint, then run at the leverage that keeps the
+    # worst drawdown far below the liquidation line.
+    #
+    #   • Core sleeve (70%): 12-month time-series Momentum (factor_ts_mom).
+    #     Momentum is regime-adaptive — it rotated INTO energy in the 2022 bear
+    #     (DVN/APA/COP) and into AI/semis/crypto 2023-2026 (NVDA/APP/PLTR/MSTR).
+    #   • Defensive sleeve (30%): low idiosyncratic-vol + oversold RSI. A
+    #     mean-reverting, low-beta hedge that cushions the momentum core during
+    #     leadership reversals (late-2021 growth top, 2022 rotation).
+    #   • top15, weekly rebalance, NO winner-lock (search showed lock added
+    #     nothing here).
+    #   • 1.5x leverage — worst rolling-window MaxDD ≈ -38%, vs the 1.5x
+    #     liquidation drawdown of -83% (Reg-T 25% maint margin): a >2x safety
+    #     buffer. You'd need a ~-55% underlying crash (worse than 2008) to risk
+    #     a margin call.
+    #
+    # Validated robustness (live-path simulator, weekly):
+    #   full 2021-07..2026-06  CAGR ~73%  Sharpe ~1.59  MaxDD -38.9%
+    #   per-regime Sharpe: 2021H2 1.17 | 2022 bear 0.52 (+14% gross, while QQQ
+    #     -33%) | 2023 1.46 | 2024 2.43 | 2025 1.47 | 2026 3.00
+    #   weakest window: roll_2021-07 Sharpe 0.33 (the late-2021 growth top — a
+    #     momentum turning point, the strategy's one structural soft spot).
+    "Claude #3": {
+        "label": "Claude #3 — TS-Momentum 70 + Defensive 30 @1.5x (robust)",
+        "leverage": 1.5,
+        "top_n": 15,
+        "universe": "spy_qqq",
+        "rebalance_frequency": "weekly",
+        "sleeves": [
+            {
+                "name": "Core",
                 "alloc": 0.70,
-                "factors": ["Momentum 12-1", "Pullback 5d"],
-                "weights": {"Momentum 12-1": 0.70, "Pullback 5d": 0.30},
+                "factors": ["Momentum"],
+                "weights": {"Momentum": 1.0},
                 "winner_lock": False,
             },
             {
-                "name": "Satellite",
+                "name": "Defensive",
                 "alloc": 0.30,
-                "factors": ["v1.5S Score", "Rank Acceleration"],
-                "weights": {"v1.5S Score": 0.80, "Rank Acceleration": 0.20},
-                "winner_lock": True,
+                "factors": ["Volatility", "Reversion"],
+                "weights": {"Volatility": 0.6, "Reversion": 0.4},
+                "winner_lock": False,
             },
         ],
-        # Winner-lock rules (applied to sleeves with winner_lock=True):
-        #   profit_lock — lock a name once it is up this much since entry
-        #   max_weight  — cap each locked name at this portfolio weight
-        #   lock_rank   — a name is only eligible to lock while ranked this high
         "winner_lock": {"profit_lock": 0.30, "max_weight": 0.15, "lock_rank": 10},
     },
 }

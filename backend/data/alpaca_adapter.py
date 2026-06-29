@@ -232,6 +232,31 @@ class AlpacaAdapter:
             print(f"[AlpacaAdapter] get_clock error: {e}")
             return {"is_open": False}
 
+    def get_trading_days(self, start, end) -> List:
+        """Return the list of NYSE trading dates (datetime.date) in [start, end]
+        per Alpaca's official market calendar (handles holidays & half-days).
+        `start`/`end` may be date or 'YYYY-MM-DD' strings."""
+        from datetime import date as _date
+        from alpaca.trading.requests import GetCalendarRequest
+
+        def _to_date(x):
+            if isinstance(x, str):
+                return datetime.strptime(x[:10], "%Y-%m-%d").date()
+            if isinstance(x, datetime):
+                return x.date()
+            return x  # already a date
+
+        cal = self.trading_client.get_calendar(
+            GetCalendarRequest(start=_to_date(start), end=_to_date(end))
+        )
+        out = []
+        for c in cal:
+            d = getattr(c, "date", None)
+            if d is None:
+                continue
+            out.append(_to_date(d))
+        return sorted(out)
+
     def submit_order(self, symbol: str, qty: float, side: str, notional: float = None):
         from alpaca.trading.requests import MarketOrderRequest
         from alpaca.trading.enums import OrderSide, TimeInForce

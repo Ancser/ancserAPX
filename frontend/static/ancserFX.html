@@ -23,9 +23,50 @@
     <link rel="stylesheet" href="/static/ancserTPX.css?v=fx1">
     <style>
         /* ── ancserFX-specific overrides ── */
-        .factor-checks { display: flex; flex-wrap: wrap; gap: 6px 10px; padding: 4px 0; }
-        .factor-chk { display: flex; align-items: center; gap: 4px; font-size: 11px; cursor: pointer; color: var(--text); }
-        .factor-chk input { accent-color: var(--amber); }
+        /* one factor per line: checkbox+label on the left, weight dropdown right-aligned */
+        .factor-checks { display: flex; flex-direction: column; gap: 3px; padding: 4px 0; }
+        .factor-chk { display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; color: var(--text); width: 100%; }
+        .factor-chk input[type=checkbox] { accent-color: var(--amber); flex: 0 0 auto; }
+        .factor-chk .factor-name { flex: 0 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .factor-chk .factor-weight {
+            flex: 0 0 auto; width: 56px; text-align: right; margin-left: auto;
+            font-family: 'IBM Plex Mono', monospace; font-size: 10px;
+            background: var(--bg2, #1a1a1a); color: var(--text); border: 1px solid var(--border);
+            border-radius: 3px; padding: 1px 3px;
+        }
+        .factor-chk .factor-weight:disabled { opacity: 0.4; cursor: not-allowed; background: var(--bg, #111); }
+        .factor-subhead { font-size: 9px; letter-spacing: 1px; color: var(--text3); text-transform: uppercase; margin: 6px 0 2px; }
+
+        /* holdings log: fixed-width symbol chips so columns align across rows */
+        #holdings-tbody td { vertical-align: top; }
+        .hold-chip {
+            display: inline-block; width: 52px; text-align: left;
+            font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--green);
+            white-space: nowrap; overflow: hidden;
+        }
+
+        /* ── dual-handle year range slider ── */
+        .dual-range { position: relative; height: 22px; margin-top: 6px; }
+        .dual-range input[type=range] {
+            position: absolute; top: 0; left: 0; width: 100%; margin: 0;
+            background: none; pointer-events: none; -webkit-appearance: none; appearance: none; height: 22px;
+        }
+        .dual-range input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none; pointer-events: auto;
+            width: 14px; height: 14px; border-radius: 50%; background: var(--amber);
+            border: 2px solid #08090d; cursor: pointer; margin-top: -6px;
+        }
+        .dual-range input[type=range]::-moz-range-thumb {
+            pointer-events: auto; width: 14px; height: 14px; border-radius: 50%;
+            background: var(--amber); border: 2px solid #08090d; cursor: pointer;
+        }
+        .dual-range .dr-track {
+            position: absolute; top: 9px; left: 0; width: 100%; height: 3px;
+            background: rgba(255,255,255,0.10); border-radius: 2px;
+        }
+        .dual-range .dr-fill {
+            position: absolute; top: 9px; height: 3px; background: var(--amber); border-radius: 2px;
+        }
 
         .conn-panel .info-row {
             display: flex; justify-content: space-between;
@@ -57,6 +98,26 @@
         #chart-legend .lg { display: flex; align-items: center; gap: 5px; color: var(--text2); }
         #chart-legend .swatch { width: 14px; height: 2px; display: inline-block; }
         .metric-card .label { text-transform: none; }
+
+        /* ── Param help dots + hover tooltip (ported from ancserTPX) ── */
+        .help-dot {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 13px; height: 13px; margin-left: 4px; border-radius: 50%;
+            background: rgba(200, 208, 224, 0.12); color: var(--text2);
+            font-family: 'IBM Plex Mono', monospace; font-size: 9px; line-height: 1;
+            cursor: help; position: relative; vertical-align: 1px;
+            text-transform: none; letter-spacing: 0; flex: 0 0 auto;
+        }
+        .help-dot:hover { color: var(--white, #fff); background: rgba(200, 208, 224, 0.22); }
+        .help-tooltip {
+            display: none; position: fixed; max-width: 300px; padding: 7px 9px;
+            background: var(--bg4, #14161c); border: 1px solid var(--border-h, #2a2e3a);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.45); color: var(--text);
+            font-family: 'Noto Sans TC', 'IBM Plex Mono', monospace;
+            font-size: 11px; line-height: 1.45; letter-spacing: 0;
+            text-transform: none; white-space: pre-line; z-index: 20000; pointer-events: none;
+        }
+        .help-tooltip.open { display: block; }
     </style>
 </head>
 <body>
@@ -97,11 +158,11 @@
     <!-- Sidebar -->
     <div class="sidebar">
 
-        <!-- Universe -->
+        <!-- Backtest-only inputs (do NOT affect live trading) -->
         <div class="panel">
-            <div class="panel-title">UNIVERSE</div>
+            <div class="panel-title">BACKTEST</div>
             <div class="form-group">
-                <label>SYMBOL SET</label>
+                <label>UNIVERSE <span class="lbl-hint">(backtest only)</span></label>
                 <select id="universe-select" onchange="onUniverseChange()">
                     <option value="spy_qqq" selected>SPY + QQQ (全部成分股)</option>
                     <option value="custom">Custom…</option>
@@ -113,9 +174,22 @@
                           style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:11px;padding:6px;resize:vertical;"
                           placeholder="AAPL MSFT NVDA TSLA…"></textarea>
             </div>
+            <div class="form-group">
+                <label>CAPITAL ($) <span class="lbl-hint">(backtest only)</span></label>
+                <input type="number" id="capital-input" value="10000" min="1000" step="1000">
+            </div>
+            <div class="form-group">
+                <label>YEAR RANGE <span id="year-range-val" style="color:var(--amber);">2020 — 2026</span></label>
+                <div class="dual-range" id="year-dual">
+                    <div class="dr-track"></div>
+                    <div class="dr-fill" id="year-fill"></div>
+                    <input type="range" id="year-start-slider" min="2015" max="2026" step="1" value="2020">
+                    <input type="range" id="year-end-slider" min="2015" max="2026" step="1" value="2026">
+                </div>
+            </div>
         </div>
 
-        <!-- Strategy: preset + factor model -->
+        <!-- Strategy: preset + factor model + execution params -->
         <div class="panel">
             <div class="panel-title">STRATEGY</div>
             <div class="form-group">
@@ -126,72 +200,44 @@
             </div>
             <div class="form-group">
                 <label>MODEL FACTORS</label>
-                <div class="factor-checks" id="factor-checks"></div>
+                <div class="factor-subhead">Primary 一级</div>
+                <div class="factor-checks" id="factor-checks-primary"></div>
+                <div class="factor-subhead">Secondary 二级</div>
+                <div class="factor-checks" id="factor-checks-secondary"></div>
             </div>
             <div class="form-row" style="margin-top:6px;">
                 <div class="form-group" style="flex:1;">
-                    <label>MWU <span class="lbl-hint">(dynamic w)</span></label>
+                    <label>MWU <span class="lbl-hint">(dynamic w · grays weights)</span></label>
                     <button type="button" class="toggle-field" id="mwu-toggle" onclick="toggleField('mwu-toggle','mwu-hidden')">OFF</button>
                     <input type="hidden" id="mwu-hidden" value="0">
                 </div>
-                <div class="form-group" style="flex:1;">
-                    <label>SECTOR NEUTRAL</label>
-                    <button type="button" class="toggle-field" id="sector-toggle" onclick="toggleField('sector-toggle','sector-hidden')">OFF</button>
-                    <input type="hidden" id="sector-hidden" value="0">
-                </div>
             </div>
-        </div>
-
-        <!-- Parameters -->
-        <div class="panel">
-            <div class="panel-title">PARAMETERS</div>
-            <div class="form-row">
-                <div class="form-group" style="flex:2;">
-                    <label>CAPITAL ($)</label>
-                    <input type="number" id="capital-input" value="10000" min="1000" step="1000">
-                </div>
-                <div class="form-group" style="flex:1;">
-                    <label>TOP N</label>
-                    <select id="top-n-select">
-                        <option value="10">10</option>
-                        <option value="20">20</option>
-                        <option value="30" selected>30</option>
-                        <option value="50">50</option>
-                    </select>
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group" style="flex:1;">
-                    <label>START YEAR</label>
-                    <select id="start-year-select"></select>
-                </div>
-                <div class="form-group" style="flex:1;">
-                    <label>END YEAR</label>
-                    <select id="end-year-select"></select>
-                </div>
+            <div class="form-group">
+                <label>TOP N</label>
+                <select id="top-n-select" onchange="markCustomPreset()">
+                    <option value="10">10</option>
+                    <option value="20">20</option>
+                    <option value="30" selected>30</option>
+                    <option value="50">50</option>
+                </select>
             </div>
             <div class="form-group">
                 <label>LEVERAGE <span id="leverage-val" style="color:var(--amber);">1.0x</span></label>
-                <input type="range" id="leverage-slider" min="0.5" max="2.0" step="0.1" value="1.0"
-                       oninput="document.getElementById('leverage-val').textContent=parseFloat(this.value).toFixed(1)+'x'">
+                <input type="range" id="leverage-slider" min="0.5" max="1.5" step="0.1" value="1.0"
+                       oninput="document.getElementById('leverage-val').textContent=parseFloat(this.value).toFixed(1)+'x';markCustomPreset();">
             </div>
+        </div>
+
+        <!-- Risk management overlays (daily checks, off the weekly cadence) -->
+        <div class="panel">
+            <div class="panel-title">RISK MANAGEMENT</div>
             <div class="form-group">
-                <label>STRATEGY MODE</label>
-                <select id="strategy-mode-select">
-                    <option value="long_only" selected>Long Only</option>
-                    <option value="long_short">Long / Short</option>
-                </select>
-            </div>
-            <div class="form-row">
-                <div class="form-group" style="flex:1;">
-                    <label>VOL TARGET</label>
-                    <button type="button" class="toggle-field" id="vol-toggle" onclick="toggleField('vol-toggle','vol-hidden')">OFF</button>
-                    <input type="hidden" id="vol-hidden" value="0">
-                </div>
-                <div class="form-group" style="flex:1;">
-                    <label>TARGET VOL <span id="vol-pct-val" style="color:var(--amber)">20%</span></label>
-                    <input type="range" id="vol-pct-slider" min="5" max="60" step="5" value="20"
-                           oninput="document.getElementById('vol-pct-val').textContent=this.value+'%'">
+                <label>200EMA KILL-SWITCH</label>
+                <button type="button" class="toggle-field" id="ema-kill-toggle" style="width:100%;text-align:left;"
+                        onclick="toggleField('ema-kill-toggle','ema-kill-hidden')">OFF</button>
+                <input type="hidden" id="ema-kill-hidden" value="0">
+                <div class="lbl-hint" style="margin-top:3px;line-height:1.4;">
+                    跌破 200EMA 清倉 → 每日檢查，站回 20EMA 才重啟（重啟不受週五調倉限制）
                 </div>
             </div>
         </div>
@@ -246,7 +292,7 @@
                 <div id="btab-holdings">
                     <div class="trade-table-wrap">
                         <table>
-                            <thead><tr><th>DATE</th><th>LONG PORTFOLIO</th><th>SHORT PORTFOLIO</th></tr></thead>
+                            <thead><tr><th style="width:90px;">DATE</th><th>PORTFOLIO <span class="lbl-hint">(longest-held first)</span></th></tr></thead>
                             <tbody id="holdings-tbody"></tbody>
                         </table>
                     </div>
@@ -267,6 +313,6 @@
     </div><!-- /content -->
 </div>
 
-<script src="/static/ancserFX.js?v=fx1"></script>
+<script src="/static/ancserFX.js?v=fx2"></script>
 </body>
 </html>
