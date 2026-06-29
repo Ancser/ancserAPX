@@ -1,6 +1,6 @@
 """
 BacktestEngine — reads from local Parquet store first, falls back to Alpaca live fetch.
-Ported from ancserFX with data-source abstraction replaced by local store.
+Ported from ancserAPX with data-source abstraction replaced by local store.
 """
 
 import polars as pl

@@ -1,4 +1,4 @@
-/* ancserFX — ancserTPX skin over the ancserFX factor backend.
+/* ancserAPX — ancserTPX skin over the Alpaca factor backend.
    Backtest-only. Central chart overlays backtest + live + SPY curves. */
 'use strict';
 

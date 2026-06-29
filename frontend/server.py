@@ -1,5 +1,5 @@
 """
-ancserFX FastAPI server.
+ancserAPX FastAPI server.
 
 Serves the HTML/CSS/JS frontend and exposes REST + WebSocket API.
 
@@ -40,7 +40,7 @@ from backend.utils.accounts import get_configured_accounts
 # ── Logging ───────────────────────────────────────────────────────────────────
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s %(name)s %(levelname)s %(message)s")
-logger = logging.getLogger("ancserFX.server")
+logger = logging.getLogger("ancserAPX.server")
 
 # ── WebSocket connection pool ─────────────────────────────────────────────────
 _ws_clients: Set[WebSocket] = set()
@@ -71,11 +71,11 @@ def ws_log_sync(level: str, msg: str):
 # ── Startup: incremental data sync ───────────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("ancserFX server starting…")
+    logger.info("ancserAPX server starting…")
     # Async incremental data sync on startup (non-blocking)
     asyncio.create_task(_background_data_sync())
     yield
-    logger.info("ancserFX server stopping.")
+    logger.info("ancserAPX server stopping.")
 
 
 async def _background_data_sync():
@@ -92,7 +92,7 @@ async def _background_data_sync():
 
 
 # ── App ───────────────────────────────────────────────────────────────────────
-app = FastAPI(title="ancserFX", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="ancserAPX", version="1.0.0", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 _STATIC = Path(__file__).parent / "static"
@@ -102,7 +102,7 @@ app.mount("/static", StaticFiles(directory=str(_STATIC)), name="static")
 # ── HTML root ─────────────────────────────────────────────────────────────────
 @app.get("/")
 async def root():
-    return FileResponse(str(_STATIC / "ancserFX.html"))
+    return FileResponse(str(_STATIC / "ancserAPX.html"))
 
 
 # ── WebSocket ─────────────────────────────────────────────────────────────────

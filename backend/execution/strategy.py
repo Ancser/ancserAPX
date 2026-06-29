@@ -1,7 +1,7 @@
 """
 LiveStrategy — compute target portfolio weights from current factor scores.
 Reads from local store for factor computation; uses Alpaca for latest prices.
-Ported from ancserFX with data source changed to local store.
+Ported from ancserAPX with data source changed to local store.
 """
 
 import json

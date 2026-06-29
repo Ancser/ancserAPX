@@ -1,5 +1,5 @@
 """
-Multiplicative Weights Update (MWU) engine — ported from ancserFX unchanged.
+Multiplicative Weights Update (MWU) engine — ported from ancserAPX unchanged.
 """
 
 import numpy as np

@@ -1,8 +1,8 @@
 <!--
   ============================================================
-  ancserFX — ancserTPX 視覺外觀 + ancserFX 因子後端
+  ancserAPX — ancserTPX 視覺外觀 + Alpaca 因子後端
         ├─ reuses ancserTPX.css  (設計系統 / 元件樣式)
-        └─ ancserFX.js           (邏輯，改寫自 ancserFX.js)
+        └─ ancserAPX.js         (邏輯)
   功能:
     1. .env Alpaca 連線 → 抓日線資料 → 沒存過就存。
     2. Backtest:預設(preset)選擇 + 因子(model factor)選擇。
@@ -14,7 +14,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ancserFX</title>
+    <title>ancserAPX</title>
     <link rel="icon" href="/static/favicon.ico" sizes="any">
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -22,7 +22,7 @@
     <!-- Reuse the ancserTPX design system / component styles -->
     <link rel="stylesheet" href="/static/ancserTPX.css?v=fx1">
     <style>
-        /* ── ancserFX-specific overrides ── */
+        /* ── ancserAPX-specific overrides ── */
         /* one factor per line: checkbox+label on the left, weight dropdown right-aligned */
         .factor-checks { display: flex; flex-direction: column; gap: 3px; padding: 4px 0; }
         .factor-chk { display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; color: var(--text); width: 100%; }
@@ -124,7 +124,7 @@
 
 <!-- ── Header ─────────────────────────────────────────────────────────────── -->
 <div class="header">
-    <h1><span style="color:var(--amber);">ancser</span>FX
+    <h1><span style="color:var(--amber);">ancser</span>APCA
         <span style="font-size:10px;color:rgba(255,255,255,0.5);font-weight:normal;letter-spacing:2px;margin-left:4px;">ALPACA · 1.0</span>
     </h1>
     <div class="header-tabs">
@@ -276,7 +276,7 @@
                 <span class="lg"><span class="swatch" style="background:#ffa726;border-top:1px dashed #ffa726;"></span>QQQ BENCHMARK</span>
             </div>
             <div class="chart-placeholder" id="chart-placeholder">
-                <div class="ph-title">ancserFX</div>
+                <div class="ph-title">ancserAPX</div>
                 <div class="ph-sub">Run a backtest to see the performance curve comparison</div>
             </div>
         </div>
@@ -313,6 +313,6 @@
     </div><!-- /content -->
 </div>
 
-<script src="/static/ancserFX.js?v=fx2"></script>
+<script src="/static/ancserAPX.js?v=apx1"></script>
 </body>
 </html>

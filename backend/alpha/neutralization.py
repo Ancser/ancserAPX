@@ -1,4 +1,4 @@
-"""Sector neutralization — ported from ancserFX."""
+"""Sector neutralization — ported from ancserAPX."""
 
 import pandas as pd
 from typing import Dict

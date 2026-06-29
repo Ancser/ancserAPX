@@ -1,4 +1,4 @@
-"""Order Management System — ported from ancserFX unchanged."""
+"""Order Management System — ported from ancserAPX unchanged."""
 
 import json, logging, os
 from datetime import datetime

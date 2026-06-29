@@ -10,4 +10,4 @@ if exist .env (
     )
 )
 
-start "ancserFX Daily" "%PYTHON_EXEC%" -m backend.execution.scheduler --run-once
+start "ancserAPX Daily" "%PYTHON_EXEC%" -m backend.execution.scheduler --run-once

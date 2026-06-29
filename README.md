@@ -1,4 +1,4 @@
-# ancserFX
+# ancserAPX
 
 Alpaca stock trading research lab — factor backtest + live trading, dark fintech UI.
 

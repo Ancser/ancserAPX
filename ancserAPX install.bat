@@ -1,7 +1,7 @@
 @echo off
 cd /d "%~dp0"
 echo ==========================================
-echo   Setting up ancserFX Environment
+echo   Setting up ancserAPX Environment
 echo ==========================================
 
 :: 1. Check Python
@@ -68,6 +68,6 @@ if not exist ".env" (
 echo.
 echo ==========================================
 echo   Setup Complete!
-echo   You can now run 'ancserFX web.bat'
+echo   You can now run 'ancserAPX web.bat'
 echo ==========================================
 pause

@@ -1,8 +1,8 @@
-# SKILL.md — ancserFX development priorities
+# SKILL.md — ancserAPX development priorities
 
 > Read this before touching portfolio / factor / execution code.
 
-ancserFX is a backtest-driven factor trading app over an Alpaca backend. The
+ancserAPX is a backtest-driven factor trading app over an Alpaca backend. The
 single most important architectural rule in this repo is **backtest/live
 parity**. Everything below exists to protect it.
 

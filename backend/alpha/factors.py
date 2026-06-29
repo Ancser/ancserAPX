@@ -1,5 +1,5 @@
 """
-Alpha factor library — ported from ancserFX with no logic changes.
+Alpha factor library — ported from ancserAPX with no logic changes.
 All time-series operations use .over("symbol") to prevent cross-symbol contamination.
 """
 

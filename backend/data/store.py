@@ -14,7 +14,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 from typing import List, Dict, Optional
 
-_ROOT = Path(__file__).resolve().parents[2]  # F:\ancserFX
+_ROOT = Path(__file__).resolve().parents[2]  # F:\ancserQuant\ancserAPX
 STORE_DIR = _ROOT / "data" / "store"
 MANIFEST_PATH = _ROOT / "data" / "manifest.json"
 
