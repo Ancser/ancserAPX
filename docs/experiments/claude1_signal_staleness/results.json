@@ -1,0 +1,102 @@
+{
+  "experiment": "Claude #1 current signal versus exactly five trading-session stale signal",
+  "generated_from_local_data": true,
+  "requested_start": "2021-07-01",
+  "requested_end": "2026-07-13",
+  "actual_first_session": "2021-07-01",
+  "actual_last_session": "2026-07-13",
+  "raw_latest_session_before_completeness_filter": "2026-07-13",
+  "cross_section_completeness_floor": 479,
+  "partial_latest_session_excluded": false,
+  "universe_requested": 510,
+  "universe_with_local_files": 509,
+  "excluded_missing_files": [
+    "DOW"
+  ],
+  "latest_session_symbol_count": 504,
+  "assumptions": {
+    "capital": 100000.0,
+    "leverage": 1.5,
+    "top_n": 20,
+    "rebalance_every_trading_sessions": 5,
+    "stale_signal_delay_trading_sessions": 5,
+    "commission_bps_one_way": 0.0,
+    "slippage_bps_one_way": 5.0,
+    "regulatory_sell_bps": 0.0
+  },
+  "normal": {
+    "final_equity": 653565.0,
+    "total_return_pct": 553.57,
+    "cagr_pct": 45.48,
+    "sharpe": 1.18,
+    "max_dd_pct": -31.95,
+    "total_gross_turnover": 363.0802,
+    "total_one_way_turnover": 181.5401,
+    "annualized_gross_turnover": 72.501,
+    "total_commission": 0.0,
+    "total_slippage": 45690.43,
+    "total_regulatory_fees": 0.0,
+    "total_transaction_cost": 45690.43,
+    "total_cost_pct_initial": 45.6904,
+    "total_days": 1262
+  },
+  "stale_5_sessions": {
+    "final_equity": 592305.65,
+    "total_return_pct": 492.31,
+    "cagr_pct": 42.65,
+    "sharpe": 1.11,
+    "max_dd_pct": -36.34,
+    "total_gross_turnover": 359.3651,
+    "total_one_way_turnover": 179.6826,
+    "annualized_gross_turnover": 71.7591,
+    "total_commission": 0.0,
+    "total_slippage": 43028.04,
+    "total_regulatory_fees": 0.0,
+    "total_transaction_cost": 43028.04,
+    "total_cost_pct_initial": 43.028,
+    "total_days": 1262
+  },
+  "normal_zero_modeled_friction": {
+    "final_equity": 782928.85,
+    "total_return_pct": 682.93,
+    "cagr_pct": 50.82,
+    "sharpe": 1.27,
+    "max_dd_pct": -31.57,
+    "total_gross_turnover": 362.9873,
+    "total_one_way_turnover": 181.4936,
+    "annualized_gross_turnover": 72.4824,
+    "total_commission": 0.0,
+    "total_slippage": 0.0,
+    "total_regulatory_fees": 0.0,
+    "total_transaction_cost": 0.0,
+    "total_cost_pct_initial": 0.0,
+    "total_days": 1262
+  },
+  "normal_cost_drag": {
+    "final_equity_difference": -129363.85,
+    "cagr_difference_pct_points": -5.34,
+    "sharpe_difference": -0.09
+  },
+  "stale_minus_normal": {
+    "final_equity": -61259.35,
+    "cagr_pct": -2.83,
+    "sharpe": -0.07,
+    "max_dd_pct": -4.39,
+    "total_gross_turnover": -3.7151
+  },
+  "holdings_overlap": {
+    "matched_rebalances": 252,
+    "mean_shared_names": 10.706,
+    "mean_shared_fraction_pct": 53.53,
+    "median_shared_fraction_pct": 55.0,
+    "mean_jaccard_pct": 37.51,
+    "minimum_shared_names": 1
+  },
+  "limitations": [
+    "Static present-day constituent list creates survivorship bias.",
+    "Daily close-to-close bars cannot reproduce open-auction fills, quoted spreads, partial fills, or TAF per-share caps.",
+    "The production backtest's 5-session cadence is not a calendar-Friday scheduler around market holidays.",
+    "The stale variant isolates signal age only; it does not simulate missing symbols, corporate-action corruption, or order failures.",
+    "Sessions below 95% of the trailing 60-session median symbol count are excluded as partial incremental-sync snapshots."
+  ]
+}

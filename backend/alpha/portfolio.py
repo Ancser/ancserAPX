@@ -17,10 +17,11 @@ indexed by symbol for ONE rebalance date, plus prior winner-lock state.
 from typing import Dict, List, Tuple
 import pandas as pd
 
-from backend.alpha.factors import FACTOR_META
+from backend.alpha.factors import RUNTIME_FACTOR_META
+from backend.alpha.neutralization import SECTOR_MAP
 
-_COL = {n: m["col"] for n, m in FACTOR_META.items()}
-_DESCENDING = {n for n, m in FACTOR_META.items() if m["descending"]}
+_COL = {n: m["col"] for n, m in RUNTIME_FACTOR_META.items()}
+_DESCENDING = {n for n, m in RUNTIME_FACTOR_META.items() if m["descending"]}
 
 
 def composite_score(
@@ -37,8 +38,11 @@ def composite_score(
     if not valid:
         return pd.Series(dtype=float)
     w = {f: float(weights.get(f, 0.0)) for f in valid}
-    tot = sum(w.values()) or 1.0
-    w = {f: v / tot for f, v in w.items()}
+    tot = sum(w.values())
+    if tot <= 0:
+        w = {f: 1.0 / len(valid) for f in valid}
+    else:
+        w = {f: v / tot for f, v in w.items()}
 
     score = None
     for f in valid:
@@ -59,12 +63,91 @@ def core_sleeve_weights(score: pd.Series, top_n: int) -> Dict[str, float]:
     return {s: w for s in top}
 
 
+def sector_balanced_symbols(score: pd.Series, top_n: int) -> List[str]:
+    """Pick top names with near-equal representation across known sectors."""
+    if score is None or score.empty:
+        return []
+    ranked = score.dropna().sort_values(ascending=False)
+    grouped: Dict[str, List[str]] = {}
+    for symbol in ranked.index:
+        sector = SECTOR_MAP.get(str(symbol), "Unknown")
+        if sector != "Unknown":
+            grouped.setdefault(sector, []).append(symbol)
+
+    # Sector balancing is not defensible with fewer than two mapped sectors.
+    if len(grouped) < 2:
+        return ranked.head(min(top_n, len(ranked))).index.tolist()
+
+    selected: List[str] = []
+    limit = min(max(1, int(top_n)), sum(len(names) for names in grouped.values()))
+    offsets = {sector: 0 for sector in grouped}
+    while len(selected) < limit:
+        available = [
+            sector for sector, names in grouped.items()
+            if offsets[sector] < len(names)
+        ]
+        if not available:
+            break
+        # Each round gives every available sector one slot. Sectors whose next
+        # candidate scores highest receive any final partial-round slots.
+        available.sort(
+            key=lambda sector: float(ranked.loc[grouped[sector][offsets[sector]]]),
+            reverse=True,
+        )
+        for sector in available:
+            selected.append(grouped[sector][offsets[sector]])
+            offsets[sector] += 1
+            if len(selected) >= limit:
+                break
+    return selected
+
+
+def sector_balanced_weights(score: pd.Series, top_n: int) -> Dict[str, float]:
+    """Equal-weight sectors, then equal-weight names inside each sector."""
+    selected = sector_balanced_symbols(score, top_n)
+    if not selected:
+        return {}
+    groups: Dict[str, List[str]] = {}
+    for symbol in selected:
+        groups.setdefault(SECTOR_MAP.get(str(symbol), "Unknown"), []).append(symbol)
+    sector_weight = 1.0 / len(groups)
+    return {
+        symbol: sector_weight / len(symbols)
+        for symbols in groups.values()
+        for symbol in symbols
+    }
+
+
+def equalize_sector_exposure(weights: Dict[str, float]) -> Dict[str, float]:
+    """Preserve gross exposure while equalizing represented sector budgets."""
+    if not weights:
+        return {}
+    groups: Dict[str, List[str]] = {}
+    for symbol, weight in weights.items():
+        if abs(float(weight)) > 0:
+            groups.setdefault(SECTOR_MAP.get(str(symbol), "Unknown"), []).append(symbol)
+    if len(groups) < 2:
+        return dict(weights)
+    gross = sum(abs(float(weight)) for weight in weights.values())
+    target_sector_gross = gross / len(groups)
+    adjusted: Dict[str, float] = {}
+    for symbols in groups.values():
+        sector_gross = sum(abs(float(weights[symbol])) for symbol in symbols)
+        if sector_gross <= 0:
+            continue
+        scale = target_sector_gross / sector_gross
+        for symbol in symbols:
+            adjusted[symbol] = float(weights[symbol]) * scale
+    return adjusted
+
+
 def satellite_weights(
     score: pd.Series,
     price: pd.Series,
     prior: Dict[str, Dict],
     top_n: int,
     lock_rules: Dict[str, float],
+    sector_balance: bool = False,
 ) -> Tuple[Dict[str, float], Dict[str, Dict]]:
     """Winner-lock sleeve.
 
@@ -84,7 +167,10 @@ def satellite_weights(
 
     ranked = score.sort_values(ascending=False)
     rank_of = {s: i + 1 for i, s in enumerate(ranked.index)}
-    top = ranked.head(min(top_n, len(ranked))).index.tolist()
+    top = (
+        sector_balanced_symbols(score, top_n)
+        if sector_balance else ranked.head(min(top_n, len(ranked))).index.tolist()
+    )
 
     def _px(sym):
         try:
@@ -130,6 +216,7 @@ def combined_target_weights(
     top_n: int,
     lock_rules: Dict[str, float],
     leverage: float,
+    sector_balance: bool = False,
 ) -> Tuple[Dict[str, float], Dict[str, Dict]]:
     """Blend all sleeves into one combined target-weight dict (already scaled by
     `leverage`, so the weights sum to ~`leverage`). `state` keys winner-lock
@@ -150,11 +237,19 @@ def combined_target_weights(
         sl_top = int(sl.get("top_n", top_n))
         score = composite_score(factor_values, sl.get("factors", []), sl.get("weights", {}))
         if sl.get("winner_lock"):
-            w, st = satellite_weights(score, price, new_state.get(name, {}), sl_top, lock_rules)
+            w, st = satellite_weights(
+                score, price, new_state.get(name, {}), sl_top, lock_rules,
+                sector_balance=sector_balance,
+            )
             new_state[name] = st
         else:
-            w = core_sleeve_weights(score, sl_top)
+            w = (
+                sector_balanced_weights(score, sl_top)
+                if sector_balance else core_sleeve_weights(score, sl_top)
+            )
         for s, wv in w.items():
             combined[s] = combined.get(s, 0.0) + alloc * wv * leverage
 
+    if sector_balance:
+        combined = equalize_sector_exposure(combined)
     return combined, new_state

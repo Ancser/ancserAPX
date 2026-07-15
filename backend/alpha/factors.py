@@ -92,7 +92,15 @@ def compute_features(df: pl.LazyFrame) -> pl.LazyFrame:
     return df.with_columns([
         pl.col("close").pct_change().over("symbol").alias("returns"),
         ((pl.col("close") / pl.col("close").shift(20).over("symbol")) - 1).alias("return_1m"),
+        ((pl.col("close") / pl.col("close").shift(63).over("symbol")) - 1).alias("return_3m"),
     ])
+
+
+def cs_z(col: str) -> pl.Expr:
+    return (
+        (pl.col(col) - pl.col(col).mean().over("timestamp")) /
+        (pl.col(col).std().over("timestamp") + 1e-8)
+    )
 
 
 def compute_all_factors(df: pl.LazyFrame) -> pl.LazyFrame:
@@ -111,6 +119,134 @@ def compute_all_factors(df: pl.LazyFrame) -> pl.LazyFrame:
         alpha_006().alias("factor_alpha006"),
         alpha_012().alias("factor_alpha012"),
         ema200_distance().alias("factor_ema200_distance"),
+    ])
+
+    # Daily translation of the supplied Pine KDJ/RSI/MA+VWAP scripts.
+    # Pine's bcwsma(s,l,m) is approximated with an EMA alpha=m/l. The first few
+    # seed values differ slightly, but the warm-up buffer makes live/backtest
+    # values stable before the simulation window starts.
+    df = df.with_columns([
+        pl.col("close").diff().over("symbol").alias("_pine_delta"),
+        pl.col("high").rolling_max(window_size=9).over("symbol").alias("_kdj_high9"),
+        pl.col("low").rolling_min(window_size=9).over("symbol").alias("_kdj_low9"),
+        pl.col("close").rolling_mean(window_size=20).over("symbol").alias("_ma20"),
+        pl.col("close").rolling_mean(window_size=50).over("symbol").alias("_ma50"),
+        pl.col("close").rolling_mean(window_size=100).over("symbol").alias("_ma100"),
+        pl.col("vwap").ewm_mean(alpha=1.0, adjust=False).over("symbol").alias("_daily_vwap"),
+    ])
+    df = df.with_columns([
+        pl.col("_pine_delta").clip(lower_bound=0).ewm_mean(alpha=1.0 / 14.0, adjust=False).over("symbol").alias("_pine_avg_gain"),
+        (-pl.col("_pine_delta").clip(upper_bound=0)).ewm_mean(alpha=1.0 / 14.0, adjust=False).over("symbol").alias("_pine_avg_loss"),
+        (100.0 * ((pl.col("close") - pl.col("_kdj_low9")) /
+                  (pl.col("_kdj_high9") - pl.col("_kdj_low9") + 1e-8))).alias("_kdj_rsv"),
+    ])
+    df = df.with_columns([
+        pl.when(pl.col("_pine_avg_loss") == 0)
+        .then(100.0)
+        .when(pl.col("_pine_avg_gain") == 0)
+        .then(0.0)
+        .otherwise(100.0 - (100.0 / (1.0 + pl.col("_pine_avg_gain") / (pl.col("_pine_avg_loss") + 1e-8))))
+        .alias("_pine_rsi"),
+        pl.col("_kdj_rsv").ewm_mean(alpha=1.0 / 3.0, adjust=False).over("symbol").alias("_kdj_pk"),
+    ])
+    df = df.with_columns([
+        pl.col("_kdj_pk").ewm_mean(alpha=1.0 / 3.0, adjust=False).over("symbol").alias("_kdj_pd"),
+    ])
+    df = df.with_columns([
+        (3.0 * pl.col("_kdj_pk") - 2.0 * pl.col("_kdj_pd")).alias("_kdj_pj"),
+        (pl.col("close") / (pl.col("_ma20") + 1e-8) - 1.0).alias("_ma20_dist"),
+        (pl.col("close") / (pl.col("_ma50") + 1e-8) - 1.0).alias("_ma50_dist"),
+        (pl.col("close") / (pl.col("_daily_vwap") + 1e-8) - 1.0).alias("_vwap_dist"),
+    ])
+    df = df.with_columns([
+        (
+            (pl.col("_kdj_pj") < 20.0) &
+            (pl.col("_kdj_pj") > pl.col("_kdj_pj").shift(1).over("symbol")) &
+            (pl.col("close") < pl.col("close").shift(1).over("symbol")) &
+            (pl.col("_pine_rsi") < 40.0)
+        ).alias("_kdj_reversal_entry_ok"),
+        (
+            (pl.col("_kdj_pd") < 50.0) &
+            (pl.col("_kdj_pd").shift(1).over("symbol") >= 50.0) &
+            (pl.col("_pine_rsi") > 50.0)
+        ).alias("_kdj_pd50_entry_ok"),
+        (
+            (pl.col("close") > pl.col("_ma50")) &
+            (pl.col("_ma20") > pl.col("_ma50")) &
+            (pl.col("_ma50") > pl.col("_ma100")) &
+            (pl.col("close") >= pl.col("_daily_vwap")) &
+            (pl.col("_ma20_dist").abs() <= 0.04) &
+            (pl.col("_pine_rsi") >= 45.0) &
+            (pl.col("_pine_rsi") <= 72.0)
+        ).alias("_ma_vwap_entry_ok"),
+    ])
+    df = df.with_columns([
+        pl.when(pl.col("_kdj_reversal_entry_ok"))
+        .then(
+            0.40 * ((20.0 - pl.col("_kdj_pj")) / 20.0) +
+            0.30 * ((40.0 - pl.col("_pine_rsi")) / 40.0) +
+            0.20 * ((pl.col("_kdj_pj") - pl.col("_kdj_pj").shift(1).over("symbol")).clip(lower_bound=0) / 20.0) +
+            0.10 * (-pl.col("returns")).clip(lower_bound=0)
+        )
+        .otherwise(None)
+        .alias("factor_kdj_reversal_entry"),
+        pl.when(pl.col("_kdj_pd50_entry_ok"))
+        .then(
+            0.45 * ((50.0 - pl.col("_kdj_pd")) / 50.0) +
+            0.35 * ((pl.col("_pine_rsi") - 50.0) / 50.0) +
+            0.20 * (pl.col("return_1m").clip(lower_bound=0))
+        )
+        .otherwise(None)
+        .alias("factor_kdj_pd50_rsi_entry"),
+        pl.when(pl.col("_ma_vwap_entry_ok"))
+        .then(
+            0.35 * cs_z("return_1m") +
+            0.25 * cs_z("_ma50_dist") +
+            0.25 * cs_z("_vwap_dist") +
+            0.15 * (1.0 - (pl.col("_ma20_dist").abs() / 0.04))
+        )
+        .otherwise(None)
+        .alias("factor_ma_vwap_entry"),
+    ])
+
+    # Short-squeeze proxy. Local history has OHLCV only, not historical
+    # short-float / market-cap snapshots, so this backtests the tradeable part
+    # of the Finviz-style screen: price > 1.10*SMA20, price > SMA50/SMA200,
+    # relative volume > 0.5, then rank by trend extension + momentum + volume.
+    df = df.with_columns([
+        pl.col("close").rolling_mean(window_size=20).over("symbol").alias("_sq_sma20"),
+        pl.col("close").rolling_mean(window_size=50).over("symbol").alias("_sq_sma50"),
+        pl.col("close").rolling_mean(window_size=200).over("symbol").alias("_sq_sma200"),
+        pl.col("volume").rolling_mean(window_size=20).over("symbol").alias("_sq_avg_vol20"),
+    ])
+    df = df.with_columns([
+        ((pl.col("close") / pl.col("_sq_sma20")) - 1.0).alias("_sq_dist20"),
+        ((pl.col("close") / pl.col("_sq_sma50")) - 1.0).alias("_sq_dist50"),
+        ((pl.col("close") / pl.col("_sq_sma200")) - 1.0).alias("_sq_dist200"),
+        (pl.col("volume") / (pl.col("_sq_avg_vol20") + 1e-8)).alias("_sq_rel_vol20"),
+        (((pl.col("high") - pl.col("low")) / pl.col("close"))
+         .rolling_mean(window_size=20).over("symbol")).alias("_sq_range20"),
+    ])
+    df = df.with_columns([
+        (
+            0.30 * cs_z("_sq_dist20") +
+            0.25 * cs_z("return_1m") +
+            0.20 * cs_z("return_3m") +
+            0.20 * cs_z("_sq_rel_vol20") +
+            0.05 * cs_z("_sq_range20")
+        ).alias("_sq_raw_score"),
+        (
+            (pl.col("close") >= pl.col("_sq_sma20") * 1.10) &
+            (pl.col("close") >= pl.col("_sq_sma50")) &
+            (pl.col("close") >= pl.col("_sq_sma200")) &
+            (pl.col("_sq_rel_vol20") >= 0.5)
+        ).alias("_sq_screen_pass"),
+    ])
+    df = df.with_columns([
+        pl.when(pl.col("_sq_screen_pass"))
+        .then(pl.col("_sq_raw_score"))
+        .otherwise(None)
+        .alias("factor_short_squeeze_proxy")
     ])
 
     # ── Drift Regime ──────────────────────────────────────────────────────────
@@ -200,40 +336,45 @@ def compute_all_factors(df: pl.LazyFrame) -> pl.LazyFrame:
 
 FACTOR_META = {
     "Momentum":       {"col": "factor_ts_mom",        "descending": False},
-    "Momentum 12-1":  {"col": "factor_mom_12_1",       "descending": False},
     "Pullback 5d":    {"col": "factor_pull_5d",        "descending": False},
     "Reversion":      {"col": "factor_rsi",            "descending": True},
-    "Skew":           {"col": "factor_skew",           "descending": False},
     "Microstructure": {"col": "factor_amihud",         "descending": True},
-    "Alpha 101":      {"col": "factor_alpha006",       "descending": False},
     "Volatility":     {"col": "factor_ivol",           "descending": True},
-    "Drift-Reversion":{"col": "factor_rsi_filtered",   "descending": True},
-    "Unicorn Edge":   {"col": "factor_unicorn_edge",   "descending": False},
     "EMA200 Distance":{"col": "factor_ema200_distance","descending": False},
-    "Rank Acceleration":{"col": "factor_rank_accel",    "descending": False},
-    "Sector Rank":    {"col": "factor_sector_rank",     "descending": False},
+    "MA VWAP Entry": {"col": "factor_ma_vwap_entry", "descending": False},
 }
-# NOTE: factor_v15s_score is still COMPUTED in compute_all_factors (Rank
-# Acceleration is derived from it) but is no longer exposed as a selectable
-# factor — the "v1.5S Score" entry was removed per the strategy redesign.
+
+# Retained only so saved configs and research artifacts remain reproducible.
+# These names are intentionally excluded from ALL_FACTORS and every UI preset.
+LEGACY_FACTOR_META = {
+    "Momentum 12-1": {"col": "factor_mom_12_1", "descending": False},
+    "Skew": {"col": "factor_skew", "descending": False},
+    "Alpha 101": {"col": "factor_alpha006", "descending": False},
+    "Drift-Reversion": {"col": "factor_rsi_filtered", "descending": True},
+    "Unicorn Edge": {"col": "factor_unicorn_edge", "descending": False},
+    "Rank Acceleration": {"col": "factor_rank_accel", "descending": False},
+    "Sector Rank": {"col": "factor_sector_rank", "descending": False},
+    "Short Squeeze Proxy": {
+        "col": "factor_short_squeeze_proxy", "descending": False,
+    },
+    "KDJ Reversal Entry": {
+        "col": "factor_kdj_reversal_entry", "descending": False,
+    },
+    "KDJ PD50 RSI Entry": {
+        "col": "factor_kdj_pd50_rsi_entry", "descending": False,
+    },
+}
+RUNTIME_FACTOR_META = {**FACTOR_META, **LEGACY_FACTOR_META}
 
 ALL_FACTORS = list(FACTOR_META.keys())
-
-# Secondary (二级) factors — overlay/booster signals layered on top of a primary
-# factor model. Rank Acceleration (momentum-of-rank) and Sector Rank (sector
-# volume rotation) describe *which names are heating up* rather than a standalone
-# alpha, so they live under the "Secondary 二级" subhead in the UI.
-SECONDARY_FACTORS = ["Rank Acceleration", "Sector Rank"]
-PRIMARY_FACTORS = [f for f in ALL_FACTORS if f not in SECONDARY_FACTORS]
+SECONDARY_FACTORS = []
+PRIMARY_FACTORS = ALL_FACTORS.copy()
 
 FACTOR_PRESETS = {
     "Baseline 70/30": ["Momentum", "Reversion"],
-    "Sector Rotation": ["Momentum", "Sector Rank"],
-    "v1.5S 70/30 Top20": ["Momentum 12-1", "Pullback 5d"],
+    "MA VWAP Entry": ["MA VWAP Entry"],
     "Balanced":       ["Momentum", "Reversion", "EMA200 Distance"],
-    "Momentum-Heavy": ["Momentum", "Unicorn Edge", "EMA200 Distance"],
-    "Defensive":      ["Reversion", "Volatility", "Drift-Reversion"],
-    "Alpha":          ["Alpha 101", "Microstructure", "Skew"],
+    "Defensive":      ["Reversion", "Volatility"],
     "Full":           ALL_FACTORS,
 }
 
@@ -241,8 +382,7 @@ FACTOR_PRESETS = {
 # uses these static weights instead of equal/MWU weights.
 FACTOR_WEIGHT_PRESETS = {
     "Baseline 70/30": {"Momentum": 0.70, "Reversion": 0.30},
-    "Sector Rotation": {"Momentum": 0.60, "Sector Rank": 0.40},
-    "v1.5S 70/30 Top20": {"Momentum 12-1": 0.70, "Pullback 5d": 0.30},
+    "MA VWAP Entry": {"MA VWAP Entry": 1.0},
 }
 
 # Recommended defaults that ship with each preset (applied by the frontend).
@@ -252,15 +392,11 @@ PRESET_DEFAULTS = {
         "universe": "spy_qqq",
         "factor_weights": {"Momentum": 0.70, "Reversion": 0.30},
     },
-    "Sector Rotation": {
+    "MA VWAP Entry": {
         "top_n": 20,
         "universe": "spy_qqq",
-        "factor_weights": {"Momentum": 0.60, "Sector Rank": 0.40},
-    },
-    "v1.5S 70/30 Top20": {
-        "top_n": 20,
-        "universe": "spy_qqq",
-        "factor_weights": {"Momentum 12-1": 0.70, "Pullback 5d": 0.30},
+        "holding_period_days": 5,
+        "factor_weights": {"MA VWAP Entry": 1.0},
     },
 }
 
@@ -291,31 +427,6 @@ STRATEGY_PRESETS = {
                 "alloc": 1.0,
                 "factors": ["Momentum", "Reversion"],
                 "weights": {"Momentum": 0.70, "Reversion": 0.30},
-                "winner_lock": False,
-            },
-        ],
-        "winner_lock": {},
-    },
-
-    # "Claude #2" is the SECTOR-ROTATION experiment: blend trend with a sector
-    # volume-acceleration overlay so the book tilts toward whichever GICS sector
-    # is heating up (capital rotating in — e.g. a semiconductor/AI take-off).
-    #   • One sleeve (100% capital): score = 0.60·rank(Momentum) +
-    #     0.40·rank(Sector Rank). Sector Rank = 21-day growth of the stock's
-    #     sector aggregate dollar volume.
-    #   • top20, weekly rebalance, NO winner-lock, 1.5x leverage.
-    "Claude #2": {
-        "label": "Claude #2 — Sector Rotation (Momentum 60 + Sector Rank 40) @1.5x",
-        "leverage": 1.5,
-        "top_n": 20,
-        "universe": "spy_qqq",
-        "rebalance_frequency": "weekly",
-        "sleeves": [
-            {
-                "name": "Core",
-                "alloc": 1.0,
-                "factors": ["Momentum", "Sector Rank"],
-                "weights": {"Momentum": 0.60, "Sector Rank": 0.40},
                 "winner_lock": False,
             },
         ],
@@ -371,4 +482,5 @@ STRATEGY_PRESETS = {
         ],
         "winner_lock": {"profit_lock": 0.30, "max_weight": 0.15, "lock_rank": 10},
     },
+
 }

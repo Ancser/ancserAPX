@@ -118,17 +118,34 @@
             text-transform: none; white-space: pre-line; z-index: 20000; pointer-events: none;
         }
         .help-tooltip.open { display: block; }
+
+        /* Workspace tabs, persistent result history, and live dashboard. */
+        [data-workspace-view].workspace-hidden { display: none !important; }
+        .history-list { width: 100%; min-height: 104px; font-family: 'IBM Plex Mono', monospace; font-size: 9px; }
+        .history-actions { display: flex; gap: 5px; margin-top: 5px; }
+        .history-actions .btn { flex: 1; padding: 5px 4px; font-size: 9px; }
+        .live-state-row {
+            display: flex; justify-content: space-between; gap: 8px; line-height: 1.8;
+            font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--text2);
+        }
+        .live-state-row .value { color: var(--cyan); text-align: right; overflow-wrap: anywhere; }
+        .empty-state { padding: 18px; text-align: center; color: var(--text3); font-family: 'IBM Plex Mono', monospace; font-size: 10px; }
+        .order-line { display: grid; grid-template-columns: 150px 58px 42px 70px 1fr; gap: 8px; }
+        .order-line .order-status { color: var(--cyan); }
+        .order-line .order-status.filled { color: var(--green); }
+        .order-line .order-status.rejected, .order-line .order-status.canceled { color: var(--red); }
     </style>
 </head>
 <body>
 
 <!-- ── Header ─────────────────────────────────────────────────────────────── -->
 <div class="header">
-    <h1><span style="color:var(--amber);">ancser</span>APCA
-        <span style="font-size:10px;color:rgba(255,255,255,0.5);font-weight:normal;letter-spacing:2px;margin-left:4px;">ALPACA · 1.0</span>
+    <h1><span style="color:var(--amber);">ancser</span>APX
+        <span style="font-size:10px;color:rgba(255,255,255,0.5);font-weight:normal;letter-spacing:2px;margin-left:4px;">1.0.1</span>
     </h1>
     <div class="header-tabs">
         <div class="tab active" data-tab="backtest">Backtest</div>
+        <div class="tab" data-tab="live">Live</div>
     </div>
     <div class="header-right">
         <div class="account-switcher">
@@ -144,6 +161,7 @@
                 <div class="conn-note">CREDENTIALS LOADED FROM .env (Alpaca)</div>
                 <div class="info-row"><span>DATA FEED</span><span class="iv" id="data-feed-info">--</span></div>
                 <div class="info-row"><span>ACCOUNT</span><span class="iv" id="conn-account-info">--</span></div>
+                <div class="info-row"><span>ENV KEY</span><span class="iv" id="account-env-info">--</span></div>
                 <div class="info-row"><span>LOCAL DATA</span><span class="iv" id="data-coverage-pct">--</span></div>
                 <div class="info-row"><span>COVERAGE</span><span class="iv" id="data-coverage-detail" style="font-size:9px;">--</span></div>
                 <button type="button" class="btn btn-outline" id="btn-fetch-full" onclick="triggerFetch('bulk')">FETCH FULL HISTORY (10Y)</button>
@@ -158,13 +176,30 @@
     <!-- Sidebar -->
     <div class="sidebar">
 
-        <!-- Backtest-only inputs (do NOT affect live trading) -->
+        <!-- Shared account target. This selects which account live data/actions use. -->
         <div class="panel">
-            <div class="panel-title">BACKTEST</div>
+            <div class="panel-title">ACCOUNT</div>
+            <div class="form-group" style="margin-bottom:0;">
+                <label>LIVE ACCOUNT <span class="lbl-hint">(.env key)</span></label>
+                <select id="live-account-select" class="account-select" onchange="setSelectedAccount(this.value)">
+                    <option value="Main">Main - PAPER - APCA_API_KEY_ID</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Preset, universe, and scoring model. -->
+        <div class="panel" data-workspace-view="backtest">
+            <div class="panel-title">MODEL SETTINGS</div>
             <div class="form-group">
-                <label>UNIVERSE <span class="lbl-hint">(backtest only)</span></label>
+                <label>PRESET</label>
+                <select id="preset-select" onchange="applyPreset(this.value)">
+                    <option value="__modified__">UNSAVED MODIFIED SET</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>UNIVERSE</label>
                 <select id="universe-select" onchange="onUniverseChange()">
-                    <option value="spy_qqq" selected>SPY + QQQ (全部成分股)</option>
+                    <option value="spy_qqq" selected>SPY + QQQ</option>
                     <option value="custom">Custom…</option>
                 </select>
             </div>
@@ -175,36 +210,20 @@
                           placeholder="AAPL MSFT NVDA TSLA…"></textarea>
             </div>
             <div class="form-group">
-                <label>CAPITAL ($) <span class="lbl-hint">(backtest only)</span></label>
-                <input type="number" id="capital-input" value="10000" min="1000" step="1000">
+                <label>MODEL</label>
+                <select id="model-select" onchange="onModelChange()">
+                    <option value="factor_composite" selected>Factor Composite</option>
+                </select>
             </div>
-            <div class="form-group">
-                <label>YEAR RANGE <span id="year-range-val" style="color:var(--amber);">2020 — 2026</span></label>
-                <div class="dual-range" id="year-dual">
-                    <div class="dr-track"></div>
-                    <div class="dr-fill" id="year-fill"></div>
-                    <input type="range" id="year-start-slider" min="2015" max="2026" step="1" value="2020">
-                    <input type="range" id="year-end-slider" min="2015" max="2026" step="1" value="2026">
-                </div>
+            <div class="form-group" id="model-factors-wrap">
+                <label>MODEL FACTORS</label>
+                <div class="factor-checks" id="factor-checks-primary"></div>
             </div>
         </div>
 
-        <!-- Strategy: preset + factor model + execution params -->
-        <div class="panel">
+        <!-- Portfolio construction and rebalance rules. -->
+        <div class="panel" data-workspace-view="backtest">
             <div class="panel-title">STRATEGY</div>
-            <div class="form-group">
-                <label>PRESET</label>
-                <select id="preset-select" onchange="applyPreset(this.value)">
-                    <option value="">— custom —</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>MODEL FACTORS</label>
-                <div class="factor-subhead">Primary 一级</div>
-                <div class="factor-checks" id="factor-checks-primary"></div>
-                <div class="factor-subhead">Secondary 二级</div>
-                <div class="factor-checks" id="factor-checks-secondary"></div>
-            </div>
             <div class="form-row" style="margin-top:6px;">
                 <div class="form-group" style="flex:1;">
                     <label>MWU <span class="lbl-hint">(dynamic w · grays weights)</span></label>
@@ -222,30 +241,122 @@
                 </select>
             </div>
             <div class="form-group">
+                <label>HOLD PERIOD</label>
+                <select id="holding-period-select" onchange="markCustomPreset()">
+                    <option value="1">1D / 1 trading day</option>
+                    <option value="5" selected>1W / 5 trading days</option>
+                    <option value="21">1M / 21 trading days</option>
+                    <option value="42">2M / 42 trading days</option>
+                    <option value="84">4M / 84 trading days</option>
+                </select>
+                <div class="lbl-hint" style="margin-top:3px;line-height:1.4;">
+                    Live 5D = weekly last NYSE session; backtest N-day cadence is anchored to its simulation start.
+                </div>
+            </div>
+            <div class="form-group">
                 <label>LEVERAGE <span id="leverage-val" style="color:var(--amber);">1.0x</span></label>
                 <input type="range" id="leverage-slider" min="0.5" max="1.5" step="0.1" value="1.0"
                        oninput="document.getElementById('leverage-val').textContent=parseFloat(this.value).toFixed(1)+'x';markCustomPreset();">
             </div>
         </div>
 
+        <!-- Backtest-only inputs (do NOT affect live trading). -->
+        <div class="panel" data-workspace-view="backtest">
+            <div class="panel-title">BACKTEST ENVIRONMENT</div>
+            <div class="form-group">
+                <label>CAPITAL ($) <span class="lbl-hint">(backtest only)</span></label>
+                <input type="number" id="capital-input" value="10000" min="1000" step="1000">
+            </div>
+            <div class="form-group">
+                <label>YEAR RANGE <span id="year-range-val" style="color:var(--amber);">2020 — 2026</span></label>
+                <div class="dual-range" id="year-dual">
+                    <div class="dr-track"></div>
+                    <div class="dr-fill" id="year-fill"></div>
+                    <input type="range" id="year-start-slider" min="2015" max="2026" step="1" value="2020">
+                    <input type="range" id="year-end-slider" min="2015" max="2026" step="1" value="2026">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>COMMISSION (BPS)</label>
+                    <input type="number" id="commission-bps-input" value="0" min="0" step="0.1">
+                </div>
+                <div class="form-group">
+                    <label>SLIPPAGE (BPS)</label>
+                    <input type="number" id="slippage-bps-input" value="5" min="0" step="0.1">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>REGULATORY SELL FEE (BPS)</label>
+                <input type="number" id="regulatory-sell-bps-input" value="0" min="0" step="0.1">
+            </div>
+        </div>
+
         <!-- Risk management overlays (daily checks, off the weekly cadence) -->
-        <div class="panel">
+        <div class="panel" data-workspace-view="backtest">
             <div class="panel-title">RISK MANAGEMENT</div>
             <div class="form-group">
-                <label>200EMA KILL-SWITCH</label>
-                <button type="button" class="toggle-field" id="ema-kill-toggle" style="width:100%;text-align:left;"
-                        onclick="toggleField('ema-kill-toggle','ema-kill-hidden')">OFF</button>
+                <label>MARKET REGIME GUARD</label>
+                <select id="risk-regime-select" onchange="onRiskChange()">
+                    <option value="off" selected>OFF</option>
+                    <option value="throttle">200EMA DE-LEVERAGE</option>
+                    <option value="cash">200EMA CASH KILL</option>
+                </select>
                 <input type="hidden" id="ema-kill-hidden" value="0">
-                <div class="lbl-hint" style="margin-top:3px;line-height:1.4;">
+                <div class="lbl-hint" style="display:none;margin-top:3px;line-height:1.4;">
                     跌破 200EMA 清倉 → 每日檢查，站回 20EMA 才重啟（重啟不受週五調倉限制）
+                </div>
+            </div>
+            <div class="lbl-hint" style="margin:3px 0 10px;line-height:1.4;">
+                Off / de-leverage below 200EMA / cash below 200EMA.
+            </div>
+            <div class="form-group" id="risk-off-lev-wrap" style="display:none;">
+                <label>RISK-OFF LEVERAGE</label>
+                <select id="risk-off-leverage" onchange="onRiskChange()">
+                    <option value="0.5">0.5x</option>
+                    <option value="0.75" selected>0.75x</option>
+                    <option value="1.0">1.0x</option>
+                </select>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>VOL THROTTLE</label>
+                    <button type="button" class="toggle-field" id="risk-vol-toggle"
+                            onclick="toggleField('risk-vol-toggle','risk-vol-hidden')">OFF</button>
+                    <input type="hidden" id="risk-vol-hidden" value="0">
+                </div>
+                <div class="form-group">
+                    <label>TRADEABILITY</label>
+                    <button type="button" class="toggle-field" id="risk-liquidity-toggle"
+                            onclick="toggleField('risk-liquidity-toggle','risk-liquidity-hidden')">OFF</button>
+                    <input type="hidden" id="risk-liquidity-hidden" value="0">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>SECTOR BALANCE</label>
+                <button type="button" class="toggle-field" id="risk-sector-toggle" style="width:100%;text-align:left;"
+                        onclick="toggleField('risk-sector-toggle','risk-sector-hidden')">OFF</button>
+                <input type="hidden" id="risk-sector-hidden" value="0">
+                <div class="lbl-hint" style="margin-top:3px;line-height:1.4;">
+                    Balance Top-N slots and capital across represented GICS sectors.
+                </div>
+            </div>
+            <div class="form-group">
+                <label>RANGE SHOCK GUARD</label>
+                <button type="button" class="toggle-field" id="risk-crowding-toggle" style="width:100%;text-align:left;"
+                        onclick="toggleField('risk-crowding-toggle','risk-crowding-hidden')">OFF</button>
+                <input type="hidden" id="risk-crowding-hidden" value="0">
+                <div class="lbl-hint" style="margin-top:3px;line-height:1.4;">
+                    Tradeability skips low-price / low-dollar-volume names; shock guard skips unusually wide-range names.
                 </div>
             </div>
         </div>
 
         <!-- Run -->
-        <div class="panel">
+        <div class="panel" data-workspace-view="backtest">
             <div style="display:flex;flex-direction:column;gap:6px;">
                 <button class="btn btn-green" id="btn-run-backtest" onclick="runBacktest()">EXECUTE BACKTEST</button>
+                <button class="btn btn-outline" id="btn-sweep-backtest" onclick="runSweepBacktest()">SWEEP BACKTEST</button>
                 <button class="btn" id="btn-apply-live" onclick="applyLive()"
                         style="background:var(--amber,#ffa726);color:#000;font-weight:600;">APPLY LIVE</button>
                 <div id="backtest-progress-wrap" style="display:none;">
@@ -261,9 +372,45 @@
         </div>
 
         <!-- Metrics -->
-        <div class="panel" id="metrics-panel" style="display:none;">
+        <div class="panel" id="metrics-panel" data-workspace-view="backtest" style="display:none;">
             <div class="panel-title">PERFORMANCE</div>
             <div class="metrics-grid" id="metrics-grid"></div>
+        </div>
+        <div class="panel" id="benchmark-metrics-panel" data-workspace-view="backtest" style="display:none;">
+            <div class="panel-title" id="benchmark-metrics-title">BENCHMARK RELATIVE · QQQ</div>
+            <div class="metrics-grid" id="benchmark-metrics-grid"></div>
+        </div>
+        <div class="panel" id="sector-exposure-panel" data-workspace-view="backtest" style="display:none;">
+            <div class="panel-title">LATEST SECTOR EXPOSURE</div>
+            <div class="metrics-grid" id="sector-exposure-grid"></div>
+        </div>
+
+        <!-- Live account panels. Values are sourced from broker/read-only APIs. -->
+        <div class="panel workspace-hidden" data-workspace-view="live" id="live-performance-panel">
+            <div class="panel-title">LIVE PERFORMANCE</div>
+            <div class="metrics-grid" id="live-metrics-grid"><div class="empty-state">Select LIVE to load account performance.</div></div>
+            <button class="btn btn-outline" id="btn-refresh-live" onclick="loadLiveDashboard({persist:true})" style="width:100%;margin-top:7px;">REFRESH LIVE</button>
+        </div>
+        <div class="panel workspace-hidden" data-workspace-view="live">
+            <div class="panel-title">CURRENT MODEL</div>
+            <div class="live-state-row"><span>PRESET</span><span class="value" id="live-preset-value">--</span></div>
+            <div class="live-state-row"><span>MODEL</span><span class="value" id="live-model-value">--</span></div>
+            <div class="live-state-row"><span>FACTORS</span><span class="value" id="live-factors-value">--</span></div>
+            <div class="live-state-row"><span>TOP N / HOLD</span><span class="value" id="live-strategy-value">--</span></div>
+            <div class="live-state-row"><span>LAST REBALANCE</span><span class="value" id="live-rebalance-value">--</span></div>
+            <div class="live-state-row"><span>MARKET</span><span class="value" id="live-market-value">--</span></div>
+        </div>
+
+        <!-- IndexedDB-backed unified history: backtests, sweeps, and live snapshots. -->
+        <div class="panel" id="result-history-panel">
+            <div class="panel-title">RESULT HISTORY</div>
+            <select id="result-history-select" class="history-list" size="5" onchange="loadSelectedHistory()">
+                <option value="">No saved results yet</option>
+            </select>
+            <div class="history-actions">
+                <button class="btn btn-outline" type="button" onclick="loadSelectedHistory()">LOAD</button>
+                <button class="btn btn-outline" type="button" onclick="deleteSelectedHistory()">DELETE</button>
+            </div>
         </div>
     </div><!-- /sidebar -->
 
@@ -271,9 +418,18 @@
     <div class="content">
         <div id="chart-container">
             <div id="chart-legend">
-                <span class="lg"><span class="swatch" style="background:#00e5a0;"></span>STRATEGY (BACKTEST)</span>
-                <span class="lg"><span class="swatch" style="background:#64dcff;"></span>LIVE ACCOUNT</span>
-                <span class="lg"><span class="swatch" style="background:#ffa726;border-top:1px dashed #ffa726;"></span>QQQ BENCHMARK</span>
+                <span class="lg" id="legend-strategy"><span class="swatch" style="background:#00e5a0;"></span>STRATEGY (BACKTEST)</span>
+                <span class="lg" id="legend-live"><span class="swatch" style="background:#64dcff;"></span>LIVE ACCOUNT</span>
+                <span class="lg" id="legend-benchmark"><span class="swatch" style="background:#ffa726;border-top:1px dashed #ffa726;"></span>QQQ BENCHMARK</span>
+                <select id="chart-view-select"
+                        onchange="setChartView(this.value)"
+                        style="background:#10131a;color:#c8d0e0;border:1px solid var(--border);font-family:'IBM Plex Mono',monospace;font-size:10px;padding:2px 5px;border-radius:3px;">
+                    <option value="1y" selected>1Y indexed</option>
+                    <option value="ytd">YTD indexed</option>
+                    <option value="2y">2Y indexed</option>
+                    <option value="3y">3Y indexed</option>
+                    <option value="full">Full $</option>
+                </select>
             </div>
             <div class="chart-placeholder" id="chart-placeholder">
                 <div class="ph-title">ancserAPX</div>
@@ -292,7 +448,7 @@
                 <div id="btab-holdings">
                     <div class="trade-table-wrap">
                         <table>
-                            <thead><tr><th style="width:90px;">DATE</th><th>PORTFOLIO <span class="lbl-hint">(longest-held first)</span></th></tr></thead>
+                            <thead><tr id="holdings-head-row"><th style="width:90px;">DATE</th><th>PORTFOLIO <span class="lbl-hint">(longest-held first)</span></th></tr></thead>
                             <tbody id="holdings-tbody"></tbody>
                         </table>
                     </div>
@@ -313,6 +469,6 @@
     </div><!-- /content -->
 </div>
 
-<script src="/static/ancserAPX.js?v=apx1"></script>
+<script src="/static/ancserAPX.js?v=apx14"></script>
 </body>
 </html>

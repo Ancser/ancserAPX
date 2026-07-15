@@ -5,7 +5,7 @@ echo   Setting up ancserAPX Environment
 echo ==========================================
 
 :: 1. Check Python
-echo [1/4] Checking Python...
+echo [1/5] Checking Python...
 python --version
 if %errorlevel% neq 0 (
     echo.
@@ -18,7 +18,7 @@ if %errorlevel% neq 0 (
 
 :: 2. Create Virtual Environment if missing
 if not exist ".venv" (
-    echo [2/4] Creating virtual environment (.venv)...
+    echo [2/5] Creating virtual environment (.venv)...
     python -m venv .venv
     if %errorlevel% neq 0 (
         echo.
@@ -28,11 +28,11 @@ if not exist ".venv" (
         exit /b
     )
 ) else (
-    echo [2/4] Virtual environment (.venv) found.
+    echo [2/5] Virtual environment (.venv) found.
 )
 
 :: 3. Activate and Install Dependencies
-echo [3/4] Installing dependencies...
+echo [3/5] Installing dependencies...
 call .venv\Scripts\activate.bat
 if %errorlevel% neq 0 (
     echo.
@@ -56,18 +56,30 @@ if %errorlevel% neq 0 (
 
 :: 4. Check Config
 if not exist ".env" (
-    echo [4/4] Creating .env template...
+    echo [4/5] Creating .env template...
     echo APCA_API_KEY_ID=YOUR_KEY_HERE > .env
     echo APCA_API_SECRET_KEY=YOUR_SECRET_HERE >> .env
     echo.
     echo [IMPORTANT] Please edit '.env' file with your API keys!
 ) else (
-    echo [4/4] .env configuration found.
+    echo [4/5] .env configuration found.
+)
+
+:: 5. Install/update the timezone-aware daily Windows task.
+echo [5/5] Installing daily task for 09:25 America/New_York...
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%CD%\scripts\install_windows_task.ps1"
+if %errorlevel% neq 0 (
+    echo.
+    echo [ERROR] The Windows scheduled task could not be installed.
+    echo Re-run this installer with permission to create tasks.
+    pause
+    exit /b 1
 )
 
 echo.
 echo ==========================================
 echo   Setup Complete!
 echo   You can now run 'ancserAPX web.bat'
+echo   Daily live check is installed for 09:25 New York time.
 echo ==========================================
 pause

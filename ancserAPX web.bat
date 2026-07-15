@@ -17,11 +17,19 @@ if exist ".venv\Scripts\activate.bat" (
     echo [warn] .venv not found - using global python. Run "ancserAPX install.bat" first if imports fail.
 )
 
-REM Bail out early if the port is already busy (avoids a confusing crash)
+REM Clear an old APX server before starting again. This keeps the browser from
+REM showing a stale UI served by a previous process on the same port.
+for /f "tokens=5" %%p in ('netstat -ano ^| findstr ":%PORT% " ^| findstr "LISTENING"') do (
+    if not "%%p"=="0" (
+        echo [info] Port %PORT% is already in use by PID %%p - stopping it...
+        taskkill /PID %%p /F >nul 2>nul
+    )
+)
+
+timeout /t 1 /nobreak >nul
 netstat -ano | findstr ":%PORT% " | findstr "LISTENING" >nul
 if %errorlevel%==0 (
-    echo [error] Port %PORT% is already in use.
-    echo Edit "ancserAPX web.bat" and change PORT, then try again.
+    echo [error] Port %PORT% is still in use and could not be cleared.
     pause
     exit /b 1
 )

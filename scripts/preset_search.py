@@ -29,7 +29,7 @@ if (getattr(sys.stdout, "encoding", "") or "").lower() not in ("utf-8", "utf8"):
 import numpy as np
 import pandas as pd
 
-from backend.alpha.factors import FACTOR_META, compute_all_factors
+from backend.alpha.factors import RUNTIME_FACTOR_META, compute_all_factors
 from backend.alpha.portfolio import combined_target_weights
 from backend.data import store
 from backend.data.constituents import SPY_QQQ_TICKERS
@@ -37,7 +37,7 @@ from backend.data.constituents import SPY_QQQ_TICKERS
 OUT = Path(__file__).resolve().parent / "out"
 OUT.mkdir(exist_ok=True)
 
-COL = {n: m["col"] for n, m in FACTOR_META.items()}
+COL = {n: m["col"] for n, m in RUNTIME_FACTOR_META.items()}
 
 # ── 1. Load + compute factors ONCE ───────────────────────────────────────────
 DATA_START = "2020-07-01"     # broad coverage begins here

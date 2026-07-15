@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import pandas as pd
 
 from backend.alpha.factors import (
-    STRATEGY_PRESETS, FACTOR_META, compute_all_factors,
+    STRATEGY_PRESETS, RUNTIME_FACTOR_META, compute_all_factors,
 )
 from backend.alpha.portfolio import combined_target_weights
 from backend.backtest.engine import BacktestEngine
@@ -33,7 +33,7 @@ sleeves = sp["sleeves"]
 leverage = float(sp["leverage"])
 top_n = int(sp["top_n"])
 lock_rules = sp.get("winner_lock", {})
-col_map = {n: m["col"] for n, m in FACTOR_META.items()}
+col_map = {n: m["col"] for n, m in RUNTIME_FACTOR_META.items()}
 
 all_factors = []
 for sl in sleeves:

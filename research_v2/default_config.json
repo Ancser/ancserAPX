@@ -1,0 +1,32 @@
+{
+  "name": "ancserAPX_research_v2",
+  "data": {
+    "start_date": "2020-07-27",
+    "end_date": "2026-07-09",
+    "min_cross_section": 350,
+    "min_symbol_history": 252,
+    "label_horizon": 5,
+    "invalid_row_policy": "drop"
+  },
+  "walk_forward": {
+    "train_days": 504,
+    "validation_days": 63,
+    "test_days": 63,
+    "purge_days": 5,
+    "embargo_days": 5,
+    "step_days": 63,
+    "rolling_train": true,
+    "selection_end": "2025-12-31",
+    "lockbox_start": "2026-01-01"
+  },
+  "search": {
+    "initial_capital": 100000.0,
+    "cost_sensitivity_bps": [0.0, 5.0, 10.0, 20.0],
+    "top_n_grid": [15, 20, 30],
+    "leverage_grid": [0.75, 1.0, 1.25, 1.5],
+    "rebalance_grid": [5, 10, 21],
+    "weighting_grid": ["equal", "inverse_vol"],
+    "require_positive_worst_fold": false,
+    "max_drawdown_limit": -0.35
+  }
+}

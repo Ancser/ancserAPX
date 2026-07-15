@@ -19,25 +19,41 @@ uvicorn frontend.server:app --host 0.0.0.0 --port 8080 --reload
 # http://localhost:8080
 ```
 
-On startup, the server automatically runs an incremental data sync in the background.
+On startup, the server automatically warms the broad stock universe plus QQQ/SPY
+in the background. Every live run still performs its own authoritative broker-
+eligibility check, incremental sync, 100% fresh-session check, and physical
+Parquet/OHLCV validation before target calculation or orders.
 
 To fetch the full 10-year history, click **FETCH 10Y** in the UI, or:
 
 ```bash
-python -m ancser.data.fetcher
+python -m backend.data.fetcher
 ```
 
-## Running the Scheduler (optional)
+## Daily scheduler
+
+`ancserAPX install.bat` installs or updates the Windows task automatically. Its
+trigger is calculated from **09:25 America/New_York** (five minutes before the
+NYSE open), so a California host runs at 06:25. The launcher refreshes the local
+trigger after each run for DST and rejects launches outside the 09:20–09:29 ET
+pre-open safety window.
+
+The installed task uses the current user's interactive logon token, so that user
+must remain logged in. A second account-level execution lock prevents a website
+click, daemon, and Windows task from mutating the same brokerage account at the
+same time. If synchronization runs past the pre-open window, the scheduled run
+is audited and blocked before OMS; an explicit manual Force can bypass only the
+cadence/window, never the data or as-of gates.
 
 ```bash
-# Daemon mode — rebalances at 09:35 ET daily
-python -m ancser.execution.scheduler
+# Daemon mode — remains running and checks at 09:25 ET
+python -m backend.execution.scheduler
 
 # One-shot (runs rebalance once and exits)
-python -m ancser.execution.scheduler --run-once
+python -m backend.execution.scheduler --run-once
 
 # Force rebalance even if already ran today
-python -m ancser.execution.scheduler --run-once --force
+python -m backend.execution.scheduler --run-once --force
 ```
 
 ## API Keys Required
@@ -64,15 +80,25 @@ Paper trading keys are free. No credit card required for paper accounts.
 | Daily scheduler (APScheduler) | ✅ |
 | Multi-account support | ✅ |
 | WebSocket log streaming | ✅ |
+| Pre-trade sync + freshness/as-of gate | ✅ |
+| Durable order/fill/audit history | ✅ |
+| Commission/slippage/regulatory cost model | ✅ |
 
 ## What's Missing / Limitations
 
 - **10-year data depth**: Free IEX feed gives ~5 years. For full 10Y, set `APCA_DATA_FEED=sip` in `.env` and subscribe to Alpaca Algo Trader Plus (~$99/mo).
-- **Live P&L tracking**: The tracker records daily state but doesn't compute intraday P&L — relies on Alpaca's portfolio history API.
+- **Live P&L scope**: daily equity change uses broker `equity - last_equity`.
+  Final P&L in the UI is gross FIFO realized gain reconstructed from available
+  fills. Fees, transfers, dividends, corporate actions and unmatched pre-history
+  lots remain separate; the broker statement is authoritative.
 - **Short selling**: Live short orders require a margin account. Backtest models shorts correctly.
-- **Stop-loss / risk rules**: No per-position stop-loss. Risk management is via vol targeting only.
+- **Stop-loss / risk rules**: there is no per-position stop-loss. Portfolio risk
+  controls include stateful 200EMA exit / 20EMA re-entry, risk-off leverage,
+  daily volatility scaling, liquidity/shock filters and sector balancing.
 - **Notifications**: No email/SMS alerts on rebalance. Logs stream to UI via WebSocket only.
-- **Historical activities**: `GET /live/activities` paginates up to 100 orders. Older history requires Alpaca's full export.
+- **Historical activities**: broker APIs can impose retention or pagination
+  limits. The scheduler preserves every order/fill snapshot it observes plus an
+  append-only local event stream; older unseen activity requires broker export.
 
 ## Multi-Account
 
@@ -81,7 +107,12 @@ Add additional accounts to `.env`:
 ```
 APCA_API_KEY_ID_2=PK...
 APCA_API_SECRET_KEY_2=...
+APCA_PAPER_2=true
 ```
 
 The UI will show all configured accounts in the account selector dropdown.
-Each account gets its own live config (`config/live_strategy_Account2.json`).
+Each account can also override paper/live mode with `APCA_PAPER_<NAME>`
+or legacy `PAPER_TRADING_<NAME>`. For example, `APCA_PAPER=false` on `Main`
+and `APCA_PAPER_2=true` runs Main against the real Alpaca endpoint while
+account `2` stays paper. Each account gets its own live config
+(`config/live_strategy_2.json` for `_2`).

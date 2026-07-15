@@ -1,0 +1,9 @@
+# Generated research artifacts must never enter the production source history.
+snapshots/
+runs/
+cache/
+models/
+__pycache__/
+.pytest_cache/
+*.tmp
+*.partial
