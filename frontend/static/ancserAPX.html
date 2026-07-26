@@ -20,19 +20,19 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+TC:wght@300;400;500;700&family=Orbitron:wght@400;500;600;700&display=swap" rel="stylesheet">
     <!-- Reuse the ancserTPX design system / component styles -->
-    <link rel="stylesheet" href="/static/ancserTPX.css?v=fx1">
+    <link rel="stylesheet" href="/static/ancserTPX.css?v=glass1">
     <style>
         /* ── ancserAPX-specific overrides ── */
         /* one factor per line: checkbox+label on the left, weight dropdown right-aligned */
-        .factor-checks { display: flex; flex-direction: column; gap: 3px; padding: 4px 0; }
-        .factor-chk { display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; color: var(--text); width: 100%; }
-        .factor-chk input[type=checkbox] { accent-color: var(--amber); flex: 0 0 auto; }
+        .factor-checks { display: flex; flex-direction: column; gap: 8px; padding: 4px 0; }
+        .factor-chk { display: flex; align-items: center; gap: 8px; font-size: 11px; cursor: pointer; color: var(--text); width: 100%; }
+        .factor-chk input[type=checkbox] { accent-color: var(--green); flex: 0 0 auto; }
         .factor-chk .factor-name { flex: 0 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .factor-chk .factor-weight {
             flex: 0 0 auto; width: 56px; text-align: right; margin-left: auto;
             font-family: 'IBM Plex Mono', monospace; font-size: 10px;
             background: var(--bg2, #1a1a1a); color: var(--text); border: 1px solid var(--border);
-            border-radius: 3px; padding: 1px 3px;
+            border-radius: 999px; padding: 3px 6px;
         }
         .factor-chk .factor-weight:disabled { opacity: 0.4; cursor: not-allowed; background: var(--bg, #111); }
         .factor-subhead { font-size: 9px; letter-spacing: 1px; color: var(--text3); text-transform: uppercase; margin: 6px 0 2px; }
@@ -143,16 +143,16 @@
     <h1><span style="color:var(--amber);">ancser</span>APX
         <span style="font-size:10px;color:rgba(255,255,255,0.5);font-weight:normal;letter-spacing:2px;margin-left:4px;">1.0.1</span>
     </h1>
-    <div class="header-tabs">
+    <div class="header-tabs apx-glass-nav" data-apx-glass="nav" data-apx-size="md">
         <div class="tab active" data-tab="backtest">Backtest</div>
         <div class="tab" data-tab="live">Live</div>
     </div>
     <div class="header-right">
         <div class="account-switcher">
-            <span class="account-badge practice" id="account-badge">--</span>
+            <span class="account-badge practice apx-glass-badge" id="account-badge">--</span>
         </div>
         <div class="conn-dropdown-wrap">
-            <div class="conn-trigger" id="conn-trigger" onclick="toggleConnDropdown()">
+            <div class="conn-trigger apx-glass-status" id="conn-trigger" onclick="toggleConnDropdown()">
                 <span class="status-dot loading" id="api-status"></span>
                 <span id="api-status-text">READY</span>
                 <span class="conn-arrow">▼</span>
@@ -164,8 +164,8 @@
                 <div class="info-row"><span>ENV KEY</span><span class="iv" id="account-env-info">--</span></div>
                 <div class="info-row"><span>LOCAL DATA</span><span class="iv" id="data-coverage-pct">--</span></div>
                 <div class="info-row"><span>COVERAGE</span><span class="iv" id="data-coverage-detail" style="font-size:9px;">--</span></div>
-                <button type="button" class="btn btn-outline" id="btn-fetch-full" onclick="triggerFetch('bulk')">FETCH FULL HISTORY (10Y)</button>
-                <button class="btn btn-primary" id="btn-connect" onclick="connectAPI()">CONNECT &amp; SYNC</button>
+                <button type="button" class="btn btn-outline apx-glass-action" id="btn-fetch-full" onclick="triggerFetch('bulk')">FETCH FULL HISTORY (10Y)</button>
+                <button class="btn btn-primary apx-glass-action apx-glass-action--amber" id="btn-connect" onclick="connectAPI()">CONNECT &amp; SYNC</button>
             </div>
         </div>
         <div id="clock">--:--:-- UTC</div>
@@ -177,7 +177,7 @@
     <div class="sidebar">
 
         <!-- Shared account target. This selects which account live data/actions use. -->
-        <div class="panel">
+        <div class="panel apx-glass-container apx-glass-container--ready" data-apx-glass="container">
             <div class="panel-title">ACCOUNT</div>
             <div class="form-group" style="margin-bottom:0;">
                 <label>LIVE ACCOUNT <span class="lbl-hint">(.env key)</span></label>
@@ -188,7 +188,7 @@
         </div>
 
         <!-- Preset, universe, and scoring model. -->
-        <div class="panel" data-workspace-view="backtest">
+        <div class="panel apx-glass-container" data-workspace-view="backtest" data-apx-glass="container">
             <div class="panel-title">MODEL SETTINGS</div>
             <div class="form-group">
                 <label>PRESET</label>
@@ -217,17 +217,17 @@
             </div>
             <div class="form-group" id="model-factors-wrap">
                 <label>MODEL FACTORS</label>
-                <div class="factor-checks" id="factor-checks-primary"></div>
+                <div class="factor-checks apx-glass-switch-list" id="factor-checks-primary" data-apx-glass="switch-list"></div>
             </div>
         </div>
 
         <!-- Portfolio construction and rebalance rules. -->
-        <div class="panel" data-workspace-view="backtest">
+        <div class="panel apx-glass-container" data-workspace-view="backtest" data-apx-glass="container">
             <div class="panel-title">STRATEGY</div>
             <div class="form-row" style="margin-top:6px;">
                 <div class="form-group" style="flex:1;">
                     <label>MWU <span class="lbl-hint">(dynamic w · grays weights)</span></label>
-                    <button type="button" class="toggle-field" id="mwu-toggle" onclick="toggleField('mwu-toggle','mwu-hidden')">OFF</button>
+                    <button type="button" class="toggle-field apx-glass-toggle" id="mwu-toggle" onclick="toggleField('mwu-toggle','mwu-hidden')">OFF</button>
                     <input type="hidden" id="mwu-hidden" value="0">
                 </div>
             </div>
@@ -255,13 +255,13 @@
             </div>
             <div class="form-group">
                 <label>LEVERAGE <span id="leverage-val" style="color:var(--amber);">1.0x</span></label>
-                <input type="range" id="leverage-slider" min="0.5" max="1.5" step="0.1" value="1.0"
+                <input type="range" class="apx-glass-range" data-apx-glass="range" id="leverage-slider" min="0.5" max="1.5" step="0.1" value="1.0"
                        oninput="document.getElementById('leverage-val').textContent=parseFloat(this.value).toFixed(1)+'x';markCustomPreset();">
             </div>
         </div>
 
         <!-- Backtest-only inputs (do NOT affect live trading). -->
-        <div class="panel" data-workspace-view="backtest">
+        <div class="panel apx-glass-container" data-workspace-view="backtest" data-apx-glass="container">
             <div class="panel-title">BACKTEST ENVIRONMENT</div>
             <div class="form-group">
                 <label>CAPITAL ($) <span class="lbl-hint">(backtest only)</span></label>
@@ -293,7 +293,7 @@
         </div>
 
         <!-- Risk management overlays (daily checks, off the weekly cadence) -->
-        <div class="panel" data-workspace-view="backtest">
+        <div class="panel apx-glass-container" data-workspace-view="backtest" data-apx-glass="container">
             <div class="panel-title">RISK MANAGEMENT</div>
             <div class="form-group">
                 <label>MARKET REGIME GUARD</label>
@@ -321,20 +321,20 @@
             <div class="form-row">
                 <div class="form-group">
                     <label>VOL THROTTLE</label>
-                    <button type="button" class="toggle-field" id="risk-vol-toggle"
+                    <button type="button" class="toggle-field apx-glass-toggle" id="risk-vol-toggle"
                             onclick="toggleField('risk-vol-toggle','risk-vol-hidden')">OFF</button>
                     <input type="hidden" id="risk-vol-hidden" value="0">
                 </div>
                 <div class="form-group">
                     <label>TRADEABILITY</label>
-                    <button type="button" class="toggle-field" id="risk-liquidity-toggle"
+                    <button type="button" class="toggle-field apx-glass-toggle" id="risk-liquidity-toggle"
                             onclick="toggleField('risk-liquidity-toggle','risk-liquidity-hidden')">OFF</button>
                     <input type="hidden" id="risk-liquidity-hidden" value="0">
                 </div>
             </div>
             <div class="form-group">
                 <label>SECTOR BALANCE</label>
-                <button type="button" class="toggle-field" id="risk-sector-toggle" style="width:100%;text-align:left;"
+                <button type="button" class="toggle-field apx-glass-toggle" id="risk-sector-toggle" style="width:100%;"
                         onclick="toggleField('risk-sector-toggle','risk-sector-hidden')">OFF</button>
                 <input type="hidden" id="risk-sector-hidden" value="0">
                 <div class="lbl-hint" style="margin-top:3px;line-height:1.4;">
@@ -343,7 +343,7 @@
             </div>
             <div class="form-group">
                 <label>RANGE SHOCK GUARD</label>
-                <button type="button" class="toggle-field" id="risk-crowding-toggle" style="width:100%;text-align:left;"
+                <button type="button" class="toggle-field apx-glass-toggle" id="risk-crowding-toggle" style="width:100%;"
                         onclick="toggleField('risk-crowding-toggle','risk-crowding-hidden')">OFF</button>
                 <input type="hidden" id="risk-crowding-hidden" value="0">
                 <div class="lbl-hint" style="margin-top:3px;line-height:1.4;">
@@ -353,12 +353,11 @@
         </div>
 
         <!-- Run -->
-        <div class="panel" data-workspace-view="backtest">
-            <div style="display:flex;flex-direction:column;gap:6px;">
-                <button class="btn btn-green" id="btn-run-backtest" onclick="runBacktest()">EXECUTE BACKTEST</button>
-                <button class="btn btn-outline" id="btn-sweep-backtest" onclick="runSweepBacktest()">SWEEP BACKTEST</button>
-                <button class="btn" id="btn-apply-live" onclick="applyLive()"
-                        style="background:var(--amber,#ffa726);color:#000;font-weight:600;">APPLY LIVE</button>
+        <div class="panel apx-glass-container apx-glass-action-panel" data-workspace-view="backtest" data-apx-glass="container">
+            <div class="apx-glass-actions" data-apx-glass="actions">
+                <button class="btn btn-green apx-glass-action apx-glass-action--green" id="btn-run-backtest" onclick="runBacktest()">EXECUTE BACKTEST</button>
+                <button class="btn btn-outline apx-glass-action" id="btn-sweep-backtest" onclick="runSweepBacktest()">SWEEP BACKTEST</button>
+                <button class="btn apx-glass-action apx-glass-action--amber" id="btn-apply-live" onclick="applyLive()">APPLY LIVE</button>
                 <div id="backtest-progress-wrap" style="display:none;">
                     <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
                         <span style="font-size:9px;letter-spacing:1px;color:var(--text3);">BACKTEST</span>
@@ -372,26 +371,26 @@
         </div>
 
         <!-- Metrics -->
-        <div class="panel" id="metrics-panel" data-workspace-view="backtest" style="display:none;">
+        <div class="panel apx-glass-container" id="metrics-panel" data-workspace-view="backtest" style="display:none;" data-apx-glass="container">
             <div class="panel-title">PERFORMANCE</div>
             <div class="metrics-grid" id="metrics-grid"></div>
         </div>
-        <div class="panel" id="benchmark-metrics-panel" data-workspace-view="backtest" style="display:none;">
+        <div class="panel apx-glass-container" id="benchmark-metrics-panel" data-workspace-view="backtest" style="display:none;" data-apx-glass="container">
             <div class="panel-title" id="benchmark-metrics-title">BENCHMARK RELATIVE · QQQ</div>
             <div class="metrics-grid" id="benchmark-metrics-grid"></div>
         </div>
-        <div class="panel" id="sector-exposure-panel" data-workspace-view="backtest" style="display:none;">
+        <div class="panel apx-glass-container" id="sector-exposure-panel" data-workspace-view="backtest" style="display:none;" data-apx-glass="container">
             <div class="panel-title">LATEST SECTOR EXPOSURE</div>
             <div class="metrics-grid" id="sector-exposure-grid"></div>
         </div>
 
         <!-- Live account panels. Values are sourced from broker/read-only APIs. -->
-        <div class="panel workspace-hidden" data-workspace-view="live" id="live-performance-panel">
+        <div class="panel apx-glass-container apx-glass-container--live workspace-hidden" data-workspace-view="live" id="live-performance-panel" data-apx-glass="container">
             <div class="panel-title">LIVE PERFORMANCE</div>
             <div class="metrics-grid" id="live-metrics-grid"><div class="empty-state">Select LIVE to load account performance.</div></div>
-            <button class="btn btn-outline" id="btn-refresh-live" onclick="loadLiveDashboard({persist:true})" style="width:100%;margin-top:7px;">REFRESH LIVE</button>
+            <button class="btn btn-outline apx-glass-action" id="btn-refresh-live" onclick="loadLiveDashboard({persist:true})" style="width:100%;margin-top:7px;">REFRESH LIVE</button>
         </div>
-        <div class="panel workspace-hidden" data-workspace-view="live">
+        <div class="panel apx-glass-container apx-glass-container--live workspace-hidden" data-workspace-view="live" data-apx-glass="container">
             <div class="panel-title">CURRENT MODEL</div>
             <div class="live-state-row"><span>PRESET</span><span class="value" id="live-preset-value">--</span></div>
             <div class="live-state-row"><span>MODEL</span><span class="value" id="live-model-value">--</span></div>
@@ -402,14 +401,14 @@
         </div>
 
         <!-- IndexedDB-backed unified history: backtests, sweeps, and live snapshots. -->
-        <div class="panel" id="result-history-panel">
+        <div class="panel apx-glass-container" id="result-history-panel" data-apx-glass="container">
             <div class="panel-title">RESULT HISTORY</div>
             <select id="result-history-select" class="history-list" size="5" onchange="loadSelectedHistory()">
                 <option value="">No saved results yet</option>
             </select>
             <div class="history-actions">
-                <button class="btn btn-outline" type="button" onclick="loadSelectedHistory()">LOAD</button>
-                <button class="btn btn-outline" type="button" onclick="deleteSelectedHistory()">DELETE</button>
+                <button class="btn btn-outline apx-glass-action" type="button" onclick="loadSelectedHistory()">LOAD</button>
+                <button class="btn btn-outline apx-glass-action" type="button" onclick="deleteSelectedHistory()">DELETE</button>
             </div>
         </div>
     </div><!-- /sidebar -->
@@ -439,7 +438,7 @@
 
         <div class="bottom-panel" id="bottom-panel">
             <div id="bottom-drag-handle" title="Drag to resize"><div class="drag-pill"></div></div>
-            <div class="bottom-tabs">
+            <div class="bottom-tabs apx-glass-nav apx-glass-nav--bottom" data-apx-glass="nav" data-apx-size="sm">
                 <div class="bottom-tab active" data-btab="holdings">HOLDINGS LOG</div>
                 <div class="bottom-tab" data-btab="weights">FACTOR WEIGHTS</div>
                 <div class="bottom-tab" data-btab="log">SYSTEM LOG</div>
@@ -469,6 +468,6 @@
     </div><!-- /content -->
 </div>
 
-<script src="/static/ancserAPX.js?v=apx14"></script>
+<script src="/static/ancserAPX.js?v=apx15"></script>
 </body>
 </html>

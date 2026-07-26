@@ -25,11 +25,19 @@ class _DemoMarkupParser(HTMLParser):
         self.switches = []
         self.ranges = []
         self.liquid_ranges = []
+        self.liquid_squares = []
         self.motion_blocks = []
         self.external_scripts = []
+        self.hidden_depth = 0
 
     def handle_starttag(self, tag, attrs):
         attributes = dict(attrs)
+        if self.hidden_depth:
+            self.hidden_depth += 1
+            return
+        if "hidden" in attributes:
+            self.hidden_depth = 1
+            return
         if attributes.get("role") == "tablist":
             self.tablist_count += 1
         if attributes.get("role") == "radiogroup":
@@ -52,10 +60,16 @@ class _DemoMarkupParser(HTMLParser):
             self.optical_switches.append(attributes)
         if "data-liquid-range" in attributes:
             self.liquid_ranges.append(attributes)
+        if "data-liquid-square" in attributes:
+            self.liquid_squares.append(attributes)
         if "data-motion-block" in attributes:
             self.motion_blocks.append(attributes)
         if tag == "script" and attributes.get("src"):
             self.external_scripts.append(attributes["src"])
+
+    def handle_endtag(self, tag):
+        if self.hidden_depth:
+            self.hidden_depth -= 1
 
 
 def test_liquid_glass_demo_is_isolated_and_accessible():
@@ -63,33 +77,38 @@ def test_liquid_glass_demo_is_isolated_and_accessible():
     parser = _DemoMarkupParser()
     parser.feed(source)
 
-    assert parser.tablist_count == 1
-    assert parser.radiogroup_count == 3
-    assert len(parser.tabs) == 2
-    assert len(parser.radios) == 12
-    assert sum(tab.get("aria-selected") == "true" for tab in parser.tabs) == 1
-    assert sum(radio.get("aria-checked") == "true" for radio in parser.radios) == 3
+    assert parser.tablist_count == 6
+    assert parser.radiogroup_count == 0
+    assert len(parser.tabs) == 12
+    assert len(parser.radios) == 0
+    assert sum(tab.get("aria-selected") == "true" for tab in parser.tabs) == 6
     assert all(tab.get("aria-controls") for tab in parser.tabs)
-    assert len(parser.optical_switches) == 4
-    assert len(parser.liquid_ranges) == 1
+    assert len(parser.optical_switches) == 6
+    assert len(parser.liquid_ranges) == 6
+    assert len(parser.liquid_squares) == 1
     assert len(parser.canvases) == (
         len(parser.optical_switches)
         + len(parser.liquid_ranges)
+        + len(parser.liquid_squares)
         + len(parser.toggle_canvases)
         + len(parser.color_canvases)
-    ) == 9
-    assert len(parser.toggle_canvases) == 3
+    ) == 20
+    assert len(parser.toggle_canvases) == 6
     assert all(canvas.get("aria-hidden") == "true" for canvas in parser.canvases)
-    assert len(parser.switches) == 3
+    assert len(parser.switches) == 6
     assert sum(
         switch.get("aria-checked") == "true"
         for switch in parser.switches
-    ) == 2
+    ) == 6
     assert all(switch.get("aria-label") for switch in parser.switches)
-    assert len(parser.ranges) == 1
-    assert parser.ranges[0].get("aria-label")
+    assert len(parser.ranges) == 6
+    assert all(range_input.get("aria-label") for range_input in parser.ranges)
     assert parser.ranges[0].get("aria-describedby")
-    assert len(parser.motion_blocks) == 4
+    assert sum(
+        item.get("data-demo-active") == "true"
+        for item in [*parser.optical_switches, *parser.liquid_ranges, *parser.switches]
+    ) == 10
+    assert len(parser.motion_blocks) == 0
     assert len(parser.color_canvases) == 1
     assert not parser.external_scripts
     assert "WebSocket" not in source
@@ -106,6 +125,10 @@ def test_liquid_glass_demo_uses_local_scene_refraction_not_blur_effects():
     assert "texture(uScene" in source
     assert "sceneAt" in source
     assert "capsuleDistance" in source
+    assert "roundedBoxDistance" in source
+    assert "lensDistanceAt" in source
+    assert "lensDistanceNormal" in source
+    assert "uniform float uShapeMode;" in source
     assert "lensAxisHalfPx" in source
     assert "lensAxisPoint" in source
     assert "lensRadialLength" in source
@@ -114,21 +137,30 @@ def test_liquid_glass_demo_uses_local_scene_refraction_not_blur_effects():
     assert "uniform float uPixelRatio;" in source
     assert "uniform float uVelocity;" in source
     assert "uniform float uTrackVisibility;" in source
+    assert "uniform vec4 uShapeTuning;" in source
+    assert "uniform vec4 uInnerTuning;" in source
+    assert "uniform vec4 uBlendTuning;" in source
+    assert "uniform vec4 uEdgeTuning;" in source
+    assert "uniform vec4 uRimTuning;" in source
+    assert "uniform vec4 uRoundTuning;" in source
+    assert "uniform vec4 uTransitionTuning;" in source
     assert "trackMask * uTrackVisibility" in source
     assert "trackSignedDistanceAt" in source
     assert "neutralTrackBand" in source
     assert "neutralTrackRefraction" in source
-    assert "mix(15.5, 30.0, uInteraction)" in source
+    assert "mix(uShapeTuning.x, uShapeTuning.y, uInteraction)" in source
     assert "pow(edgeProgress, 1.35)" in source
     assert "blurRadiusPx" in source
+    assert "uEdgeTuning.x * uPixelRatio" in source
     assert "chromaticShiftPx" in source
     assert "redChannel.r" in source
     assert "greenChannel.g" in source
     assert "blueChannel.b" in source
-    assert "dispersedLuma" in source
-    assert "topFoldBand" in source
-    assert "topLineFocus" in source
-    assert "topFoldRGB" in source
+    assert "rimFoldBand" in source
+    assert "rimFoldBand * uBlendTuning.w * uInteraction" in source
+    assert "rimFoldProgress" in source
+    assert "centerFoldPx" in source
+    assert "foldedContent" in source
     assert "chromaticBand" in source
     assert "float glassActivation" in source
     assert "* glassActivation;" in source
@@ -144,31 +176,170 @@ def test_liquid_glass_demo_uses_local_scene_refraction_not_blur_effects():
     assert "boundaryMappedPx" in source
     assert "interiorContentBand" in source
     assert "contentSampleScale" in source
+    assert "uShapeTuning.z" in source
+    assert "floatingLensWeight * uShapeTuning.w" in source
     assert "compressedContentPx" in source
+    assert "floatingLensWeight" in source
+    assert "innerEdgeProgress" in source
+    assert "transitionWidthPx" in source
+    assert "transitionProgress" in source
+    assert "transitionDecay" in source
+    assert "exp(-transitionLinear * transitionDecay)" in source
+    assert "rgbBandWidthPx" in source
+    assert "rgbHaloBand" in source
+    assert "rgbHaloProgress" in source
+    assert "chromaticBasePx" in source
+    assert "chromaticBasePx - compressedContentPx" in source
+    assert "sceneAt(chromaticBasePx)" in source
+    assert "edgeTaperPower" in source
+    assert "edgeOpticBand" in source
+    assert "edgeFoldCurve" in source
+    assert "sideRoundPull" in source
+    assert "innerRefractionPullPx" in source
+    assert "uInnerTuning.z * mix(0.72, 1.0, uStrength)" in source
+    assert "floatingLensWeight * uInnerTuning.w" in source
+    assert "innerWarpedContentPx" in source
+    assert "innerWarpedContent" in source
+    assert "edgeCrispness" in source
+    assert "clearRimBand" in source
+    assert "-uRimTuning.x * uPixelRatio" in source
+    assert "clearRimTone" in source
+    assert "rimRoundness" in source
     assert "topShadowBand" in source
     assert "bottomLightBand" in source
     assert "lowerLightTone" in source
-    assert "lowerShadowMask" in source
-    assert "lowerEdgeShadowBand" in source
-    assert "Three-zone lens" in source
-    assert "中央內容輕微縮小" in source
+    assert "topSidePull" not in source
+    assert "dispersedLuma" not in source
+    assert "topFoldBand" not in source
+    assert "topLineFocus" not in source
+    assert "topFoldRGB" not in source
+    assert "lowerShadowMask" not in source
+    assert "lowerEdgeShadowBand" not in source
+    assert "Three-zone lens" not in source
+    assert "Shared background optics" not in source
+    assert "Edge only." not in source
+    assert "Scene aware." not in source
+    assert "Solid until press" not in source
+    assert "Neutral outer glass" not in source
+    assert "Risk posture" not in source
+    assert 'label: "ALPHA"' not in source
     assert "uTrackHalfSizePx / uLensHalfSizePx" in source
-    assert "glassOutputMask" in source
-    assert "glassPixels.rgb * glassOutputMask" in source
+    assert "data-liquid-square" in source
+    assert "createSquareGlass" in source
+    assert 'bar.type === "square"' in source
+    assert "drawSquareSceneText" in source
+    assert "PLACEHOLDER TEXT" in source
+    assert "REFRACTION" in source
+    assert "RESULT" in source
+    assert "EDGE SAMPLE" in source
+    assert "shapeMode: gl.getUniformLocation" in source
+    assert "glassOutputMask" not in source
+    assert "glassPixels.rgb * outputMask" in source
+    assert "glassLabelIsolation" not in source
+    assert '[data-glass-active="true"] .optical-switch-button:not' not in source
     assert "texSubImage2D" in source
     assert ": bar.height / 2 + 15;" in source
     assert 'bar.root.dataset.centerOffsetPx = "0"' in source
     assert "drawBackgroundCover" in source
-    assert "drawMotionBlocks" in source
+    assert "drawMotionBlocks" not in source
+    assert "data-motion-block" not in source
+    assert "optical-motion-field" not in source
+    assert "optical-motion-block" not in source
     assert "drawColorBlocks" in source
     assert "updateColorBlockLayout" in source
     assert "colorBackgroundCanvas" in source
     assert "context.drawImage(" in source
     assert 'min="8"' in source
-    assert 'value="8"' in source
+    assert 'value="52"' in source
+    assert 'value="58"' in source
     assert "const CANVAS_PAD_Y = 32;" in source
     assert "const CANVAS_PAD_X = 36;" in source
     assert "quietSelection" in source
+    assert 'id="optical-tuning-grid"' in source
+    assert 'id="optical-tuning-reset"' in source
+    assert "const tuningControls = [" in source
+    assert "renderTuningControls()" in source
+    assert "resetTuningControls" in source
+    assert "Center-to-edge transition is mainly Transition spread/decay" not in source
+    assert "RGB band width is separate from the final 3px edge rim." not in source
+    assert "optical-tuning-help" not in source
+    assert "optical-bench-preview" in source
+    assert "optical-bench-set--held" in source
+    assert "optical-bench-side--light" in source
+    assert "optical-bench-side--dark" in source
+    assert 'data-demo-active="true"' in source
+    assert 'data-apx-size="sm"' in source
+    assert "APX_SIZE_PRESETS" in source
+    assert "resolveApxSize" in source
+    assert "sizeScale" in source
+    assert "effectiveEdgeActivePx" in source
+    assert "effectiveRgbBandWidthPx" in source
+    assert "tuning.edgeActive * sizeScale" in source
+    assert "tuning.rgbBandWidth * sizeScale" in source
+    assert "demoHoldActive" in source
+    assert "sceneSide" in source
+    assert 'bar?.sceneSide === "light"' in source
+    assert 'bar?.sceneSide === "dark"' in source
+    assert 'id="optical-strength-output"' in source
+    assert "optical-tuning-control--pair" in source
+    assert "optical-tuning-range-pair" in source
+    assert "const tuningLayout = [" in source
+    assert 'label: "Inner mix"' in source
+    assert 'keys: ["innerMixMin", "innerMixMax"]' in source
+    assert 'label: "RGB mix"' in source
+    assert 'keys: ["chromaMin", "chromaMax"]' in source
+    assert "control.help" not in source
+    assert "overflow: visible;" in source
+    assert "max-height: min(42vh, 390px)" not in source
+    assert "input.dataset.tuningParam = control.key" in source
+    assert '"edgeActive"' in source
+    assert 'label: "Edge width active"' in source
+    assert 'value: 3,' in source
+    assert 'value: 24,' in source
+    assert '"transitionSpread"' in source
+    assert 'label: "Transition spread"' in source
+    assert 'value: 42,' in source
+    assert "Independent center-to-edge shoulder width" not in source
+    assert '"transitionDecay"' in source
+    assert 'label: "Transition decay"' in source
+    assert "Exponential falloff" not in source
+    assert '"rgbBandWidth"' in source
+    assert 'label: "RGB band width"' in source
+    assert 'value: 36,' in source
+    assert "RGB coverage width independent from Edge width active." not in source
+    assert '"edgeTaper"' in source
+    assert 'label: "Edge taper"' in source
+    assert "Nonlinear rim falloff" not in source
+    assert '"edgeBlur"' not in source
+    assert '"innerPull"' not in source
+    assert '"floatingPull"' not in source
+    assert 'label: "Warp pull"' not in source
+    assert '"centerShrink"' in source
+    assert '"rimStrength"' in source
+    assert "How deep the center-to-edge transition starts." not in source
+    assert "Content distortion before it reaches the rim." not in source
+    assert "Higher value makes center-to-edge blend stronger." not in source
+    assert "Delay center color folding into rim." not in source
+    assert "shapeTuning: gl.getUniformLocation" in source
+    assert "transitionTuning: gl.getUniformLocation" in source
+    assert "gl.uniform4f(" in source
+    assert "* 0.78" in source
+    assert "* 1.18" in source
+    assert "#30d158" in source
+    assert "rgb(48 209 88)" in source
+    assert "colorA:" not in source
+    assert "colorB:" not in source
+    assert "colorBlockSpecs" not in source
+    assert "colorBlockRects" not in source
+    assert "rgb(242 242 238)" in source
+    assert "rgb(5 5 5)" in source
+    assert "previewRect" in source
+    assert "verticalSplit" in source
+    assert "rgb: [66, 68, 74]" not in source
+    assert "rgb: [44, 47, 54]" not in source
+    assert "colorA: [255, 77, 138]" not in source
+    assert "colorA: [244, 196, 0]" not in source
+    assert "colorA: [42, 106, 229]" not in source
     assert 'data.chromaticLayer' not in source
     assert "dataset.chromaticLayer" in source
     assert '? "inner"' in source
@@ -201,7 +372,8 @@ def test_liquid_glass_demo_has_motion_contrast_and_browser_fallbacks():
     assert 'data-idle="true"' in source
     assert 'data-contexts="0"' in source
     assert "visibilitychange" in source
-    assert "Pause motion" in source
+    assert "Pause motion" not in source
+    assert "Resume motion" not in source
     assert "globalState.raf" in source
     assert "maxLensOverflow" in source
     assert "pointerActive" in source
@@ -225,7 +397,7 @@ def test_liquid_glass_demo_has_motion_contrast_and_browser_fallbacks():
     assert "if (bar.externalMotion) return;" in source
     assert 'bar.type === "toggle"' in source
     assert "bar.interaction < 0.002" in source
-    assert "dx / 56" in source
+    assert "dx / toggle.travelPx" in source
     assert "toggle.progress >= 0.5" in source
     assert "!toggle.pointerActive" in source
     assert "delayMs: 120" in source
@@ -242,5 +414,5 @@ def test_liquid_glass_demo_has_motion_contrast_and_browser_fallbacks():
     assert "IntersectionObserver" in source
     assert 'bar.type === "range"' in source
     assert "--canvas-pad-x: 66px;" in source
-    assert "? 66" in source
+    assert "apxSize.rangePadXPx" in source
     assert ".liquid-toggle-canvas" in source

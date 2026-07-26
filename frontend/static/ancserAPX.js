@@ -37,6 +37,7 @@ window.addEventListener('DOMContentLoaded', () => {
     initBottomTabs();
     initWorkspaceTabs();
     initSettingsDirtyTracking();
+    initApxGlassStandard();
     initHistoryStore().then(refreshHistoryList);
     loadDataStatus();
     // close conn dropdown when clicking outside
@@ -95,6 +96,41 @@ function toggleConnDropdown(force) {
     const open = force !== undefined ? force : !panel.classList.contains('open');
     panel.classList.toggle('open', open);
     trg.classList.toggle('open', open);
+}
+
+// ── APX Liquid Glass standard helpers ─────────────────────────────────────
+// These helpers standardize native controls without changing their submitted
+// values. The WebGL liquid-glass demo remains the shader calibration source.
+function syncApxGlassRange(input) {
+    if (!input) return;
+    const min = Number(input.min || 0);
+    const max = Number(input.max || 100);
+    const value = Number(input.value || min);
+    const pct = max > min
+        ? ((value - min) / (max - min)) * 100
+        : 0;
+    input.style.setProperty(
+        '--apx-range-progress',
+        `${Math.max(0, Math.min(100, pct)).toFixed(2)}%`
+    );
+}
+
+function syncApxFactorSwitches(root = document) {
+    root.querySelectorAll('.factor-chk').forEach(row => {
+        const checked = row.querySelector('input[type=checkbox]')?.checked;
+        row.classList.toggle('is-on', Boolean(checked));
+    });
+}
+
+function initApxGlassStandard(root = document) {
+    root.querySelectorAll('input[type=range].apx-glass-range').forEach(input => {
+        syncApxGlassRange(input);
+        if (input.dataset.apxGlassBound === '1') return;
+        input.dataset.apxGlassBound = '1';
+        input.addEventListener('input', () => syncApxGlassRange(input));
+        input.addEventListener('change', () => syncApxGlassRange(input));
+    });
+    syncApxFactorSwitches(root);
 }
 
 function getAccountDetail(account) {
@@ -448,7 +484,7 @@ function buildFactorChecks(factors, presets) {
     const defaultOn = presets['Baseline 70/30'] || presets['Balanced'] || factors.slice(0, 2);
     factors.forEach(f => {
         const label = document.createElement('label');
-        label.className = 'factor-chk';
+        label.className = 'factor-chk apx-factor-switch';
         const cb = document.createElement('input');
         cb.type = 'checkbox';
         cb.value = f;
@@ -456,6 +492,7 @@ function buildFactorChecks(factors, presets) {
         cb.onchange = () => {
             markCustomPreset({ preserveStrategy: false });
             updateWeightDisabled();
+            syncApxFactorSwitches(primaryC);
         };
         const name = document.createElement('span');
         name.className = 'factor-name';
@@ -468,6 +505,7 @@ function buildFactorChecks(factors, presets) {
         primaryC.appendChild(label);
     });
     updateWeightDisabled();
+    initApxGlassStandard(primaryC);
 }
 
 // Any factor-checkbox or live-affecting param change drops the preset to custom
@@ -635,7 +673,11 @@ function applyPreset(name) {
         updateWeightDisabled();
         if (sp.leverage != null) {
             const lev = document.getElementById('leverage-slider');
-            if (lev) { lev.value = sp.leverage; document.getElementById('leverage-val').textContent = parseFloat(sp.leverage).toFixed(1) + 'x'; }
+            if (lev) {
+                lev.value = sp.leverage;
+                document.getElementById('leverage-val').textContent = parseFloat(sp.leverage).toFixed(1) + 'x';
+                syncApxGlassRange(lev);
+            }
         }
         if (sp.top_n != null) {
             setTopN(sp.top_n);
@@ -646,6 +688,7 @@ function applyPreset(name) {
         setHoldingPeriod(presetHoldDays);
         setToggleState('mwu-toggle', 'mwu-hidden', !!sp.use_mwu);
         applyPresetRiskControls(sp.risk_management || {});
+        syncApxFactorSwitches();
         if (sp.universe) {
             const uniSel = document.getElementById('universe-select');
             if (uniSel && [...uniSel.options].some(o => o.value === sp.universe)) { uniSel.value = sp.universe; onUniverseChange(); }
@@ -675,6 +718,7 @@ function applyPreset(name) {
     const wp = (_config.factor_weight_presets || {})[name] || null;
     setFactorWeights(wp);
     updateWeightDisabled();
+    syncApxFactorSwitches();
 
     // Preset-recommended defaults: top_n, universe, etc.
     const defaults = (_config.preset_defaults || {})[name];

@@ -16,7 +16,7 @@
             --surface-deep: rgba(9, 11, 15, 0.42);
             --surface-soft: rgba(19, 21, 25, 0.24);
             --accent: #e8926f;
-            --positive: #b3c77b;
+            --positive: #30d158;
             --shadow: rgba(0, 0, 0, 0.32);
         }
 
@@ -51,8 +51,7 @@
             -webkit-tap-highlight-color: transparent;
         }
 
-        .optical-page-background,
-        .optical-motion-field {
+        .optical-page-background {
             position: fixed;
             inset: 0;
             pointer-events: none;
@@ -62,6 +61,7 @@
             z-index: 0;
             overflow: hidden;
             background: #050505;
+            opacity: 0;
         }
 
         .optical-color-canvas {
@@ -70,46 +70,24 @@
             height: 100%;
         }
 
-        .optical-motion-field {
-            z-index: 2;
-            overflow: hidden;
-        }
-
-        .optical-motion-block {
-            position: absolute;
-            top: 0;
-            left: 0;
-            display: grid;
-            place-items: center;
-            border: 1px solid rgba(135, 139, 147, 0.48);
-            border-radius: 18px;
-            color: rgba(238, 237, 231, 0.78);
-            background: rgba(var(--block-rgb), var(--block-alpha));
-            transform-origin: 50% 50%;
-            will-change: transform;
-        }
-
-        .optical-motion-block span {
-            font-size: 10px;
-            font-weight: 760;
-            letter-spacing: 0.14em;
-        }
-
         .optical-demo-stage {
             position: relative;
             z-index: 3;
             min-height: 100vh;
-            padding: clamp(14px, 3.3vw, 44px);
+            padding: clamp(14px, 2.2vw, 28px);
         }
 
         .optical-demo-shell {
-            width: min(1240px, 100%);
+            display: grid;
+            width: min(1480px, 100%);
             margin: 0 auto;
+            grid-template-columns: minmax(460px, 560px) minmax(0, 1fr);
+            gap: clamp(14px, 2vw, 24px);
             overflow: visible;
-            border: 1px solid var(--edge-gray-soft);
-            border-radius: clamp(26px, 3.5vw, 42px);
-            background: rgba(7, 9, 12, 0.15);
-            box-shadow: 0 30px 75px var(--shadow);
+            border: 0;
+            border-radius: 0;
+            background: transparent;
+            box-shadow: none;
         }
 
         .glass-surface {
@@ -274,14 +252,10 @@
             opacity: 0;
         }
 
-        .optical-switch[data-renderer="webgl"][data-glass-active="true"] .optical-switch-button:not([aria-selected="true"]):not([aria-checked="true"]) .optical-switch-button-content {
-            opacity: 1;
-        }
-
         .optical-switch-button:focus-visible {
             box-shadow:
                 0 0 0 2px rgba(8, 10, 13, 0.92),
-                0 0 0 4px #b6c788;
+                0 0 0 4px #30d158;
         }
 
         .optical-switch-button-content {
@@ -665,6 +639,8 @@
             --toggle-activity: 0;
             --toggle-delta: 0;
             --toggle-travel: 0px;
+            --toggle-anchor: 60px;
+            --toggle-canvas-pad: 32px;
             --toggle-width: 74px;
             --toggle-height: 50px;
             --toggle-bridge-scale: 0.2;
@@ -689,13 +665,13 @@
         }
 
         .liquid-toggle-control[aria-checked="true"] {
-            color: #abc87d;
+            color: #30d158;
         }
 
         .liquid-toggle-control:focus-visible {
             box-shadow:
                 0 0 0 2px rgba(8, 10, 13, 0.92),
-                0 0 0 4px #b6c788;
+                0 0 0 4px #30d158;
         }
 
         .liquid-toggle-track {
@@ -720,8 +696,8 @@
         .liquid-toggle-track::before {
             background: linear-gradient(
                 105deg,
-                rgb(86 105 57),
-                rgb(121 145 78)
+                rgb(0 190 84),
+                rgb(48 209 88)
             );
             opacity: var(--toggle-progress);
         }
@@ -742,13 +718,13 @@
 
         .liquid-toggle-canvas {
             position: absolute;
-            top: -32px;
-            right: -32px;
-            bottom: -32px;
-            left: -32px;
+            top: calc(var(--toggle-canvas-pad) * -1);
+            right: calc(var(--toggle-canvas-pad) * -1);
+            bottom: calc(var(--toggle-canvas-pad) * -1);
+            left: calc(var(--toggle-canvas-pad) * -1);
             z-index: 1;
-            width: calc(100% + 64px);
-            height: calc(100% + 64px);
+            width: calc(100% + var(--toggle-canvas-pad) * 2);
+            height: calc(100% + var(--toggle-canvas-pad) * 2);
             max-width: none;
             opacity: var(--toggle-glass);
             pointer-events: none;
@@ -765,7 +741,7 @@
         .liquid-toggle-bridge {
             position: absolute;
             top: 50%;
-            left: 60px;
+            left: var(--toggle-anchor);
             width: 56px;
             height: 30px;
             border-radius: 999px;
@@ -778,7 +754,7 @@
         .liquid-toggle-thumb {
             position: absolute;
             top: 50%;
-            left: 60px;
+            left: var(--toggle-anchor);
             width: var(--toggle-width);
             height: var(--toggle-height);
             border: 0;
@@ -851,7 +827,7 @@
             background:
                 linear-gradient(
                     to right,
-                    #92ad67 0 var(--range-progress, 8%),
+                    #30d158 0 var(--range-progress, 8%),
                     rgba(24, 27, 32, 0.72) var(--range-progress, 8%) 100%
                 );
         }
@@ -875,6 +851,48 @@
         }
 
         .liquid-range-surface[data-renderer="css"] .optical-switch-canvas {
+            display: none;
+        }
+
+        .optical-square-glass {
+            --canvas-pad-x: 82px;
+            --canvas-pad-y: 82px;
+            position: relative;
+            isolation: isolate;
+            width: clamp(190px, 22vw, 258px);
+            height: clamp(190px, 22vw, 258px);
+            overflow: visible;
+            contain: layout style;
+            pointer-events: none;
+        }
+
+        .optical-square-glass .optical-switch-canvas {
+            top: calc(var(--canvas-pad-y) * -1);
+            right: calc(var(--canvas-pad-x) * -1);
+            bottom: calc(var(--canvas-pad-y) * -1);
+            left: calc(var(--canvas-pad-x) * -1);
+            width: calc(100% + var(--canvas-pad-x) * 2);
+            height: calc(100% + var(--canvas-pad-y) * 2);
+            display: block;
+        }
+
+        .optical-square-glass[data-renderer="css"] .optical-switch-canvas {
+            display: none;
+        }
+
+        .optical-square-fallback {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            border: 1px solid rgba(126, 130, 138, 0.42);
+            border-radius: 34%;
+            background: rgba(42, 46, 52, 0.30);
+            box-shadow:
+                inset 0 0 0 1px rgba(255, 255, 255, 0.10),
+                inset 0 -18px 36px rgba(0, 0, 0, 0.18);
+        }
+
+        .optical-square-glass[data-renderer="webgl"] .optical-square-fallback {
             display: none;
         }
 
@@ -906,7 +924,7 @@
         }
 
         .liquid-range-surface:has(.liquid-range-input:focus-visible) {
-            outline: 3px solid #b6c788;
+            outline: 3px solid #30d158;
             outline-offset: 13px;
             border-radius: 999px;
         }
@@ -982,8 +1000,315 @@
 
         .optical-demo-button:focus-visible,
         .optical-demo-slider:focus-visible {
-            outline: 2px solid #b6c788;
+            outline: 2px solid #30d158;
             outline-offset: 3px;
+        }
+
+        .optical-tuning-panel {
+            margin: 0;
+            padding: 12px;
+            border-radius: 24px;
+            align-self: start;
+        }
+
+        .optical-tuning-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .optical-tuning-head h2 {
+            margin: 0;
+            color: var(--page-ink);
+            font-size: 14px;
+            letter-spacing: -0.01em;
+        }
+
+        .optical-tuning-head p {
+            display: none;
+        }
+
+        .optical-tuning-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 7px;
+            overflow: visible;
+        }
+
+        .optical-tuning-control {
+            display: grid;
+            gap: 5px;
+            padding: 8px 10px;
+            border: 1px solid rgba(126, 130, 138, 0.18);
+            border-radius: 14px;
+            background: rgba(8, 10, 13, 0.34);
+        }
+
+        .optical-tuning-label {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            color: var(--page-muted);
+            font-size: 10px;
+            font-weight: 760;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+
+        .optical-tuning-value {
+            color: var(--page-ink);
+            font-variant-numeric: tabular-nums;
+            letter-spacing: 0;
+            text-transform: none;
+        }
+
+        .optical-tuning-slider {
+            width: 100%;
+            accent-color: #30d158;
+        }
+
+        .optical-tuning-range-pair {
+            position: relative;
+            min-height: 22px;
+        }
+
+        .optical-tuning-range-pair .optical-tuning-slider {
+            position: absolute;
+            inset: 0;
+            margin: 0;
+            pointer-events: none;
+            background: transparent;
+        }
+
+        .optical-tuning-range-pair .optical-tuning-slider::-webkit-slider-thumb {
+            pointer-events: auto;
+        }
+
+        .optical-tuning-range-pair .optical-tuning-slider::-moz-range-thumb {
+            pointer-events: auto;
+        }
+
+        .optical-bench-preview {
+            position: relative;
+            min-height: calc(100vh - clamp(28px, 4.4vw, 56px));
+            padding: clamp(18px, 3vw, 42px);
+            border-radius: clamp(24px, 3vw, 40px);
+            overflow: hidden;
+            background: transparent;
+        }
+
+        .optical-bench-preview::before {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            content: "";
+            background: linear-gradient(
+                to right,
+                rgb(242 242 238) 0 50%,
+                rgb(5 5 5) 50% 100%
+            );
+        }
+
+        .optical-bench-stack {
+            position: relative;
+            z-index: 1;
+            display: grid;
+            min-height: 100%;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            align-content: start;
+            align-items: start;
+            gap: clamp(22px, 4.2vw, 54px);
+        }
+
+        .optical-bench-side {
+            display: grid;
+            align-content: start;
+            gap: clamp(16px, 2.4vw, 28px);
+        }
+
+        .optical-bench-set {
+            display: grid;
+            justify-items: center;
+            gap: clamp(14px, 2vw, 22px);
+            padding: clamp(20px, 3vw, 38px);
+            border-radius: clamp(26px, 3vw, 42px);
+            background:
+                linear-gradient(135deg, rgba(255, 255, 255, 0.08), transparent 34%),
+                rgba(0, 0, 0, 0.28);
+        }
+
+        .optical-bench-set--held {
+            background:
+                linear-gradient(135deg, rgba(255, 255, 255, 0.11), transparent 38%),
+                rgba(255, 255, 255, 0.04);
+        }
+
+        .optical-bench-set .optical-switch {
+            width: min(540px, 100%);
+        }
+
+        .optical-bench-set--mini {
+            --apx-size-scale: 0.68;
+            gap: clamp(9px, 1.4vw, 14px);
+            padding: clamp(13px, 2vw, 22px);
+            border-radius: clamp(18px, 2.2vw, 30px);
+            background:
+                linear-gradient(135deg, rgba(255, 255, 255, 0.10), transparent 35%),
+                rgba(0, 0, 0, 0.22);
+        }
+
+        .optical-bench-set--mini .optical-switch {
+            --switch-height: 44px;
+            --canvas-pad-x: 25px;
+            --canvas-pad-y: 23px;
+            width: min(330px, 100%);
+        }
+
+        .optical-bench-set--mini .optical-switch-button {
+            min-height: 30px;
+            margin: 4px;
+            padding-inline: 8px;
+            font-size: 10px;
+            letter-spacing: 0.01em;
+        }
+
+        .optical-bench-toggle-row {
+            display: grid;
+            width: min(540px, 100%);
+            place-items: center;
+            min-height: 78px;
+        }
+
+        .optical-bench-set--mini .optical-bench-toggle-row {
+            width: min(330px, 100%);
+            min-height: 54px;
+        }
+
+        .optical-bench-set--mini .liquid-toggle-control {
+            --toggle-anchor: 40.8px;
+            --toggle-canvas-pad: 22px;
+            flex-basis: 96px;
+            width: 96px;
+            height: 41px;
+        }
+
+        .optical-bench-set--mini .liquid-toggle-goo {
+            inset: -12px;
+        }
+
+        .optical-bench-set--mini .liquid-toggle-bridge {
+            left: var(--toggle-anchor);
+            width: 38px;
+            height: 21px;
+        }
+
+        .optical-bench-range-wrap {
+            display: grid;
+            width: min(540px, 100%);
+            gap: 8px;
+        }
+
+        .optical-bench-set--mini .optical-bench-range-wrap {
+            width: min(330px, 100%);
+        }
+
+        .optical-bench-set--mini .liquid-range-surface {
+            --canvas-pad-x: 45px;
+            --canvas-pad-y: 26px;
+            height: 7px;
+        }
+
+        .optical-bench-set--mini .liquid-range-input {
+            top: -22px;
+            left: -23px;
+            width: calc(100% + 46px);
+            height: 51px;
+        }
+
+        .optical-bench-set--mini .liquid-range-input::-webkit-slider-thumb {
+            width: 46px;
+            height: 44px;
+        }
+
+        .optical-bench-set--mini .liquid-range-input::-moz-range-thumb {
+            width: 46px;
+            height: 44px;
+        }
+
+        .optical-bench-set--mini .liquid-range-fallback::after {
+            width: 46px;
+            height: 30px;
+        }
+
+        .optical-bench-set--held [data-demo-active="true"] {
+            pointer-events: none;
+        }
+
+        .optical-square-specimen {
+            position: relative;
+            isolation: isolate;
+            display: grid;
+            min-height: clamp(300px, 30vw, 410px);
+            grid-column: 1 / -1;
+            place-items: center;
+            overflow: hidden;
+            border: 1px solid rgba(126, 130, 138, 0.20);
+            border-radius: clamp(26px, 3vw, 42px);
+            background: linear-gradient(
+                to right,
+                rgb(242 242 238) 0 50%,
+                rgb(5 5 5) 50% 100%
+            );
+        }
+
+        .optical-square-text {
+            position: absolute;
+            inset: clamp(24px, 4vw, 54px);
+            z-index: 0;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            align-items: center;
+            gap: clamp(20px, 4vw, 56px);
+            pointer-events: none;
+            user-select: none;
+        }
+
+        .optical-square-text-column {
+            display: grid;
+            gap: clamp(10px, 1.8vw, 20px);
+        }
+
+        .optical-square-text-column--light {
+            color: rgba(5, 5, 5, 0.72);
+        }
+
+        .optical-square-text-column--dark {
+            color: rgba(242, 242, 238, 0.82);
+            text-align: right;
+        }
+
+        .optical-square-text-line {
+            display: block;
+            font-size: clamp(26px, 3.8vw, 54px);
+            font-weight: 820;
+            letter-spacing: -0.055em;
+            line-height: 0.92;
+            white-space: nowrap;
+        }
+
+        .optical-square-text-line--small {
+            font-size: clamp(13px, 1.45vw, 20px);
+            font-weight: 760;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            opacity: 0.74;
+        }
+
+        .optical-square-glass {
+            z-index: 1;
         }
 
         .optical-demo-sr-only {
@@ -1003,7 +1328,24 @@
             }
 
             .optical-demo-shell {
-                border-radius: 30px;
+                grid-template-columns: 1fr;
+                border-radius: 0;
+            }
+
+            .optical-bench-preview {
+                min-height: auto;
+            }
+
+            .optical-bench-preview::before {
+                background: linear-gradient(
+                    to bottom,
+                    rgb(242 242 238) 0 50%,
+                    rgb(5 5 5) 50% 100%
+                );
+            }
+
+            .optical-bench-stack {
+                grid-template-columns: 1fr;
             }
 
             .optical-demo-topbar {
@@ -1105,6 +1447,11 @@
                 border-radius: 0;
             }
 
+            .optical-bench-preview,
+            .optical-bench-set {
+                border-radius: 0;
+            }
+
             .optical-demo-topbar {
                 padding-inline: 16px;
             }
@@ -1186,15 +1533,11 @@
                 transition-duration: 0.001ms !important;
             }
 
-            .optical-motion-block {
-                will-change: auto;
-            }
         }
 
         @media (forced-colors: active) {
             .optical-page-background,
             .optical-page-shade,
-            .optical-motion-field,
             .optical-switch-canvas,
             .liquid-toggle-canvas {
                 display: none;
@@ -1236,28 +1579,6 @@
             id="optical-color-canvas"
             aria-hidden="true"
         ></canvas>
-    </div>
-    <div class="optical-motion-field" id="optical-motion-field" aria-hidden="true">
-        <i
-            class="optical-motion-block"
-            data-motion-block
-            style="--block-rgb: 169, 83, 59; --block-alpha: 0.34"
-        ><span>A01</span></i>
-        <i
-            class="optical-motion-block"
-            data-motion-block
-            style="--block-rgb: 104, 124, 64; --block-alpha: 0.30"
-        ><span>FLOW</span></i>
-        <i
-            class="optical-motion-block"
-            data-motion-block
-            style="--block-rgb: 91, 77, 121; --block-alpha: 0.32"
-        ><span>EDGE</span></i>
-        <i
-            class="optical-motion-block"
-            data-motion-block
-            style="--block-rgb: 151, 111, 52; --block-alpha: 0.27"
-        ><span>GRID</span></i>
     </div>
     <svg
         class="liquid-filter-definitions"
@@ -1305,376 +1626,237 @@
         data-idle="true"
         data-contexts="0"
     >
-        <section class="optical-demo-shell" aria-labelledby="optical-demo-title">
-            <header class="optical-demo-topbar glass-surface">
-                <div class="optical-demo-brand" aria-label="ancserAPX">
-                    <span class="optical-demo-brand-mark" aria-hidden="true">A</span>
-                    <span><strong>ancser</strong>APX</span>
-                </div>
-
-                <div
-                    class="optical-switch"
-                    id="optical-switch-workspace"
-                    role="tablist"
-                    aria-label="Workspace view"
-                    data-optical-switch
-                    data-renderer="css"
-                    data-scene-tint="0.12"
-                    style="--segments: 2; --selected-index: 0"
-                >
-                    <canvas class="optical-switch-canvas" aria-hidden="true"></canvas>
-                    <span class="optical-switch-fallback" aria-hidden="true"></span>
-                    <button
-                        class="optical-switch-button"
-                        id="optical-tab-backtest"
-                        type="button"
-                        role="tab"
-                        aria-selected="true"
-                        aria-controls="optical-panel-backtest"
-                        tabindex="0"
-                        data-index="0"
-                        data-label="Backtest"
-                    ><span class="optical-switch-button-content">Backtest</span></button>
-                    <button
-                        class="optical-switch-button"
-                        id="optical-tab-live"
-                        type="button"
-                        role="tab"
-                        aria-selected="false"
-                        aria-controls="optical-panel-live"
-                        tabindex="-1"
-                        data-index="1"
-                        data-label="Live"
-                    ><span class="optical-switch-button-content">Live</span></button>
-                </div>
-
-                <div class="optical-demo-renderer" id="optical-renderer" data-state="idle">
-                    Initializing
-                </div>
-            </header>
-
-            <section class="optical-demo-hero">
-                <div class="optical-demo-copy">
-                    <div class="optical-demo-eyebrow">Shared background optics</div>
-                    <h1 id="optical-demo-title">Edge only. <span>Scene aware.</span></h1>
-                    <p>
-                        整頁共用同一組黑底色塊與移動物件。拖曳時，圓角鏡片會超出母膠囊上下邊界；
-                        外層維持中性玻璃，只有活動中的內層鏡片折射背景並拆分 RGB 通道。
-                    </p>
-
-                    <div class="optical-demo-proof" aria-label="Optical behavior">
-                        <article class="optical-demo-proof-item glass-surface">
-                            <strong>Solid until press</strong>
-                            <span>內層 idle 是無灰框純色；按下或切換時才淡入玻璃。</span>
-                        </article>
-                        <article class="optical-demo-proof-item glass-surface">
-                            <strong>Three-zone lens</strong>
-                            <span>中央內容輕微縮小，越過外層折射後再回捲成帶 RGB 色散的圓滑邊緣。</span>
-                        </article>
-                        <article class="optical-demo-proof-item glass-surface">
-                            <strong>Neutral outer glass</strong>
-                            <span>外層 container 一直是玻璃，但不加入三色色散。</span>
-                        </article>
-                    </div>
-                </div>
-
-                <div class="optical-demo-card-stack">
-                    <article
-                        class="optical-demo-card glass-surface is-active"
-                        id="optical-panel-backtest"
-                        role="tabpanel"
-                        aria-labelledby="optical-tab-backtest"
-                    >
-                        <div class="optical-demo-card-head">
-                            <div>
-                                <div class="optical-demo-card-label">Research workspace</div>
-                                <div class="optical-demo-card-value">+38.6%</div>
-                            </div>
-                            <div class="optical-demo-status">Ready</div>
-                        </div>
-                        <div class="optical-demo-curve" aria-label="Decorative backtest curve"></div>
-                        <div class="optical-demo-card-foot">
-                            <div class="optical-demo-stat"><span>Sharpe</span><strong>1.84</strong></div>
-                            <div class="optical-demo-stat"><span>Max DD</span><strong>−12.4%</strong></div>
-                            <div class="optical-demo-stat"><span>Universe</span><strong>30</strong></div>
-                        </div>
-                    </article>
-
-                    <article
-                        class="optical-demo-card glass-surface"
-                        id="optical-panel-live"
-                        role="tabpanel"
-                        aria-labelledby="optical-tab-live"
-                        hidden
-                    >
-                        <div class="optical-demo-card-head">
-                            <div>
-                                <div class="optical-demo-card-label">Live workspace</div>
-                                <div class="optical-demo-card-value">$2,903</div>
-                            </div>
-                            <div class="optical-demo-status">Synced</div>
-                        </div>
-                        <div class="optical-demo-curve" aria-label="Decorative live account curve"></div>
-                        <div class="optical-demo-card-foot">
-                            <div class="optical-demo-stat"><span>Exposure</span><strong>1.50×</strong></div>
-                            <div class="optical-demo-stat"><span>Positions</span><strong>20</strong></div>
-                            <div class="optical-demo-stat"><span>Orders</span><strong>Filled</strong></div>
-                        </div>
-                    </article>
-                </div>
-            </section>
-
-            <section class="optical-demo-lab" aria-labelledby="optical-lab-title">
-                <div class="optical-demo-lab-head">
-                    <div>
-                        <div class="optical-demo-lab-kicker">Stress field</div>
-                        <h2 id="optical-lab-title">Multiple bars, one scene.</h2>
-                    </div>
-                    <p>
-                        慢慢拖曳每一列。外層保持中性玻璃；活動中的內層會折射背景、移動方塊與白字，
-                        色彩只來自 RGB 錯位取樣，不是固定色點或白霧。
-                    </p>
-                </div>
-
-                <div class="optical-demo-lab-grid">
-                    <article class="optical-demo-lab-card glass-surface">
-                        <div class="optical-demo-lab-title">
-                            <h3>Risk posture</h3>
-                            <span>3-way bar</span>
-                        </div>
-                        <div
-                            class="optical-switch optical-switch--compact"
-                            id="optical-switch-risk"
-                            role="radiogroup"
-                            aria-label="Risk posture"
-                            data-optical-switch
-                            data-renderer="css"
-                            data-scene-tint="0.12"
-                            style="--segments: 3; --selected-index: 1"
-                        >
-                            <canvas class="optical-switch-canvas" aria-hidden="true"></canvas>
-                            <span class="optical-switch-fallback" aria-hidden="true"></span>
-                            <button class="optical-switch-button" type="button" role="radio" aria-checked="false" tabindex="-1" data-index="0" data-label="Momentum"><span class="optical-switch-button-content">Momentum</span></button>
-                            <button class="optical-switch-button" type="button" role="radio" aria-checked="true" tabindex="0" data-index="1" data-label="Balance"><span class="optical-switch-button-content">Balance</span></button>
-                            <button class="optical-switch-button" type="button" role="radio" aria-checked="false" tabindex="-1" data-index="2" data-label="Defense"><span class="optical-switch-button-content">Defense</span></button>
-                        </div>
-                    </article>
-
-                    <article class="optical-demo-lab-card glass-surface">
-                        <div class="optical-demo-lab-title">
-                            <h3>Signal window</h3>
-                            <span>4-way bar</span>
-                        </div>
-                        <div
-                            class="optical-switch optical-switch--compact"
-                            id="optical-switch-window"
-                            role="radiogroup"
-                            aria-label="Signal window"
-                            data-optical-switch
-                            data-renderer="css"
-                            data-scene-tint="0.12"
-                            style="--segments: 4; --selected-index: 2"
-                        >
-                            <canvas class="optical-switch-canvas" aria-hidden="true"></canvas>
-                            <span class="optical-switch-fallback" aria-hidden="true"></span>
-                            <button class="optical-switch-button" type="button" role="radio" aria-checked="false" tabindex="-1" data-index="0" data-label="1D"><span class="optical-switch-button-content">1D</span></button>
-                            <button class="optical-switch-button" type="button" role="radio" aria-checked="false" tabindex="-1" data-index="1" data-label="1W"><span class="optical-switch-button-content">1W</span></button>
-                            <button class="optical-switch-button" type="button" role="radio" aria-checked="true" tabindex="0" data-index="2" data-label="1M"><span class="optical-switch-button-content">1M</span></button>
-                            <button class="optical-switch-button" type="button" role="radio" aria-checked="false" tabindex="-1" data-index="3" data-label="3M"><span class="optical-switch-button-content">3M</span></button>
-                        </div>
-                    </article>
-
-                    <article class="optical-demo-lab-card optical-demo-lab-card--wide glass-surface">
-                        <div class="optical-demo-lab-title">
-                            <h3>Execution path</h3>
-                            <span>5-way bar · moving-object calibration</span>
-                        </div>
-                        <div
-                            class="optical-switch optical-switch--compact"
-                            id="optical-switch-flow"
-                            role="radiogroup"
-                            aria-label="Execution path"
-                            data-optical-switch
-                            data-renderer="css"
-                            data-scene-tint="0.12"
-                            style="--segments: 5; --selected-index: 0"
-                        >
-                            <canvas class="optical-switch-canvas" aria-hidden="true"></canvas>
-                            <span class="optical-switch-fallback" aria-hidden="true"></span>
-                            <button class="optical-switch-button" type="button" role="radio" aria-checked="true" tabindex="0" data-index="0" data-label="Scan"><span class="optical-switch-button-content">Scan</span></button>
-                            <button class="optical-switch-button" type="button" role="radio" aria-checked="false" tabindex="-1" data-index="1" data-label="Rank"><span class="optical-switch-button-content">Rank</span></button>
-                            <button class="optical-switch-button" type="button" role="radio" aria-checked="false" tabindex="-1" data-index="2" data-label="Size"><span class="optical-switch-button-content">Size</span></button>
-                            <button class="optical-switch-button" type="button" role="radio" aria-checked="false" tabindex="-1" data-index="3" data-label="Trade"><span class="optical-switch-button-content">Trade</span></button>
-                            <button class="optical-switch-button" type="button" role="radio" aria-checked="false" tabindex="-1" data-index="4" data-label="Review"><span class="optical-switch-button-content">Review</span></button>
-                        </div>
-                        <div class="optical-demo-block-readout" aria-label="Animated scene objects">
-                            <div>A01 · coral tile</div>
-                            <div>FLOW · moss tile</div>
-                            <div>EDGE · violet tile</div>
-                            <div>GRID · amber tile</div>
-                        </div>
-                    </article>
-                </div>
-            </section>
-
-            <section
-                class="liquid-control-suite"
-                aria-labelledby="liquid-control-suite-title"
-            >
-                <div class="liquid-control-suite-head">
-                    <div>
-                        <div class="optical-demo-lab-kicker">Control synthesis</div>
-                        <h2 id="liquid-control-suite-title">Press. Stretch. Refract.</h2>
-                    </div>
-                    <p>
-                        Toggle 的按壓、拖曳與落點共用同一套液態節奏；on/off 與長條 slider
-                        在活動時都切換到同一套 WebGL 背景取樣與內層色散。
-                    </p>
-                </div>
-
-                <div class="liquid-control-grid">
-                    <article class="liquid-control-card glass-surface">
-                        <div class="liquid-control-card-head">
-                            <div>
-                                <h3>On / off switches</h3>
-                                <p>Tap or drag. The bubble stretches with pointer velocity.</p>
-                            </div>
-                            <span class="liquid-control-badge">Goo motion</span>
-                        </div>
-
-                        <div class="liquid-toggle-list">
-                            <div class="liquid-toggle-row">
-                                <div class="liquid-toggle-copy">
-                                    <strong>Premarket routing</strong>
-                                    <span data-toggle-status>On</span>
-                                </div>
-                                <button
-                                    class="liquid-toggle-control"
-                                    id="liquid-toggle-premarket"
-                                    type="button"
-                                    role="switch"
-                                    aria-checked="true"
-                                    aria-label="Premarket routing"
-                                    data-liquid-toggle
-                                    data-initial="1"
-                                >
-                                    <span class="liquid-toggle-track" aria-hidden="true"></span>
-                                    <canvas class="liquid-toggle-canvas" aria-hidden="true"></canvas>
-                                    <span class="liquid-toggle-goo" aria-hidden="true">
-                                        <span class="liquid-toggle-bridge"></span>
-                                        <span class="liquid-toggle-thumb"></span>
-                                    </span>
-                                </button>
-                            </div>
-
-                            <div class="liquid-toggle-row">
-                                <div class="liquid-toggle-copy">
-                                    <strong>Margin guard</strong>
-                                    <span data-toggle-status>On</span>
-                                </div>
-                                <button
-                                    class="liquid-toggle-control"
-                                    id="liquid-toggle-margin"
-                                    type="button"
-                                    role="switch"
-                                    aria-checked="true"
-                                    aria-label="Margin guard"
-                                    data-liquid-toggle
-                                    data-initial="1"
-                                >
-                                    <span class="liquid-toggle-track" aria-hidden="true"></span>
-                                    <canvas class="liquid-toggle-canvas" aria-hidden="true"></canvas>
-                                    <span class="liquid-toggle-goo" aria-hidden="true">
-                                        <span class="liquid-toggle-bridge"></span>
-                                        <span class="liquid-toggle-thumb"></span>
-                                    </span>
-                                </button>
-                            </div>
-
-                            <div class="liquid-toggle-row">
-                                <div class="liquid-toggle-copy">
-                                    <strong>Universe auto-rotation</strong>
-                                    <span data-toggle-status>Off</span>
-                                </div>
-                                <button
-                                    class="liquid-toggle-control"
-                                    id="liquid-toggle-universe"
-                                    type="button"
-                                    role="switch"
-                                    aria-checked="false"
-                                    aria-label="Universe auto-rotation"
-                                    data-liquid-toggle
-                                    data-initial="0"
-                                >
-                                    <span class="liquid-toggle-track" aria-hidden="true"></span>
-                                    <canvas class="liquid-toggle-canvas" aria-hidden="true"></canvas>
-                                    <span class="liquid-toggle-goo" aria-hidden="true">
-                                        <span class="liquid-toggle-bridge"></span>
-                                        <span class="liquid-toggle-thumb"></span>
-                                    </span>
-                                </button>
-                            </div>
-                        </div>
-                    </article>
-
-                    <article class="liquid-control-card glass-surface">
-                        <div class="liquid-control-card-head">
-                            <div>
-                                <h3>Edge refraction</h3>
-                                <p>Long-form progress control with the same liquid press motion and shared scene shader.</p>
-                            </div>
-                            <span class="liquid-control-badge">Shared WebGL</span>
-                        </div>
-
-                        <div class="liquid-range-readout">
-                            <strong><output id="optical-strength-output" for="optical-strength">8</output>%</strong>
-                            <span id="optical-strength-help">Drag the glass thumb or use arrow keys.</span>
-                        </div>
-
-                        <div
-                            class="liquid-range-surface"
-                            id="liquid-range-strength"
-                            data-liquid-range
-                            data-renderer="css"
-                            data-scene-tint="0.10"
-                            style="--range-progress: 8%"
-                        >
-                            <canvas class="optical-switch-canvas" aria-hidden="true"></canvas>
-                            <span class="liquid-range-fallback" aria-hidden="true"></span>
-                            <input
-                                class="liquid-range-input"
-                                id="optical-strength"
-                                type="range"
-                                min="8"
-                                max="100"
-                                value="8"
-                                aria-label="Edge refraction strength"
-                                aria-describedby="optical-strength-help"
-                            >
-                        </div>
-
-                        <div class="liquid-range-scale" aria-hidden="true">
-                            <span>Minimal</span>
-                            <span>Balanced</span>
-                            <span>Maximum</span>
-                        </div>
-                    </article>
-                </div>
-            </section>
-
-            <footer class="optical-demo-controls glass-surface">
-                <div class="optical-demo-hint">
-                    Outer glass stays neutral · inner glass appears on interaction · RGB comes from the shared scene
-                </div>
-                <div class="optical-demo-control-group">
+        <section class="optical-demo-shell" aria-labelledby="optical-tuning-title">
+            <section class="optical-tuning-panel glass-surface" aria-labelledby="optical-tuning-title">
+                <div class="optical-tuning-head">
+                    <h2 id="optical-tuning-title">Shader tuning</h2>
                     <button
                         class="optical-demo-button"
-                        id="optical-motion"
+                        id="optical-tuning-reset"
                         type="button"
-                        aria-pressed="false"
-                    >Pause motion</button>
+                    >Reset</button>
                 </div>
-            </footer>
+                <div
+                    class="optical-tuning-grid"
+                    id="optical-tuning-grid"
+                    aria-label="Liquid glass shader tuning sliders"
+                ></div>
+            </section>
+
+            <section class="optical-bench-preview glass-surface" aria-label="Liquid glass test bench">
+                <div class="optical-bench-stack">
+                    <div class="optical-bench-side optical-bench-side--light" aria-label="White background controls">
+                        <div class="optical-bench-set" aria-label="White interactive controls">
+                            <div
+                                class="optical-switch"
+                                id="optical-switch-light"
+                                role="tablist"
+                                aria-label="White workspace view"
+                                data-optical-switch
+                                data-renderer="css"
+                                data-scene-tint="0.06"
+                                style="--segments: 2; --selected-index: 0"
+                            >
+                                <canvas class="optical-switch-canvas" aria-hidden="true"></canvas>
+                                <span class="optical-switch-fallback" aria-hidden="true"></span>
+                                <button class="optical-switch-button" id="optical-tab-light-backtest" type="button" role="tab" aria-selected="true" aria-controls="optical-panel-light-backtest" tabindex="0" data-index="0" data-label="Backtest"><span class="optical-switch-button-content">Backtest</span></button>
+                                <button class="optical-switch-button" id="optical-tab-light-live" type="button" role="tab" aria-selected="false" aria-controls="optical-panel-light-live" tabindex="-1" data-index="1" data-label="Live"><span class="optical-switch-button-content">Live</span></button>
+                            </div>
+                            <div class="optical-demo-sr-only">
+                                <div id="optical-panel-light-backtest" role="tabpanel" aria-labelledby="optical-tab-light-backtest"></div>
+                                <div id="optical-panel-light-live" role="tabpanel" aria-labelledby="optical-tab-light-live" hidden></div>
+                            </div>
+                            <div class="liquid-toggle-row optical-bench-toggle-row">
+                                <span class="optical-demo-sr-only" data-toggle-status>On</span>
+                                <button class="liquid-toggle-control" id="liquid-toggle-light" type="button" role="switch" aria-checked="true" aria-label="White toggle preview" data-liquid-toggle data-initial="1">
+                                    <span class="liquid-toggle-track" aria-hidden="true"></span>
+                                    <canvas class="liquid-toggle-canvas" aria-hidden="true"></canvas>
+                                    <span class="liquid-toggle-goo" aria-hidden="true"><span class="liquid-toggle-bridge"></span><span class="liquid-toggle-thumb"></span></span>
+                                </button>
+                            </div>
+                            <div class="optical-bench-range-wrap">
+                                <output class="optical-demo-sr-only" id="optical-strength-output" for="optical-strength">52</output>
+                                <span class="optical-demo-sr-only" id="optical-strength-help">Drag or use arrow keys.</span>
+                                <div class="liquid-range-surface" id="liquid-range-strength" data-liquid-range data-renderer="css" data-scene-tint="0.06" style="--range-progress: 52%">
+                                    <canvas class="optical-switch-canvas" aria-hidden="true"></canvas>
+                                    <span class="liquid-range-fallback" aria-hidden="true"></span>
+                                    <input class="liquid-range-input" id="optical-strength" type="range" min="8" max="100" value="52" aria-label="White edge refraction strength" aria-describedby="optical-strength-help">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="optical-bench-set optical-bench-set--held" aria-label="White held active controls">
+                            <div class="optical-switch" id="optical-switch-light-held" role="tablist" aria-label="White held workspace view" data-optical-switch data-demo-active="true" data-renderer="css" data-scene-tint="0.06" style="--segments: 2; --selected-index: 1">
+                                <canvas class="optical-switch-canvas" aria-hidden="true"></canvas>
+                                <span class="optical-switch-fallback" aria-hidden="true"></span>
+                                <button class="optical-switch-button" id="optical-tab-light-held-backtest" type="button" role="tab" aria-selected="false" aria-controls="optical-panel-light-held-backtest" tabindex="-1" data-index="0" data-label="Backtest"><span class="optical-switch-button-content">Backtest</span></button>
+                                <button class="optical-switch-button" id="optical-tab-light-held-live" type="button" role="tab" aria-selected="true" aria-controls="optical-panel-light-held-live" tabindex="0" data-index="1" data-label="Live"><span class="optical-switch-button-content">Live</span></button>
+                            </div>
+                            <div class="optical-demo-sr-only">
+                                <div id="optical-panel-light-held-backtest" role="tabpanel" aria-labelledby="optical-tab-light-held-backtest" hidden></div>
+                                <div id="optical-panel-light-held-live" role="tabpanel" aria-labelledby="optical-tab-light-held-live"></div>
+                            </div>
+                            <div class="liquid-toggle-row optical-bench-toggle-row">
+                                <span class="optical-demo-sr-only" data-toggle-status>On</span>
+                                <button class="liquid-toggle-control" id="liquid-toggle-light-held" type="button" role="switch" aria-checked="true" aria-label="White held toggle preview" data-liquid-toggle data-demo-active="true" data-initial="1">
+                                    <span class="liquid-toggle-track" aria-hidden="true"></span>
+                                    <canvas class="liquid-toggle-canvas" aria-hidden="true"></canvas>
+                                    <span class="liquid-toggle-goo" aria-hidden="true"><span class="liquid-toggle-bridge"></span><span class="liquid-toggle-thumb"></span></span>
+                                </button>
+                            </div>
+                            <div class="optical-bench-range-wrap">
+                                <div class="liquid-range-surface" id="liquid-range-strength-light-held" data-liquid-range data-demo-active="true" data-renderer="css" data-scene-tint="0.06" style="--range-progress: 58%">
+                                    <canvas class="optical-switch-canvas" aria-hidden="true"></canvas>
+                                    <span class="liquid-range-fallback" aria-hidden="true"></span>
+                                    <input class="liquid-range-input" id="optical-strength-light-held" type="range" min="8" max="100" value="58" aria-label="White held edge refraction strength">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="optical-bench-set optical-bench-set--mini" aria-label="White small APX controls" data-apx-size="sm">
+                            <div class="optical-switch" id="optical-switch-light-mini" role="tablist" aria-label="White small workspace view" data-optical-switch data-demo-active="true" data-renderer="css" data-scene-tint="0.06" style="--segments: 2; --selected-index: 1">
+                                <canvas class="optical-switch-canvas" aria-hidden="true"></canvas>
+                                <span class="optical-switch-fallback" aria-hidden="true"></span>
+                                <button class="optical-switch-button" id="optical-tab-light-mini-backtest" type="button" role="tab" aria-selected="false" aria-controls="optical-panel-light-mini-backtest" tabindex="-1" data-index="0" data-label="Backtest"><span class="optical-switch-button-content">Backtest</span></button>
+                                <button class="optical-switch-button" id="optical-tab-light-mini-live" type="button" role="tab" aria-selected="true" aria-controls="optical-panel-light-mini-live" tabindex="0" data-index="1" data-label="Live"><span class="optical-switch-button-content">Live</span></button>
+                            </div>
+                            <div class="optical-demo-sr-only">
+                                <div id="optical-panel-light-mini-backtest" role="tabpanel" aria-labelledby="optical-tab-light-mini-backtest" hidden></div>
+                                <div id="optical-panel-light-mini-live" role="tabpanel" aria-labelledby="optical-tab-light-mini-live"></div>
+                            </div>
+                            <div class="liquid-toggle-row optical-bench-toggle-row">
+                                <span class="optical-demo-sr-only" data-toggle-status>On</span>
+                                <button class="liquid-toggle-control" id="liquid-toggle-light-mini" type="button" role="switch" aria-checked="true" aria-label="White small toggle preview" data-liquid-toggle data-initial="1">
+                                    <span class="liquid-toggle-track" aria-hidden="true"></span>
+                                    <canvas class="liquid-toggle-canvas" aria-hidden="true"></canvas>
+                                    <span class="liquid-toggle-goo" aria-hidden="true"><span class="liquid-toggle-bridge"></span><span class="liquid-toggle-thumb"></span></span>
+                                </button>
+                            </div>
+                            <div class="optical-bench-range-wrap">
+                                <div class="liquid-range-surface" id="liquid-range-strength-light-mini" data-liquid-range data-demo-active="true" data-renderer="css" data-scene-tint="0.06" style="--range-progress: 58%">
+                                    <canvas class="optical-switch-canvas" aria-hidden="true"></canvas>
+                                    <span class="liquid-range-fallback" aria-hidden="true"></span>
+                                    <input class="liquid-range-input" id="optical-strength-light-mini" type="range" min="8" max="100" value="58" aria-label="White small edge refraction strength">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="optical-bench-side optical-bench-side--dark" aria-label="Black background controls">
+                        <div class="optical-bench-set" aria-label="Black interactive controls">
+                            <div class="optical-switch" id="optical-switch-dark" role="tablist" aria-label="Black workspace view" data-optical-switch data-renderer="css" data-scene-tint="0.12" style="--segments: 2; --selected-index: 0">
+                                <canvas class="optical-switch-canvas" aria-hidden="true"></canvas>
+                                <span class="optical-switch-fallback" aria-hidden="true"></span>
+                                <button class="optical-switch-button" id="optical-tab-dark-backtest" type="button" role="tab" aria-selected="true" aria-controls="optical-panel-dark-backtest" tabindex="0" data-index="0" data-label="Backtest"><span class="optical-switch-button-content">Backtest</span></button>
+                                <button class="optical-switch-button" id="optical-tab-dark-live" type="button" role="tab" aria-selected="false" aria-controls="optical-panel-dark-live" tabindex="-1" data-index="1" data-label="Live"><span class="optical-switch-button-content">Live</span></button>
+                            </div>
+                            <div class="optical-demo-sr-only">
+                                <div id="optical-panel-dark-backtest" role="tabpanel" aria-labelledby="optical-tab-dark-backtest"></div>
+                                <div id="optical-panel-dark-live" role="tabpanel" aria-labelledby="optical-tab-dark-live" hidden></div>
+                            </div>
+                            <div class="liquid-toggle-row optical-bench-toggle-row">
+                                <span class="optical-demo-sr-only" data-toggle-status>On</span>
+                                <button class="liquid-toggle-control" id="liquid-toggle-dark" type="button" role="switch" aria-checked="true" aria-label="Black toggle preview" data-liquid-toggle data-initial="1">
+                                    <span class="liquid-toggle-track" aria-hidden="true"></span>
+                                    <canvas class="liquid-toggle-canvas" aria-hidden="true"></canvas>
+                                    <span class="liquid-toggle-goo" aria-hidden="true"><span class="liquid-toggle-bridge"></span><span class="liquid-toggle-thumb"></span></span>
+                                </button>
+                            </div>
+                            <div class="optical-bench-range-wrap">
+                                <div class="liquid-range-surface" id="liquid-range-strength-dark" data-liquid-range data-renderer="css" data-scene-tint="0.12" style="--range-progress: 52%">
+                                    <canvas class="optical-switch-canvas" aria-hidden="true"></canvas>
+                                    <span class="liquid-range-fallback" aria-hidden="true"></span>
+                                    <input class="liquid-range-input" id="optical-strength-dark" type="range" min="8" max="100" value="52" aria-label="Black edge refraction strength">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="optical-bench-set optical-bench-set--held" aria-label="Black held active controls">
+                            <div class="optical-switch" id="optical-switch-dark-held" role="tablist" aria-label="Black held workspace view" data-optical-switch data-demo-active="true" data-renderer="css" data-scene-tint="0.12" style="--segments: 2; --selected-index: 1">
+                                <canvas class="optical-switch-canvas" aria-hidden="true"></canvas>
+                                <span class="optical-switch-fallback" aria-hidden="true"></span>
+                                <button class="optical-switch-button" id="optical-tab-dark-held-backtest" type="button" role="tab" aria-selected="false" aria-controls="optical-panel-dark-held-backtest" tabindex="-1" data-index="0" data-label="Backtest"><span class="optical-switch-button-content">Backtest</span></button>
+                                <button class="optical-switch-button" id="optical-tab-dark-held-live" type="button" role="tab" aria-selected="true" aria-controls="optical-panel-dark-held-live" tabindex="0" data-index="1" data-label="Live"><span class="optical-switch-button-content">Live</span></button>
+                            </div>
+                            <div class="optical-demo-sr-only">
+                                <div id="optical-panel-dark-held-backtest" role="tabpanel" aria-labelledby="optical-tab-dark-held-backtest" hidden></div>
+                                <div id="optical-panel-dark-held-live" role="tabpanel" aria-labelledby="optical-tab-dark-held-live"></div>
+                            </div>
+                            <div class="liquid-toggle-row optical-bench-toggle-row">
+                                <span class="optical-demo-sr-only" data-toggle-status>On</span>
+                                <button class="liquid-toggle-control" id="liquid-toggle-dark-held" type="button" role="switch" aria-checked="true" aria-label="Black held toggle preview" data-liquid-toggle data-demo-active="true" data-initial="1">
+                                    <span class="liquid-toggle-track" aria-hidden="true"></span>
+                                    <canvas class="liquid-toggle-canvas" aria-hidden="true"></canvas>
+                                    <span class="liquid-toggle-goo" aria-hidden="true"><span class="liquid-toggle-bridge"></span><span class="liquid-toggle-thumb"></span></span>
+                                </button>
+                            </div>
+                            <div class="optical-bench-range-wrap">
+                                <div class="liquid-range-surface" id="liquid-range-strength-dark-held" data-liquid-range data-demo-active="true" data-renderer="css" data-scene-tint="0.12" style="--range-progress: 58%">
+                                    <canvas class="optical-switch-canvas" aria-hidden="true"></canvas>
+                                    <span class="liquid-range-fallback" aria-hidden="true"></span>
+                                    <input class="liquid-range-input" id="optical-strength-dark-held" type="range" min="8" max="100" value="58" aria-label="Black held edge refraction strength">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="optical-bench-set optical-bench-set--mini" aria-label="Black small APX controls" data-apx-size="sm">
+                            <div class="optical-switch" id="optical-switch-dark-mini" role="tablist" aria-label="Black small workspace view" data-optical-switch data-demo-active="true" data-renderer="css" data-scene-tint="0.12" style="--segments: 2; --selected-index: 1">
+                                <canvas class="optical-switch-canvas" aria-hidden="true"></canvas>
+                                <span class="optical-switch-fallback" aria-hidden="true"></span>
+                                <button class="optical-switch-button" id="optical-tab-dark-mini-backtest" type="button" role="tab" aria-selected="false" aria-controls="optical-panel-dark-mini-backtest" tabindex="-1" data-index="0" data-label="Backtest"><span class="optical-switch-button-content">Backtest</span></button>
+                                <button class="optical-switch-button" id="optical-tab-dark-mini-live" type="button" role="tab" aria-selected="true" aria-controls="optical-panel-dark-mini-live" tabindex="0" data-index="1" data-label="Live"><span class="optical-switch-button-content">Live</span></button>
+                            </div>
+                            <div class="optical-demo-sr-only">
+                                <div id="optical-panel-dark-mini-backtest" role="tabpanel" aria-labelledby="optical-tab-dark-mini-backtest" hidden></div>
+                                <div id="optical-panel-dark-mini-live" role="tabpanel" aria-labelledby="optical-tab-dark-mini-live"></div>
+                            </div>
+                            <div class="liquid-toggle-row optical-bench-toggle-row">
+                                <span class="optical-demo-sr-only" data-toggle-status>On</span>
+                                <button class="liquid-toggle-control" id="liquid-toggle-dark-mini" type="button" role="switch" aria-checked="true" aria-label="Black small toggle preview" data-liquid-toggle data-initial="1">
+                                    <span class="liquid-toggle-track" aria-hidden="true"></span>
+                                    <canvas class="liquid-toggle-canvas" aria-hidden="true"></canvas>
+                                    <span class="liquid-toggle-goo" aria-hidden="true"><span class="liquid-toggle-bridge"></span><span class="liquid-toggle-thumb"></span></span>
+                                </button>
+                            </div>
+                            <div class="optical-bench-range-wrap">
+                                <div class="liquid-range-surface" id="liquid-range-strength-dark-mini" data-liquid-range data-demo-active="true" data-renderer="css" data-scene-tint="0.12" style="--range-progress: 58%">
+                                    <canvas class="optical-switch-canvas" aria-hidden="true"></canvas>
+                                    <span class="liquid-range-fallback" aria-hidden="true"></span>
+                                    <input class="liquid-range-input" id="optical-strength-dark-mini" type="range" min="8" max="100" value="58" aria-label="Black small edge refraction strength">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="optical-square-specimen" aria-label="Square glass placeholder text refraction preview">
+                        <div class="optical-square-text" aria-hidden="true">
+                            <div class="optical-square-text-column optical-square-text-column--light">
+                                <span class="optical-square-text-line optical-square-text-line--small">Placeholder text</span>
+                                <span class="optical-square-text-line">Refraction</span>
+                                <span class="optical-square-text-line">Result</span>
+                            </div>
+                            <div class="optical-square-text-column optical-square-text-column--dark">
+                                <span class="optical-square-text-line optical-square-text-line--small">Edge sample</span>
+                                <span class="optical-square-text-line">Liquid</span>
+                                <span class="optical-square-text-line">Glass</span>
+                            </div>
+                        </div>
+                        <div
+                            class="optical-square-glass"
+                            id="optical-square-glass"
+                            data-liquid-square
+                            data-demo-active="true"
+                            data-renderer="css"
+                            data-scene-tint="0.02"
+                        >
+                            <canvas class="optical-switch-canvas" aria-hidden="true"></canvas>
+                            <span class="optical-square-fallback" aria-hidden="true"></span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <div class="optical-demo-renderer" id="optical-renderer" data-state="idle" hidden></div>
         </section>
 
         <p class="optical-demo-sr-only" id="optical-announcer" aria-live="polite"></p>
@@ -1687,6 +1869,7 @@
             const CANVAS_PAD_X = 36;
             const CANVAS_PAD_Y = 32;
             const stage = document.getElementById("optical-demo-stage");
+            const benchPreview = document.querySelector(".optical-bench-preview");
             const pageBackground = document.getElementById("optical-page-background");
             const colorBackgroundCanvas = document.getElementById(
                 "optical-color-canvas"
@@ -1698,8 +1881,8 @@
             const rendererBadge = document.getElementById("optical-renderer");
             const strengthInput = document.getElementById("optical-strength");
             const strengthOutput = document.getElementById("optical-strength-output");
-            const strengthRangeRoot = document.getElementById("liquid-range-strength");
-            const motionButton = document.getElementById("optical-motion");
+            const tuningGrid = document.getElementById("optical-tuning-grid");
+            const tuningReset = document.getElementById("optical-tuning-reset");
             const announcer = document.getElementById("optical-announcer");
             const reduceMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
             const qaMode = new URLSearchParams(window.location.search).has("qa");
@@ -1733,6 +1916,14 @@
                 uniform float uVelocity;
                 uniform float uTrackVisibility;
                 uniform float uNeutralWeight;
+                uniform float uShapeMode;
+                uniform vec4 uShapeTuning;
+                uniform vec4 uInnerTuning;
+                uniform vec4 uBlendTuning;
+                uniform vec4 uEdgeTuning;
+                uniform vec4 uRimTuning;
+                uniform vec4 uRoundTuning;
+                uniform vec4 uTransitionTuning;
 
                 in vec2 vUV;
                 out vec4 fragColor;
@@ -1757,6 +1948,46 @@
                         0.0
                     );
                     return length(point - axisPoint) - radius;
+                }
+
+                float roundedBoxDistance(
+                    vec2 point,
+                    vec2 halfSize,
+                    float radius
+                ) {
+                    vec2 q = abs(point) - halfSize + vec2(radius);
+                    return length(max(q, 0.0))
+                        + min(max(q.x, q.y), 0.0)
+                        - radius;
+                }
+
+                float lensDistanceAt(vec2 point) {
+                    float squareRadius = min(
+                        min(uLensHalfSizePx.x, uLensHalfSizePx.y) * 0.31,
+                        42.0 * uPixelRatio
+                    );
+                    return mix(
+                        capsuleDistance(point, uLensHalfSizePx),
+                        roundedBoxDistance(
+                            point,
+                            uLensHalfSizePx,
+                            squareRadius
+                        ),
+                        uShapeMode
+                    );
+                }
+
+                vec2 lensDistanceNormal(vec2 point) {
+                    float eps = max(0.75, uPixelRatio);
+                    vec2 gradient = vec2(
+                        lensDistanceAt(point + vec2(eps, 0.0))
+                            - lensDistanceAt(point - vec2(eps, 0.0)),
+                        lensDistanceAt(point + vec2(0.0, eps))
+                            - lensDistanceAt(point - vec2(0.0, eps))
+                    );
+                    return length(gradient) > 0.0001
+                        ? normalize(gradient)
+                        : vec2(0.0, 1.0);
                 }
 
                 float trackSignedDistanceAt(vec2 px) {
@@ -1843,32 +2074,7 @@
                         0.36,
                         uInteraction
                     );
-                    float rawLensSignedDistance = capsuleDistance(
-                        d,
-                        uLensHalfSizePx
-                    );
-                    float lensHorizontalProgress = clamp(
-                        abs(d.x) / max(uLensHalfSizePx.x, 1.0),
-                        0.0,
-                        1.0
-                    );
-                    float topSidePull =
-                        smoothstep(
-                            0.04,
-                            0.92,
-                            clamp(-d.y / max(uLensHalfSizePx.y, 1.0), 0.0, 1.0)
-                        )
-                        * (1.0 - smoothstep(
-                            0.10,
-                            0.76,
-                            lensHorizontalProgress
-                        ));
-                    float lensSignedDistance =
-                        rawLensSignedDistance
-                        + topSidePull
-                            * glassActivation
-                            * mix(3.2, 10.4, uStrength)
-                            * uPixelRatio;
+                    float lensSignedDistance = lensDistanceAt(d);
                     float lensAA = max(
                         fwidth(lensSignedDistance) * 1.15,
                         0.75
@@ -1878,51 +2084,46 @@
                         lensAA,
                         lensSignedDistance
                     );
-                    float shadowSignedDistance = capsuleDistance(
-                        fragPx
-                            - (
-                                uLensCenterPx
-                                + vec2(
-                                    0.0,
-                                    mix(6.5, 15.0, uInteraction) * uPixelRatio
-                                )
-                            ),
-                        uLensHalfSizePx
-                            + vec2(
-                                mix(4.0, 7.6, uStrength),
-                                mix(4.0, 8.8, uStrength)
-                            ) * uPixelRatio
-                    );
-                    float lowerShadowFalloff =
-                        1.0 - smoothstep(
-                            -1.5 * uPixelRatio,
-                            31.0 * uPixelRatio,
-                            shadowSignedDistance
-                        );
-                    float lowerShadowMask =
-                        lowerShadowFalloff
-                        * (1.0 - lensMask)
-                        * smoothstep(
-                            -0.34,
-                            1.0,
-                            (fragPx.y - uLensCenterPx.y)
-                                / max(uLensHalfSizePx.y, 1.0)
-                        )
-                        * glassActivation
-                        * mix(0.26, 0.56, uStrength);
-                    float glassOutputMask = max(
+                    float outputMask = max(
                         trackMask * uTrackVisibility,
                         lensMask
                     );
-                    float outputMask = max(glassOutputMask, lowerShadowMask);
 
                     if (outputMask <= 0.001) {
                         fragColor = vec4(0.0);
                         return;
                     }
 
+                    vec2 capsuleNormal = lensRadialLength > 0.0001
+                        ? lensRadial / lensRadialLength
+                        : vec2(0.0, 1.0);
+                    vec2 normal2D = normalize(mix(
+                        capsuleNormal,
+                        lensDistanceNormal(d),
+                        uShapeMode
+                    ));
+                    vec2 tangent = vec2(-normal2D.y, normal2D.x);
                     float edgeWidthPx =
-                        mix(15.5, 30.0, uInteraction) * uPixelRatio;
+                        mix(uShapeTuning.x, uShapeTuning.y, uInteraction)
+                            * uPixelRatio;
+                    float floatingLensWeight = 1.0 - uTrackVisibility;
+                    float transitionWidthPx = max(
+                        edgeWidthPx
+                            * mix(
+                                uInnerTuning.x,
+                                uInnerTuning.y,
+                                floatingLensWeight
+                            ),
+                        uTransitionTuning.x
+                            * uPixelRatio
+                            * mix(0.86, 1.18, floatingLensWeight)
+                    );
+                    float transitionDecay = max(uTransitionTuning.y, 0.05);
+                    float rgbBandWidthPx = max(
+                        edgeWidthPx,
+                        uTransitionTuning.z * uPixelRatio
+                    );
+                    float edgeTaperPower = max(uTransitionTuning.w, 0.05);
                     float normalizedLensDepth = clamp(
                         -lensSignedDistance / max(lensRadiusPx, 1.0),
                         0.0,
@@ -1934,12 +2135,58 @@
                         * glassActivation;
                     float contentSampleScale =
                         1.0
-                        + 0.085
+                        + (
+                            uShapeTuning.z
+                            + floatingLensWeight * uShapeTuning.w
+                        )
                             * uInteraction
                             * mix(0.72, 1.0, uStrength);
                     vec2 compressedContentPx =
                         uLensCenterPx + d * contentSampleScale;
                     vec4 compressedContent = sceneAt(compressedContentPx);
+                    float transitionLinear = smoothstep(
+                        -transitionWidthPx,
+                        -0.54 * uPixelRatio,
+                        lensSignedDistance
+                    );
+                    float transitionProgress = clamp(
+                        (1.0 - exp(-transitionLinear * transitionDecay))
+                            / max(1.0 - exp(-transitionDecay), 0.001),
+                        0.0,
+                        1.0
+                    );
+                    float innerEdgeProgress =
+                        transitionProgress * lensMask * glassActivation;
+                    float edgeFoldCurve = pow(
+                        transitionProgress,
+                        mix(1.18, 0.92, floatingLensWeight)
+                    ) * lensMask * glassActivation;
+                    float sideRoundPull =
+                        mix(
+                            uRoundTuning.x,
+                            uRoundTuning.y,
+                            pow(abs(normal2D.x), 0.62)
+                        );
+                    float innerRefractionPullPx =
+                        (
+                            uInnerTuning.z * mix(0.72, 1.0, uStrength)
+                            + floatingLensWeight * uInnerTuning.w
+                        )
+                        * uPixelRatio
+                        * uInteraction
+                        * sideRoundPull;
+                    vec2 innerWarpedContentPx =
+                        compressedContentPx
+                        - normal2D
+                            * innerRefractionPullPx
+                            * edgeFoldCurve
+                        + tangent
+                            * dot(d, tangent)
+                            / max(lensRadiusPx, 1.0)
+                            * innerRefractionPullPx
+                            * 0.36
+                            * edgeFoldCurve;
+                    vec4 innerWarpedContent = sceneAt(innerWarpedContentPx);
                     base = mix(
                         base,
                         compressedContent,
@@ -1948,7 +2195,18 @@
                             lensMask * smoothstep(0.02, 0.14, uInteraction)
                         )
                     );
+                    base = mix(
+                        base,
+                        innerWarpedContent,
+                        innerEdgeProgress
+                            * mix(uBlendTuning.x, uBlendTuning.y, uInteraction)
+                    );
 
+                    float edgeProgress = smoothstep(
+                        -edgeWidthPx,
+                        0.0,
+                        lensSignedDistance
+                    );
                     float edgeBand =
                         smoothstep(
                             -edgeWidthPx,
@@ -1962,23 +2220,38 @@
                         ))
                         * lensMask
                         * glassActivation;
+                    float rgbSpreadProgress = smoothstep(
+                        -rgbBandWidthPx,
+                        0.0,
+                        lensSignedDistance
+                    );
+                    float rgbHaloBand =
+                        smoothstep(
+                            -rgbBandWidthPx,
+                            -edgeWidthPx * 0.45,
+                            lensSignedDistance
+                        )
+                        * (1.0 - smoothstep(
+                            0.0,
+                            lensAA,
+                            lensSignedDistance
+                        ))
+                        * lensMask
+                        * glassActivation;
 
-                    if (edgeBand <= 0.001) {
-                        fragColor = vec4(
-                            base.rgb * glassOutputMask,
-                            outputMask
-                        );
+                    if (max(edgeBand, rgbHaloBand) <= 0.001) {
+                        fragColor = vec4(base.rgb * outputMask, outputMask);
                         return;
                     }
 
-                    vec2 normal2D = lensRadialLength > 0.0001
-                        ? lensRadial / lensRadialLength
-                        : vec2(0.0, 1.0);
-                    vec2 tangent = vec2(-normal2D.y, normal2D.x);
-                    float edgeProgress = smoothstep(
-                        -edgeWidthPx,
-                        0.0,
-                        lensSignedDistance
+                    float edgeInnerTaper = pow(
+                        clamp(1.0 - edgeProgress * 0.92, 0.0, 1.0),
+                        edgeTaperPower
+                    );
+                    float edgeOpticBand = edgeBand * mix(
+                        1.0,
+                        edgeInnerTaper,
+                        0.62
                     );
                     float displacementPx =
                         mix(5.0, 9.0, uStrength)
@@ -2017,7 +2290,7 @@
                         + tangent * dot(d, tangent) * 0.30;
 
                     float blurRadiusPx =
-                        mix(0.9, 1.75, uInteraction) * uPixelRatio;
+                        uEdgeTuning.x * uPixelRatio;
                     vec4 refracted =
                         sceneAt(refractedPx) * 0.40
                         + sceneAt(
@@ -2032,24 +2305,49 @@
                         + sceneAt(
                             refractedPx - normal2D * blurRadiusPx
                         ) * 0.15;
+                    float edgeCrispness = smoothstep(
+                        uEdgeTuning.y,
+                        uEdgeTuning.z,
+                        edgeProgress
+                    );
+                    refracted = mix(
+                        refracted,
+                        sceneAt(refractedPx),
+                        edgeCrispness * 0.72
+                    );
                     float chromaticShiftPx =
-                        mix(1.45, 6.20, uInteraction)
-                        * mix(0.82, 1.16, uStrength)
+                        uEdgeTuning.w
+                        * mix(0.72, 1.0, uStrength)
                         * uPixelRatio;
-                    vec2 dispersionRay = refractedPx - fragPx;
+                    float rgbHaloProgress = pow(
+                        rgbSpreadProgress,
+                        max(0.35, edgeTaperPower * 0.55)
+                    );
+                    vec2 chromaticBasePx = mix(
+                        compressedContentPx,
+                        innerWarpedContentPx,
+                        clamp(
+                            innerEdgeProgress
+                                + rgbHaloBand * rgbHaloProgress * 0.72,
+                            0.0,
+                            1.0
+                        )
+                    );
+                    vec2 dispersionRay =
+                        chromaticBasePx - compressedContentPx;
                     vec2 dispersionDirection =
                         length(dispersionRay) > 0.01
                             ? normalize(dispersionRay)
                             : -normal2D;
                     vec4 redChannel = sceneAt(
-                        refractedPx
+                        chromaticBasePx
                             + dispersionDirection
                             * chromaticShiftPx
                             * 0.82
                     );
-                    vec4 greenChannel = sceneAt(refractedPx);
+                    vec4 greenChannel = sceneAt(chromaticBasePx);
                     vec4 blueChannel = sceneAt(
-                        refractedPx
+                        chromaticBasePx
                             - dispersionDirection
                             * chromaticShiftPx
                     );
@@ -2058,17 +2356,19 @@
                         greenChannel.g,
                         blueChannel.b
                     );
-                    float dispersedLuma = dot(
-                        dispersedRGB,
-                        vec3(0.2126, 0.7152, 0.0722)
-                    );
-                    dispersedRGB = clamp(
-                        mix(vec3(dispersedLuma), dispersedRGB, 1.68),
-                        0.0,
-                        1.0
-                    );
                     float chromaticBand =
-                        smoothstep(0.10, 0.72, edgeProgress);
+                        max(
+                            smoothstep(0.30, 0.94, edgeProgress),
+                            rgbHaloBand * rgbHaloProgress
+                        );
+                    base.rgb = mix(
+                        base.rgb,
+                        dispersedRGB,
+                        rgbHaloBand
+                            * rgbHaloProgress
+                            * mix(uRoundTuning.z, uRoundTuning.w, uInteraction)
+                            * 0.78
+                    );
                     vec4 reflected = sceneAt(reflectedPx);
                     float reflectionMix =
                         smoothstep(
@@ -2080,69 +2380,80 @@
                         * mix(0.72, 1.0, uInteraction)
                         * mix(0.58, 1.0, uNeutralWeight);
                     vec4 edgePixels = mix(refracted, reflected, reflectionMix);
-                    float chromaMix = clamp(
-                        chromaticBand
-                            * mix(0.78, 1.12, uInteraction)
-                            * (1.0 - reflectionMix * 0.45),
-                        0.0,
-                        1.0
-                    );
                     edgePixels.rgb = mix(
                         edgePixels.rgb,
                         dispersedRGB,
-                        chromaMix
+                        chromaticBand
+                            * mix(uRoundTuning.z, uRoundTuning.w, uInteraction)
+                            * 1.18
+                            * (1.0 - reflectionMix * 0.45)
                     );
-                    float topFoldBand =
+                    float rimFoldBand =
                         edgeBand
-                        * smoothstep(0.18, 0.96, -normal2D.y)
-                        * smoothstep(0.08, 0.92, edgeProgress);
-                    float topLineFocus = pow(
-                        smoothstep(0.30, 1.0, edgeProgress),
-                        1.7
+                        * smoothstep(uBlendTuning.z, 0.76, edgeProgress);
+                    float rimFoldProgress = pow(
+                        smoothstep(0.04, 1.0, edgeProgress),
+                        0.92
                     );
-                    vec2 topFoldDirection = normalize(
-                        vec2(sign(d.x + 0.0001) * 0.34, -1.0)
+                    vec2 centerFoldPx = mix(
+                        innerWarpedContentPx,
+                        reflectedPx,
+                        rimFoldProgress
                     );
-                    vec2 topFoldPx =
-                        uLensCenterPx
-                        + vec2(
-                            d.x * mix(0.82, 0.30, topLineFocus),
-                            -uLensHalfSizePx.y
-                                * mix(0.62, 0.03, topLineFocus)
-                        );
-                    vec3 topFoldRGB = vec3(
-                        sceneAt(
-                            topFoldPx
-                                + topFoldDirection
-                                    * chromaticShiftPx
-                                    * 1.05
-                        ).r,
-                        sceneAt(topFoldPx).g,
-                        sceneAt(
-                            topFoldPx
-                                - topFoldDirection
-                                    * chromaticShiftPx
-                                    * 1.12
-                        ).b
+                    vec4 foldedContent = sceneAt(centerFoldPx);
+                    edgePixels.rgb = mix(
+                        edgePixels.rgb,
+                        foldedContent.rgb,
+                        rimFoldBand * uBlendTuning.w * uInteraction
                     );
-                    float topFoldLuma = dot(
-                        topFoldRGB,
+                    float clearRimBand =
+                        smoothstep(
+                            -uRimTuning.x * uPixelRatio,
+                            -0.38 * uPixelRatio,
+                            lensSignedDistance
+                        )
+                        * (1.0 - smoothstep(
+                            0.04 * uPixelRatio,
+                            lensAA,
+                            lensSignedDistance
+                        ))
+                        * lensMask
+                        * glassActivation;
+                    float clearRimLuma = dot(
+                        edgePixels.rgb,
                         vec3(0.2126, 0.7152, 0.0722)
                     );
-                    topFoldRGB = clamp(
-                        mix(vec3(topFoldLuma), topFoldRGB, 1.82) * 1.08,
+                    float rimRoundness =
+                        smoothstep(0.30, 1.0, edgeProgress)
+                        * mix(
+                            0.72,
+                            1.0,
+                            pow(abs(normal2D.x), 0.72)
+                        );
+                    vec3 clearRimTone = clamp(
+                        edgePixels.rgb
+                            * mix(
+                                0.78,
+                                0.54,
+                                smoothstep(0.40, 0.72, clearRimLuma)
+                                    * rimRoundness
+                            ),
                         0.0,
                         1.0
                     );
                     edgePixels.rgb = mix(
                         edgePixels.rgb,
-                        topFoldRGB,
-                        topFoldBand * mix(0.56, 0.92, uInteraction)
+                        clearRimTone,
+                        clearRimBand * uRimTuning.y * uInteraction
                     );
-                    vec4 glassPixels = mix(base, edgePixels, edgeBand);
+                    vec4 glassPixels = mix(
+                        base,
+                        edgePixels,
+                        max(edgeOpticBand, clearRimBand * 0.96)
+                    );
 
                     float shoulderWidthPx =
-                        mix(8.5, 14.0, uInteraction) * uPixelRatio;
+                        uRimTuning.z * uPixelRatio;
                     float shoulderBand =
                         smoothstep(
                             -shoulderWidthPx,
@@ -2172,8 +2483,8 @@
                     );
                     vec3 shoulderTone = clamp(
                         glassPixels.rgb * mix(
-                            1.32,
-                            0.72,
+                            1.18,
+                            0.82,
                             smoothstep(0.38, 0.64, rimLuma)
                         ),
                         0.0,
@@ -2183,13 +2494,13 @@
                         glassPixels.rgb,
                         shoulderTone,
                         shoulderBand
-                            * (0.22 + directionalLight * 0.34)
+                            * (0.12 + directionalLight * 0.22)
                             * (0.72 + fresnel * 0.28)
-                            * mix(0.52, 1.0, uNeutralWeight)
+                            * mix(0.28, 1.0, uNeutralWeight)
                     );
 
                     float coreWidthPx =
-                        mix(2.25, 3.60, uInteraction) * uPixelRatio;
+                        uRimTuning.w * uPixelRatio;
                     float coreBand =
                         smoothstep(
                             -coreWidthPx,
@@ -2205,8 +2516,8 @@
                         * glassActivation;
                     vec3 coreTone = clamp(
                         glassPixels.rgb * mix(
-                            1.44,
-                            0.58,
+                            1.30,
+                            0.70,
                             smoothstep(0.40, 0.66, rimLuma)
                         ),
                         0.0,
@@ -2216,8 +2527,8 @@
                         glassPixels.rgb,
                         coreTone,
                         coreBand
-                            * mix(0.70, 0.88, uInteraction)
-                            * mix(0.58, 1.0, uNeutralWeight)
+                            * mix(0.56, 0.70, uInteraction)
+                            * mix(0.24, 1.0, uNeutralWeight)
                     );
 
                     float topShadowBand =
@@ -2239,133 +2550,280 @@
                         lowerLightTone,
                         bottomLightBand * 0.72
                     );
-                    float lowerEdgeShadowBand =
-                        shoulderBand
-                        * smoothstep(0.04, 0.96, normal2D.y)
-                        * uInteraction;
-                    glassPixels.rgb *= 1.0 - lowerEdgeShadowBand * 0.30;
-                    glassPixels.rgb *= 1.0 - lowerShadowMask * 0.42;
 
                     fragColor = vec4(
-                        glassPixels.rgb * glassOutputMask,
+                        glassPixels.rgb * outputMask,
                         outputMask
                     );
                 }
             `;
-
-            const colorBlockSpecs = [
+            const tuningControls = [
                 {
-                    label: "夏日之聲",
-                    colorA: [255, 77, 138],
-                    colorB: [255, 156, 45],
-                    orb: [255, 220, 35],
+                    key: "edgeIdle",
+                    label: "Edge width idle",
+                    min: 2,
+                    max: 18,
+                    step: 0.1,
+                    value: 3,
+                    unit: "px",
                 },
                 {
-                    label: "熱門",
-                    colorA: [244, 196, 0],
-                    colorB: [239, 155, 0],
-                    orb: [28, 31, 38],
+                    key: "edgeActive",
+                    label: "Edge width active",
+                    min: 3,
+                    max: 24,
+                    step: 0.1,
+                    value: 24,
+                    unit: "px",
                 },
                 {
-                    label: "訊號",
-                    colorA: [244, 58, 128],
-                    colorB: [255, 100, 83],
-                    orb: [89, 23, 87],
+                    key: "centerShrink",
+                    label: "Center shrink",
+                    min: 0,
+                    max: 0.36,
+                    step: 0.005,
+                    value: 0.14,
+                    unit: "x",
                 },
                 {
-                    label: "資金流",
-                    colorA: [42, 106, 229],
-                    colorB: [70, 74, 220],
-                    orb: [15, 31, 60],
+                    key: "floatingShrink",
+                    label: "Floating shrink",
+                    min: 0,
+                    max: 0.22,
+                    step: 0.005,
+                    value: 0.22,
+                    unit: "x",
                 },
                 {
-                    label: "風險",
-                    colorA: [242, 132, 26],
-                    colorB: [232, 72, 59],
-                    orb: [104, 26, 50],
+                    key: "innerSpanTrack",
+                    label: "Inner warp span",
+                    min: 0.8,
+                    max: 4,
+                    step: 0.05,
+                    value: 1.05,
+                    unit: "edge",
                 },
                 {
-                    label: "ALPHA",
-                    colorA: [0, 196, 139],
-                    colorB: [9, 151, 106],
-                    orb: [9, 77, 66],
+                    key: "innerSpanFloating",
+                    label: "Floating warp span",
+                    min: 0.8,
+                    max: 5,
+                    step: 0.05,
+                    value: 4.6,
+                    unit: "edge",
+                },
+                {
+                    key: "transitionSpread",
+                    label: "Transition spread",
+                    min: 3,
+                    max: 42,
+                    step: 0.5,
+                    value: 42,
+                    unit: "px",
+                },
+                {
+                    key: "transitionDecay",
+                    label: "Transition decay",
+                    min: 0.2,
+                    max: 8,
+                    step: 0.05,
+                    value: 0.2,
+                    unit: "",
+                },
+                {
+                    key: "innerMixMin",
+                    label: "Inner mix min",
+                    min: 0,
+                    max: 1,
+                    step: 0.01,
+                    value: 0,
+                    unit: "",
+                },
+                {
+                    key: "innerMixMax",
+                    label: "Inner mix max",
+                    min: 0,
+                    max: 1,
+                    step: 0.01,
+                    value: 1,
+                    unit: "",
+                },
+                {
+                    key: "sideRoundMin",
+                    label: "Round pull min",
+                    min: 0.2,
+                    max: 2,
+                    step: 0.02,
+                    value: 0.2,
+                    unit: "",
+                },
+                {
+                    key: "sideRoundMax",
+                    label: "Round pull sides",
+                    min: 0.2,
+                    max: 2.6,
+                    step: 0.02,
+                    value: 2.6,
+                    unit: "",
+                },
+                {
+                    key: "rimFoldStart",
+                    label: "Rim fold start",
+                    min: 0,
+                    max: 0.7,
+                    step: 0.01,
+                    value: 0.20,
+                    unit: "",
+                },
+                {
+                    key: "rimFoldMix",
+                    label: "Rim fold mix",
+                    min: 0,
+                    max: 0.9,
+                    step: 0.01,
+                    value: 0.20,
+                    unit: "",
+                },
+                {
+                    key: "rimWidth",
+                    label: "Solid rim width",
+                    min: 0.4,
+                    max: 4,
+                    step: 0.05,
+                    value: 1.3,
+                    unit: "px",
+                },
+                {
+                    key: "rimStrength",
+                    label: "Solid rim strength",
+                    min: 0,
+                    max: 4,
+                    step: 0.01,
+                    value: 4,
+                    unit: "",
+                },
+                {
+                    key: "chromaShift",
+                    label: "RGB shift",
+                    min: 0,
+                    max: 5,
+                    step: 0.05,
+                    value: 5,
+                    unit: "px",
+                },
+                {
+                    key: "rgbBandWidth",
+                    label: "RGB band width",
+                    min: 0,
+                    max: 36,
+                    step: 0.5,
+                    value: 36,
+                    unit: "px",
+                },
+                {
+                    key: "chromaMin",
+                    label: "RGB mix min",
+                    min: 0,
+                    max: 1.2,
+                    step: 0.01,
+                    value: 0,
+                    unit: "",
+                },
+                {
+                    key: "chromaMax",
+                    label: "RGB mix max",
+                    min: 0,
+                    max: 1.2,
+                    step: 0.01,
+                    value: 1.20,
+                    unit: "",
+                },
+                {
+                    key: "edgeTaper",
+                    label: "Edge taper",
+                    min: 0.2,
+                    max: 6,
+                    step: 0.05,
+                    value: 6,
+                    unit: "",
+                },
+                {
+                    key: "edgeCrispStart",
+                    label: "Crisp start",
+                    min: 0,
+                    max: 0.8,
+                    step: 0.01,
+                    value: 0,
+                    unit: "",
+                },
+                {
+                    key: "edgeCrispEnd",
+                    label: "Crisp end",
+                    min: 0.1,
+                    max: 1,
+                    step: 0.01,
+                    value: 1,
+                    unit: "",
+                },
+                {
+                    key: "shoulderWidth",
+                    label: "Shoulder width",
+                    min: 0,
+                    max: 10,
+                    step: 0.1,
+                    value: 2.4,
+                    unit: "px",
+                },
+                {
+                    key: "coreWidth",
+                    label: "Core line width",
+                    min: 0,
+                    max: 10,
+                    step: 0.05,
+                    value: 9.5,
+                    unit: "px",
                 },
             ];
 
-            const blockSpecs = [
-                {
-                    label: "A01",
-                    rgb: [169, 83, 59],
-                    alpha: 0.34,
-                    width: 118,
-                    height: 54,
-                    baseX: 0.13,
-                    baseY: 0.24,
-                    rangeX: 0.10,
-                    rangeY: 0.08,
-                    speed: 0.00019,
-                    phase: 0.2,
-                    rotation: -10,
-                },
-                {
-                    label: "FLOW",
-                    rgb: [104, 124, 64],
-                    alpha: 0.30,
-                    width: 142,
-                    height: 60,
-                    baseX: 0.77,
-                    baseY: 0.27,
-                    rangeX: 0.11,
-                    rangeY: 0.09,
-                    speed: 0.00015,
-                    phase: 1.6,
-                    rotation: 8,
-                },
-                {
-                    label: "EDGE",
-                    rgb: [91, 77, 121],
-                    alpha: 0.32,
-                    width: 104,
-                    height: 104,
-                    baseX: 0.30,
-                    baseY: 0.76,
-                    rangeX: 0.14,
-                    rangeY: 0.08,
-                    speed: 0.00013,
-                    phase: 2.8,
-                    rotation: 14,
-                },
-                {
-                    label: "GRID",
-                    rgb: [151, 111, 52],
-                    alpha: 0.27,
-                    width: 174,
-                    height: 52,
-                    baseX: 0.77,
-                    baseY: 0.74,
-                    rangeX: 0.09,
-                    rangeY: 0.12,
-                    speed: 0.00017,
-                    phase: 4.1,
-                    rotation: -6,
-                },
+            const tuningDefaults = Object.fromEntries(
+                tuningControls.map((control) => [control.key, control.value])
+            );
+
+            const tuningState = { ...tuningDefaults };
+            const tuningControlByKey = Object.fromEntries(
+                tuningControls.map((control) => [control.key, control])
+            );
+            const tuningLayout = [
+                { type: "pair", label: "Edge width", keys: ["edgeIdle", "edgeActive"] },
+                "centerShrink",
+                "floatingShrink",
+                { type: "pair", label: "Warp span", keys: ["innerSpanTrack", "innerSpanFloating"] },
+                "transitionSpread",
+                "transitionDecay",
+                { type: "pair", label: "Inner mix", keys: ["innerMixMin", "innerMixMax"] },
+                { type: "pair", label: "Round pull", keys: ["sideRoundMin", "sideRoundMax"] },
+                { type: "pair", label: "Rim fold", keys: ["rimFoldStart", "rimFoldMix"] },
+                { type: "pair", label: "Solid rim", keys: ["rimWidth", "rimStrength"] },
+                "chromaShift",
+                "rgbBandWidth",
+                { type: "pair", label: "RGB mix", keys: ["chromaMin", "chromaMax"] },
+                "edgeTaper",
+                { type: "pair", label: "Crisp range", keys: ["edgeCrispStart", "edgeCrispEnd"] },
+                { type: "pair", label: "Light lines", keys: ["shoulderWidth", "coreWidth"] },
             ];
 
             const globalState = {
                 bars: [],
                 toggles: [],
                 rangeBar: null,
-                colorBlockRects: [],
-                blockElements: [...document.querySelectorAll("[data-motion-block]")],
-                blockPoses: [],
-                motionEnabled: !reduceMotionQuery.matches && !qaMode,
-                sceneTime: qaMode ? 2400 : 0,
+                motionEnabled: false,
                 lastTime: 0,
                 raf: 0,
                 frames: 0,
                 contexts: 0,
                 contextFailures: 0,
                 strength: Number(strengthInput.value) / 100,
+                tuning: tuningState,
                 dpr: 1,
                 geometryDirty: true,
             };
@@ -2428,44 +2886,155 @@
                 return Math.min(window.devicePixelRatio || 1, coarsePointer ? 1.25 : 1.5);
             }
 
+            const APX_SIZE_PRESETS = {
+                md: {
+                    scale: 1,
+                    switchPadXPx: 36,
+                    switchPadYPx: 32,
+                    toggleTravelPx: 56,
+                    toggleAnchorPx: 60,
+                    toggleLensBaseX: 42,
+                    toggleCanvasPadPx: 32,
+                    toggleThumbWidthPx: 74,
+                    toggleThumbHeightPx: 50,
+                    rangePadXPx: 66,
+                    rangePadYPx: 38,
+                },
+                sm: {
+                    scale: 0.68,
+                    switchPadXPx: 25,
+                    switchPadYPx: 23,
+                    toggleTravelPx: 38.1,
+                    toggleAnchorPx: 40.8,
+                    toggleLensBaseX: 28.6,
+                    toggleCanvasPadPx: 22,
+                    toggleThumbWidthPx: 50.3,
+                    toggleThumbHeightPx: 34,
+                    rangePadXPx: 45,
+                    rangePadYPx: 26,
+                },
+            };
+
+            function resolveApxSize(root) {
+                const key = root.dataset.apxSize
+                    || root.closest("[data-apx-size]")?.dataset.apxSize
+                    || "md";
+                const preset = APX_SIZE_PRESETS[key] || APX_SIZE_PRESETS.md;
+                return { key, ...preset };
+            }
+
+            function formatTuningValue(control, value) {
+                const decimals = control.step < 0.01
+                    ? 3
+                    : control.step < 0.1
+                        ? 2
+                        : 1;
+                return `${Number(value).toFixed(decimals)}${control.unit}`;
+            }
+
+            function renderTuningControls() {
+                if (!tuningGrid) return;
+                tuningGrid.textContent = "";
+                tuningLayout.forEach((item) => {
+                    const pair = typeof item === "object" && item.type === "pair";
+                    const controls = pair
+                        ? item.keys.map((key) => tuningControlByKey[key])
+                        : [tuningControlByKey[item]];
+                    if (controls.some((control) => !control)) return;
+                    const primary = controls[0];
+                    const wrapper = document.createElement("label");
+                    wrapper.className = pair
+                        ? "optical-tuning-control optical-tuning-control--pair glass-surface"
+                        : "optical-tuning-control glass-surface";
+
+                    const label = document.createElement("span");
+                    label.className = "optical-tuning-label";
+                    label.textContent = pair ? item.label : primary.label;
+
+                    const value = document.createElement("span");
+                    value.className = "optical-tuning-value";
+                    const renderValue = () => {
+                        value.textContent = controls
+                            .map((control) => formatTuningValue(
+                                control,
+                                tuningState[control.key]
+                            ))
+                            .join(" / ");
+                    };
+                    renderValue();
+                    label.append(value);
+
+                    const rangeRoot = document.createElement("span");
+                    if (pair) {
+                        rangeRoot.className = "optical-tuning-range-pair";
+                    }
+
+                    controls.forEach((control, index) => {
+                        const input = document.createElement("input");
+                        input.className = "optical-tuning-slider";
+                        input.type = "range";
+                        input.min = String(pair
+                            ? Math.min(...controls.map((item) => item.min))
+                            : control.min);
+                        input.max = String(pair
+                            ? Math.max(...controls.map((item) => item.max))
+                            : control.max);
+                        input.step = String(control.step);
+                        input.value = String(tuningState[control.key]);
+                        input.dataset.tuningParam = control.key;
+                        input.setAttribute("aria-label", control.label);
+                        input.style.zIndex = String(2 + index);
+                        input.addEventListener("input", () => {
+                            tuningState[control.key] = Number(input.value);
+                            if (pair) {
+                                const [lower, upper] = controls;
+                                if (
+                                    tuningState[lower.key]
+                                    > tuningState[upper.key]
+                                ) {
+                                    if (control.key === lower.key) {
+                                        tuningState[lower.key] = tuningState[upper.key];
+                                        input.value = String(tuningState[lower.key]);
+                                    } else {
+                                        tuningState[upper.key] = tuningState[lower.key];
+                                        input.value = String(tuningState[upper.key]);
+                                    }
+                                }
+                                rangeRoot
+                                    .querySelectorAll("[data-tuning-param]")
+                                    .forEach((pairInput) => {
+                                        pairInput.value = String(
+                                            tuningState[pairInput.dataset.tuningParam]
+                                        );
+                                    });
+                            }
+                            renderValue();
+                            requestLoop();
+                        });
+                        rangeRoot.append(input);
+                    });
+
+                    wrapper.append(
+                        label,
+                        pair ? rangeRoot : rangeRoot.firstElementChild
+                    );
+                    tuningGrid.append(wrapper);
+                });
+            }
+
+            function resetTuningControls() {
+                Object.assign(tuningState, tuningDefaults);
+                renderTuningControls();
+                requestLoop();
+            }
+
+            function isHiddenTree(element) {
+                return Boolean(element.closest("[hidden]"));
+            }
+
             function updateColorBlockLayout() {
                 const viewportWidth = window.innerWidth;
                 const viewportHeight = window.innerHeight;
-                const padding = Math.max(
-                    22,
-                    Math.min(62, viewportWidth * 0.04)
-                );
-                const gap = Math.max(
-                    14,
-                    Math.min(36, viewportWidth * 0.022)
-                );
-                const width = Math.max(
-                    1,
-                    (viewportWidth - padding * 2 - gap) / 2
-                );
-                const height = Math.max(
-                    170,
-                    Math.min(300, viewportHeight * 0.28)
-                );
-
-                globalState.colorBlockRects = colorBlockSpecs.map(
-                    (spec, index) => {
-                        const column = index % 2;
-                        const row = Math.floor(index / 2);
-                        const rect = {
-                            ...spec,
-                            left: padding + column * (width + gap),
-                            top: padding + row * (height + gap),
-                            width,
-                            height,
-                            radius: Math.max(
-                                24,
-                                Math.min(46, width * 0.075)
-                            ),
-                        };
-                        return rect;
-                    }
-                );
                 const backgroundDpr = getDpr();
                 colorBackgroundCanvas.width = Math.max(
                     1,
@@ -2483,13 +3052,6 @@
                     0,
                     0
                 );
-                colorBackgroundContext.fillStyle = "#050505";
-                colorBackgroundContext.fillRect(
-                    0,
-                    0,
-                    viewportWidth,
-                    viewportHeight
-                );
                 drawColorBlocks(
                     colorBackgroundContext,
                     { left: 0, top: 0 }
@@ -2498,116 +3060,54 @@
             }
 
             function drawColorBlocks(context, canvasRect) {
-                globalState.colorBlockRects.forEach((rect, index) => {
-                    const x = rect.left - canvasRect.left;
-                    const y = rect.top - canvasRect.top;
-                    context.save();
-                    roundedRectPath(
-                        context,
-                        x,
-                        y,
-                        rect.width,
-                        rect.height,
-                        rect.radius
-                    );
-                    context.clip();
-
-                    const gradient = context.createLinearGradient(
-                        x,
-                        y,
-                        x + rect.width,
-                        y + rect.height
-                    );
-                    gradient.addColorStop(
-                        0,
-                        `rgb(${rect.colorA.join(",")})`
-                    );
-                    gradient.addColorStop(
-                        1,
-                        `rgb(${rect.colorB.join(",")})`
-                    );
-                    context.fillStyle = gradient;
-                    context.fillRect(x, y, rect.width, rect.height);
-
-                    context.fillStyle = `rgba(${rect.orb.join(",")},0.72)`;
-                    context.beginPath();
-                    context.arc(
-                        x + rect.width * 0.73,
-                        y + rect.height * 0.34,
-                        rect.height * 0.36,
-                        0,
-                        Math.PI * 2
-                    );
-                    context.fill();
-
-                    context.translate(
-                        x + rect.width * 0.70,
-                        y + rect.height * 0.72
-                    );
-                    context.rotate(-12 * Math.PI / 180);
-                    roundedRectPath(
-                        context,
-                        -rect.width * 0.35,
-                        -rect.height * 0.12,
-                        rect.width * 0.70,
-                        rect.height * 0.24,
-                        rect.height * 0.12
-                    );
-                    context.fillStyle = "rgba(248,246,240,0.13)";
-                    context.fill();
-                    context.restore();
-
-                    context.save();
-                    context.fillStyle = "rgba(248,246,240,0.94)";
-                    context.font = `820 ${
-                        Math.max(18, Math.min(42, rect.width * 0.06))
-                    }px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif`;
-                    context.textBaseline = "alphabetic";
-                    context.textAlign = index % 2 === 0 ? "left" : "right";
-                    context.fillText(
-                        rect.label,
-                        x + rect.width * (index % 2 === 0 ? 0.08 : 0.92),
-                        y + rect.height * 0.88
-                    );
-                    context.restore();
-                });
-            }
-
-            function calculateBlockPose(spec, time) {
-                const widthScale = Math.max(0.72, Math.min(1.12, window.innerWidth / 1280));
-                const width = spec.width * widthScale;
-                const height = spec.height * widthScale;
-                const cycle = time * spec.speed + spec.phase;
-                const x = window.innerWidth * (
-                    spec.baseX + Math.sin(cycle) * spec.rangeX
+                const previewRect = benchPreview?.getBoundingClientRect();
+                const left = previewRect
+                    ? previewRect.left - canvasRect.left
+                    : -canvasRect.left;
+                const top = previewRect
+                    ? previewRect.top - canvasRect.top
+                    : -canvasRect.top;
+                const width = previewRect
+                    ? previewRect.width
+                    : window.innerWidth;
+                const height = previewRect
+                    ? previewRect.height
+                    : window.innerHeight;
+                const verticalSplit = window.innerWidth <= 900;
+                const splitX = Math.round(width / 2);
+                const splitY = Math.round(height / 2);
+                context.fillStyle = "rgb(5 5 5)";
+                context.fillRect(
+                    -canvasRect.left,
+                    -canvasRect.top,
+                    window.innerWidth,
+                    window.innerHeight
                 );
-                const y = window.innerHeight * (
-                    spec.baseY + Math.cos(cycle * 0.83) * spec.rangeY
+                context.fillStyle = "rgb(242 242 238)";
+                context.fillRect(
+                    left,
+                    top,
+                    verticalSplit ? width : splitX,
+                    verticalSplit ? splitY : height
                 );
-                const rotation = spec.rotation + Math.sin(cycle * 0.61) * 8;
-                return { ...spec, x, y, width, height, rotation };
+                context.fillStyle = "rgb(5 5 5)";
+                if (verticalSplit) {
+                    context.fillRect(left, top + splitY, width, height - splitY);
+                } else {
+                    context.fillRect(left + splitX, top, width - splitX, height);
+                }
             }
 
-            function updateMotionBlocks(time) {
-                globalState.blockPoses = blockSpecs.map((spec) => (
-                    calculateBlockPose(spec, time)
-                ));
-
-                globalState.blockElements.forEach((element, index) => {
-                    const pose = globalState.blockPoses[index];
-                    element.style.width = `${pose.width}px`;
-                    element.style.height = `${pose.height}px`;
-                    element.style.transform = [
-                        `translate3d(${pose.x - pose.width / 2}px,`,
-                        `${pose.y - pose.height / 2}px, 0)`,
-                        `rotate(${pose.rotation}deg)`,
-                    ].join(" ");
-                });
-            }
-
-            function drawBackgroundCover(context, canvasRect, width, height) {
+            function drawBackgroundCover(context, canvasRect, width, height, bar) {
                 context.fillStyle = "#050505";
                 context.fillRect(0, 0, width, height);
+                if (bar?.sceneSide === "light" || bar?.sceneSide === "dark") {
+                    context.fillStyle = bar.sceneSide === "light"
+                        ? "rgb(242 242 238)"
+                        : "rgb(5 5 5)";
+                    context.fillRect(0, 0, width, height);
+                    return;
+                }
                 if (
                     colorBackgroundCanvas.width
                     && colorBackgroundCanvas.height
@@ -2626,34 +3126,59 @@
                 }
             }
 
-            function drawMotionBlocks(context, canvasRect) {
-                globalState.blockPoses.forEach((pose) => {
+            function drawSquareSceneText(context, bar, sceneWidth, sceneHeight) {
+                const splitRect = benchPreview?.getBoundingClientRect();
+                const splitX = splitRect
+                    ? splitRect.left + splitRect.width / 2 - bar.canvasRect.left
+                    : sceneWidth / 2;
+                const centerX = bar.padX + bar.width / 2;
+                const centerY = bar.padY + bar.height / 2;
+                const largeSize = Math.max(30, Math.min(58, bar.width * 0.22));
+                const smallSize = Math.max(12, Math.min(18, bar.width * 0.07));
+                const lines = [
+                    { text: "PLACEHOLDER TEXT", y: -78, size: smallSize, tracking: 0.12 },
+                    { text: "REFRACTION", y: -27, size: largeSize, tracking: -0.055 },
+                    { text: "RESULT", y: 31, size: largeSize, tracking: -0.055 },
+                    { text: "EDGE SAMPLE", y: 87, size: smallSize, tracking: 0.12 },
+                ];
+
+                const drawForSide = (left, width, color, alignBias) => {
                     context.save();
-                    context.translate(
-                        pose.x - canvasRect.left,
-                        pose.y - canvasRect.top
-                    );
-                    context.rotate(pose.rotation * Math.PI / 180);
-                    context.fillStyle = `rgba(${pose.rgb.join(",")},${pose.alpha})`;
-                    context.strokeStyle = "rgba(135,139,147,0.48)";
-                    context.lineWidth = 1;
-                    roundedRectPath(
-                        context,
-                        -pose.width / 2,
-                        -pose.height / 2,
-                        pose.width,
-                        pose.height,
-                        18
-                    );
-                    context.fill();
-                    context.stroke();
-                    context.fillStyle = "rgba(238,237,231,0.78)";
-                    context.font = "760 10px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
+                    context.beginPath();
+                    context.rect(left, 0, width, sceneHeight);
+                    context.clip();
+                    context.translate(centerX + alignBias, centerY);
+                    context.rotate(-0.035);
                     context.textAlign = "center";
                     context.textBaseline = "middle";
-                    context.fillText(pose.label, 0, 0);
+                    lines.forEach((line) => {
+                        context.font = `${line.size >= largeSize ? 820 : 760} ${
+                            line.size
+                        }px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif`;
+                        context.letterSpacing = `${line.tracking}em`;
+                        context.fillStyle = color;
+                        context.fillText(line.text, 0, line.y);
+                    });
                     context.restore();
-                });
+                };
+
+                drawForSide(0, Math.max(0, splitX), "rgba(5,5,5,0.76)", -66);
+                drawForSide(
+                    Math.max(0, splitX),
+                    Math.max(0, sceneWidth - splitX),
+                    "rgba(242,242,238,0.84)",
+                    66
+                );
+
+                context.save();
+                context.globalAlpha = 0.38;
+                context.strokeStyle = "rgba(126,130,138,0.46)";
+                context.lineWidth = 1;
+                context.beginPath();
+                context.moveTo(splitX, 0);
+                context.lineTo(splitX, sceneHeight);
+                context.stroke();
+                context.restore();
             }
 
             function drawBarScene(bar) {
@@ -2675,8 +3200,13 @@
                 }
                 context.setTransform(dpr, 0, 0, dpr, 0, 0);
                 context.clearRect(0, 0, sceneWidth, sceneHeight);
-                drawBackgroundCover(context, canvasRect, sceneWidth, sceneHeight);
-                drawMotionBlocks(context, canvasRect);
+                drawBackgroundCover(
+                    context,
+                    canvasRect,
+                    sceneWidth,
+                    sceneHeight,
+                    bar
+                );
 
                 context.fillStyle = "rgba(7,9,12,0.08)";
                 context.fillRect(0, 0, sceneWidth, sceneHeight);
@@ -2687,8 +3217,11 @@
                     0,
                     1 - Math.min(1, bar.interaction * 1.35)
                 );
+                const sizeScale = bar.sizeScale || 1;
 
-                if (bar.type === "toggle") {
+                if (bar.type === "square") {
+                    drawSquareSceneText(context, bar, sceneWidth, sceneHeight);
+                } else if (bar.type === "toggle") {
                     roundedRectPath(
                         context,
                         bar.padX,
@@ -2700,7 +3233,7 @@
                     context.fillStyle = "rgb(30 34 40)";
                     context.fill();
                     context.globalAlpha = bar.toggle.progress;
-                    context.fillStyle = "rgb(103 126 67)";
+                    context.fillStyle = "rgb(48 209 88)";
                     context.fill();
                     context.globalAlpha = 1;
                 } else if (bar.type === "range") {
@@ -2731,8 +3264,8 @@
                         bar.padX + bar.width,
                         0
                     );
-                    progressGradient.addColorStop(0, "rgba(140,166,96,0.92)");
-                    progressGradient.addColorStop(1, "rgba(185,205,128,0.88)");
+                    progressGradient.addColorStop(0, "rgba(48,209,88,0.94)");
+                    progressGradient.addColorStop(1, "rgba(68,226,106,0.90)");
                     context.fillStyle = progressGradient;
                     context.fillRect(
                         bar.padX,
@@ -2751,17 +3284,17 @@
                         bar.height / 2
                     );
                     context.strokeStyle = "rgba(126,130,138,0.58)";
-                    context.lineWidth = 1.4;
+                    context.lineWidth = 1.4 * sizeScale;
                     context.stroke();
 
                     if (quietSelection > 0.001) {
                         roundedRectPath(
                             context,
-                            bar.padX + bar.x - 32.5,
-                            bar.padY + bar.height / 2 - 21,
-                            65,
-                            42,
-                            21
+                            bar.padX + bar.x - 32.5 * sizeScale,
+                            bar.padY + bar.height / 2 - 21 * sizeScale,
+                            65 * sizeScale,
+                            42 * sizeScale,
+                            21 * sizeScale
                         );
                         context.fillStyle = `rgba(43,47,54,${
                             (quietSelection * 0.96).toFixed(3)
@@ -2832,15 +3365,8 @@
                 } ${bar.count >= 5 ? 11 : 13}px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif`;
                 context.textAlign = "center";
                 context.textBaseline = "middle";
-                const glassLabelIsolation = (
-                    bar.interaction > 0.035
-                    || bar.dragging
-                    || bar.transitioning
-                    || bar.releaseHoldMs > 0
-                );
                 bar.buttons.forEach((button, index) => {
                     const selected = index === bar.selected;
-                    if (glassLabelIsolation && !selected) return;
                     context.fillStyle = selected
                         ? "rgba(241,240,235,0.96)"
                         : "rgba(173,173,169,0.66)";
@@ -2898,6 +3424,7 @@
 
                 const gl = bar.gl;
                 const dpr = bar.dpr;
+                const tuning = globalState.tuning;
                 const transitionPulse = bar.transitioning
                     ? Math.sin(bar.transitionProgress * Math.PI) * 0.10
                     : 0;
@@ -2905,28 +3432,41 @@
                     ? 0
                     : Math.min(1, bar.interaction + transitionPulse);
                 const speed = Math.min(1, Math.abs(bar.velocityUnit));
-                const idleHalfHeight = bar.type === "range"
-                    ? 21
+                const sizeScale = Math.max(
+                    0.55,
+                    Math.min(1.15, bar.sizeScale || 1)
+                );
+                const squareBase = Math.min(bar.width, bar.height);
+                const idleHalfHeight = bar.type === "square"
+                    ? Math.max(72, squareBase * 0.36)
+                    : bar.type === "range"
+                    ? 21 * sizeScale
                     : bar.type === "toggle"
-                        ? 25
+                        ? 25 * sizeScale
                         : Math.max(20, bar.height / 2 - 6);
-                const dragHalfHeight = bar.type === "range"
-                    ? 34
+                const dragHalfHeight = bar.type === "square"
+                    ? Math.max(92, squareBase * 0.45)
+                    : bar.type === "range"
+                    ? 34 * sizeScale
                     : bar.type === "toggle"
-                        ? 41.25
+                        ? 41.25 * sizeScale
                         : bar.height / 2 + 15;
-                const idleHalfWidth = bar.type === "range"
-                    ? 32.5
+                const idleHalfWidth = bar.type === "square"
+                    ? idleHalfHeight
+                    : bar.type === "range"
+                    ? 32.5 * sizeScale
                     : bar.type === "toggle"
-                        ? 37
+                        ? 37 * sizeScale
                         : Math.max(
                             bar.segmentWidth * 0.48,
                             idleHalfHeight + 1
                         );
-                const dragHalfWidth = bar.type === "range"
-                    ? 53.6
+                const dragHalfWidth = bar.type === "square"
+                    ? dragHalfHeight
+                    : bar.type === "range"
+                    ? 53.6 * sizeScale
                     : bar.type === "toggle"
-                        ? 61.05
+                        ? 61.05 * sizeScale
                         : Math.max(
                             bar.segmentWidth * 0.60,
                             dragHalfHeight + 1
@@ -2938,9 +3478,9 @@
                         * interaction
                         * (
                             bar.type === "range"
-                                ? 9
+                                ? 9 * sizeScale
                                 : bar.type === "toggle"
-                                    ? 11.1
+                                    ? 11.1 * sizeScale
                                     : bar.segmentWidth * 0.055
                         )
                 ) * dpr;
@@ -2949,7 +3489,7 @@
                     + (dragHalfHeight - idleHalfHeight) * interaction
                     - speed
                         * interaction
-                        * (bar.type === "toggle" ? 7.5 : 3)
+                        * (bar.type === "toggle" ? 7.5 * sizeScale : 3 * sizeScale)
                 ) * dpr;
                 const lensCenterX = (bar.padX + bar.x) * dpr;
                 const lensCenterY = (bar.padY + bar.height / 2) * dpr;
@@ -2988,11 +3528,64 @@
                 gl.uniform1f(bar.uniforms.velocity, bar.velocityUnit);
                 gl.uniform1f(
                     bar.uniforms.trackVisibility,
-                    bar.type === "toggle" ? 0 : 1
+                    bar.type === "toggle" || bar.type === "square" ? 0 : 1
                 );
                 gl.uniform1f(
                     bar.uniforms.neutralWeight,
-                    bar.type === "switch" ? 1 : 0
+                    bar.type === "switch" || bar.type === "square" ? 1 : 0
+                );
+                gl.uniform1f(
+                    bar.uniforms.shapeMode,
+                    bar.type === "square" ? 1 : 0
+                );
+                gl.uniform4f(
+                    bar.uniforms.shapeTuning,
+                    tuning.edgeIdle * sizeScale,
+                    tuning.edgeActive * sizeScale,
+                    tuning.centerShrink,
+                    tuning.floatingShrink
+                );
+                gl.uniform4f(
+                    bar.uniforms.innerTuning,
+                    tuning.innerSpanTrack,
+                    tuning.innerSpanFloating,
+                    0,
+                    0
+                );
+                gl.uniform4f(
+                    bar.uniforms.blendTuning,
+                    tuning.innerMixMin,
+                    tuning.innerMixMax,
+                    tuning.rimFoldStart,
+                    tuning.rimFoldMix
+                );
+                gl.uniform4f(
+                    bar.uniforms.edgeTuning,
+                    0,
+                    tuning.edgeCrispStart,
+                    tuning.edgeCrispEnd,
+                    tuning.chromaShift * sizeScale
+                );
+                gl.uniform4f(
+                    bar.uniforms.rimTuning,
+                    tuning.rimWidth * sizeScale,
+                    tuning.rimStrength,
+                    tuning.shoulderWidth * sizeScale,
+                    tuning.coreWidth * sizeScale
+                );
+                gl.uniform4f(
+                    bar.uniforms.roundTuning,
+                    tuning.sideRoundMin,
+                    tuning.sideRoundMax,
+                    tuning.chromaMin,
+                    tuning.chromaMax
+                );
+                gl.uniform4f(
+                    bar.uniforms.transitionTuning,
+                    tuning.transitionSpread * sizeScale,
+                    tuning.transitionDecay,
+                    tuning.rgbBandWidth * sizeScale,
+                    tuning.edgeTaper
                 );
                 gl.drawArrays(gl.TRIANGLES, 0, 3);
 
@@ -3044,6 +3637,14 @@
                 bar.root.dataset.centerOffsetPx = "0";
                 bar.root.dataset.edgeOffsetPx = (
                     3.0 + (5.8 - 3.0) * globalState.strength
+                ).toFixed(2);
+                bar.root.dataset.apxSize = bar.apxSize || "md";
+                bar.root.dataset.sizeScale = sizeScale.toFixed(2);
+                bar.root.dataset.effectiveEdgeActivePx = (
+                    tuning.edgeActive * sizeScale
+                ).toFixed(2);
+                bar.root.dataset.effectiveRgbBandWidthPx = (
+                    tuning.rgbBandWidth * sizeScale
                 ).toFixed(2);
             }
 
@@ -3098,6 +3699,38 @@
                             program,
                             "uNeutralWeight"
                         ),
+                        shapeMode: gl.getUniformLocation(
+                            program,
+                            "uShapeMode"
+                        ),
+                        shapeTuning: gl.getUniformLocation(
+                            program,
+                            "uShapeTuning"
+                        ),
+                        innerTuning: gl.getUniformLocation(
+                            program,
+                            "uInnerTuning"
+                        ),
+                        blendTuning: gl.getUniformLocation(
+                            program,
+                            "uBlendTuning"
+                        ),
+                        edgeTuning: gl.getUniformLocation(
+                            program,
+                            "uEdgeTuning"
+                        ),
+                        rimTuning: gl.getUniformLocation(
+                            program,
+                            "uRimTuning"
+                        ),
+                        roundTuning: gl.getUniformLocation(
+                            program,
+                            "uRoundTuning"
+                        ),
+                        transitionTuning: gl.getUniformLocation(
+                            program,
+                            "uTransitionTuning"
+                        ),
                     };
                     bar.renderer = "webgl";
                     bar.root.dataset.renderer = "webgl";
@@ -3147,19 +3780,33 @@
                 bar.rootRect = bar.root.getBoundingClientRect();
                 bar.width = Math.max(1, bar.rootRect.width);
                 bar.height = Math.max(1, bar.rootRect.height);
-                bar.segmentWidth = bar.type === "range"
+                const apxSize = APX_SIZE_PRESETS[bar.apxSize]
+                    || APX_SIZE_PRESETS.md;
+                bar.segmentWidth = bar.type === "range" || bar.type === "square"
                     ? bar.width
                     : bar.width / bar.count;
-                bar.padX = bar.type === "range"
-                    ? 66
+                bar.padX = bar.type === "square"
+                    ? 82
+                    : bar.type === "range"
+                    ? apxSize.rangePadXPx
                     : bar.type === "toggle"
-                        ? 32
-                        : CANVAS_PAD_X;
-                bar.padY = bar.type === "range"
-                    ? (window.innerWidth <= 520 ? 36 : 38)
+                        ? apxSize.toggleCanvasPadPx
+                        : apxSize.switchPadXPx;
+                bar.padY = bar.type === "square"
+                    ? 82
+                    : bar.type === "range"
+                    ? (
+                        window.innerWidth <= 520 && bar.apxSize === "md"
+                            ? 36
+                            : apxSize.rangePadYPx
+                    )
                     : bar.type === "toggle"
-                        ? 32
-                        : (window.innerWidth <= 520 ? 28 : CANVAS_PAD_Y);
+                        ? apxSize.toggleCanvasPadPx
+                        : (
+                            window.innerWidth <= 520 && bar.apxSize === "md"
+                                ? 28
+                                : apxSize.switchPadYPx
+                        );
                 bar.dpr = getDpr();
                 bar.canvasRect = bar.canvas.getBoundingClientRect();
                 bar.canvasCssWidth = Math.max(1, bar.canvasRect.width);
@@ -3186,6 +3833,8 @@
                     const max = Number(bar.input.max);
                     const ratio = (Number(bar.input.value) - min) / (max - min);
                     bar.targetX = ratio * bar.width;
+                } else if (bar.type === "square") {
+                    bar.targetX = bar.width / 2;
                 } else {
                     bar.targetX = bar.segmentWidth * (bar.selected + 0.5);
                 }
@@ -3279,6 +3928,11 @@
             }
 
             function bindBarEvents(bar) {
+                if (bar.demoHoldActive) {
+                    bar.root.setAttribute("aria-disabled", "true");
+                    return;
+                }
+
                 bar.buttons.forEach((button) => {
                     button.addEventListener("click", (event) => {
                         if (bar.suppressClick) {
@@ -3382,6 +4036,13 @@
 
             function createOpticalBar(root) {
                 const buttons = [...root.querySelectorAll(".optical-switch-button")];
+                const demoHoldActive = root.dataset.demoActive === "true";
+                const sceneSide = root.closest(".optical-bench-side--light")
+                    ? "light"
+                    : root.closest(".optical-bench-side--dark")
+                        ? "dark"
+                        : "split";
+                const apxSize = resolveApxSize(root);
                 const selected = Math.max(
                     0,
                     buttons.findIndex((button) => (
@@ -3410,6 +4071,10 @@
                     selected,
                     renderer: "css",
                     visible: true,
+                    sceneSide,
+                    apxSize: apxSize.key,
+                    sizeScale: apxSize.scale,
+                    demoHoldActive,
                     pointerActive: false,
                     dragging: false,
                     pointerId: null,
@@ -3418,12 +4083,12 @@
                     pressedIndex: null,
                     pointerMoved: false,
                     suppressClick: false,
-                    motionOff: reduceMotionQuery.matches,
+                    motionOff: demoHoldActive ? false : reduceMotionQuery.matches,
                     x: 0,
                     targetX: 0,
                     velocityX: 0,
                     velocityUnit: 0,
-                    interaction: 0,
+                    interaction: demoHoldActive ? 1 : 0,
                     releaseHoldMs: 0,
                     transitioning: false,
                     transitionStartX: 0,
@@ -3456,6 +4121,11 @@
                 initWebGL(bar);
                 resizeBar(bar);
                 setBarSelection(bar, selected);
+                if (demoHoldActive) {
+                    bar.x = bar.targetX;
+                    bar.interaction = 1;
+                    bar.root.dataset.demoHeld = "true";
+                }
                 return bar;
             }
 
@@ -3472,8 +4142,10 @@
                     "--range-progress",
                     `${(ratio * 100).toFixed(2)}%`
                 );
-                strengthOutput.value = bar.input.value;
-                globalState.strength = Number(bar.input.value) / 100;
+                if (!bar.demoHoldActive) {
+                    strengthOutput.value = bar.input.value;
+                    globalState.strength = Number(bar.input.value) / 100;
+                }
 
                 if (direct || bar.motionOff) {
                     const previousX = bar.x;
@@ -3501,6 +4173,11 @@
             }
 
             function bindRangeEvents(bar) {
+                if (bar.demoHoldActive) {
+                    bar.root.setAttribute("aria-disabled", "true");
+                    return;
+                }
+
                 bar.input.addEventListener("pointerdown", (event) => {
                     if (event.pointerType === "mouse" && event.button !== 0) return;
                     bar.pointerActive = true;
@@ -3545,6 +4222,13 @@
 
             function createLiquidRange(root) {
                 const input = root.querySelector(".liquid-range-input");
+                const demoHoldActive = root.dataset.demoActive === "true";
+                const sceneSide = root.closest(".optical-bench-side--light")
+                    ? "light"
+                    : root.closest(".optical-bench-side--dark")
+                        ? "dark"
+                        : "split";
+                const apxSize = resolveApxSize(root);
                 const canvas = root.querySelector(".optical-switch-canvas");
                 const scene = document.createElement("canvas");
                 const sceneContext = scene.getContext("2d", { alpha: true });
@@ -3561,16 +4245,20 @@
                     selected: 0,
                     renderer: "css",
                     visible: true,
+                    sceneSide,
+                    apxSize: apxSize.key,
+                    sizeScale: apxSize.scale,
+                    demoHoldActive,
                     pointerActive: false,
                     dragging: false,
                     pointerId: null,
                     suppressClick: false,
-                    motionOff: reduceMotionQuery.matches,
+                    motionOff: demoHoldActive ? false : reduceMotionQuery.matches,
                     x: 0,
                     targetX: 0,
                     velocityX: 0,
                     velocityUnit: 0,
-                    interaction: 0,
+                    interaction: demoHoldActive ? 1 : 0,
                     releaseHoldMs: 0,
                     transitioning: false,
                     transitionStartX: 0,
@@ -3604,6 +4292,95 @@
                 initWebGL(bar);
                 resizeBar(bar);
                 updateRangePresentation(bar, true);
+                if (demoHoldActive) {
+                    bar.x = bar.targetX;
+                    bar.interaction = 1;
+                    root.dataset.demoHeld = "true";
+                }
+                return bar;
+            }
+
+            function createSquareGlass(root) {
+                const canvas = root.querySelector(".optical-switch-canvas");
+                const scene = document.createElement("canvas");
+                const sceneContext = scene.getContext("2d", { alpha: true });
+                const bar = {
+                    type: "square",
+                    root,
+                    buttons: [],
+                    panels: [],
+                    canvas,
+                    scene,
+                    sceneContext,
+                    count: 1,
+                    selected: 0,
+                    renderer: "css",
+                    visible: true,
+                    sceneSide: "split",
+                    apxSize: "md",
+                    sizeScale: 1,
+                    demoHoldActive: true,
+                    pointerActive: false,
+                    dragging: false,
+                    pointerId: null,
+                    pointerStartX: 0,
+                    pointerStartSelected: 0,
+                    pressedIndex: null,
+                    pointerMoved: false,
+                    suppressClick: false,
+                    motionOff: false,
+                    x: 0,
+                    targetX: 0,
+                    velocityX: 0,
+                    velocityUnit: 0,
+                    interaction: 1,
+                    releaseHoldMs: 0,
+                    transitioning: false,
+                    transitionStartX: 0,
+                    transitionElapsed: 0,
+                    transitionDuration: 180,
+                    transitionProgress: 0,
+                    width: 0,
+                    height: 0,
+                    segmentWidth: 0,
+                    padX: 82,
+                    padY: 82,
+                    canvasCssWidth: 0,
+                    canvasCssHeight: 0,
+                    dpr: 1,
+                    rootRect: null,
+                    canvasRect: null,
+                    gl: null,
+                    program: null,
+                    texture: null,
+                    textureWidth: 0,
+                    textureHeight: 0,
+                    uniforms: null,
+                    maxLensOverflow: 0,
+                    maxCanvasClip: 0,
+                };
+
+                canvas.addEventListener("webglcontextlost", (event) => {
+                    event.preventDefault();
+                    bar.renderer = "css";
+                    root.dataset.renderer = "css";
+                    globalState.contextFailures += 1;
+                    updateRendererBadge();
+                });
+                canvas.addEventListener("webglcontextrestored", () => {
+                    initWebGL(bar);
+                    resizeBar(bar);
+                    updateRendererBadge();
+                    requestLoop();
+                });
+
+                globalState.bars.push(bar);
+                root.dataset.visible = "true";
+                root.dataset.demoHeld = "true";
+                initWebGL(bar);
+                resizeBar(bar);
+                bar.x = bar.targetX;
+                bar.interaction = 1;
                 return bar;
             }
 
@@ -3612,7 +4389,13 @@
                 const canvas = root.querySelector(".liquid-toggle-canvas");
                 const scene = document.createElement("canvas");
                 const sceneContext = scene.getContext("2d", { alpha: true });
-                const initialX = 42 + toggle.progress * 56;
+                const initialX =
+                    toggle.lensBaseX + toggle.progress * toggle.travelPx;
+                const sceneSide = root.closest(".optical-bench-side--light")
+                    ? "light"
+                    : root.closest(".optical-bench-side--dark")
+                        ? "dark"
+                        : "split";
                 const bar = {
                     type: "toggle",
                     externalMotion: true,
@@ -3629,6 +4412,10 @@
                     selected: toggle.committed,
                     renderer: "css",
                     visible: true,
+                    sceneSide,
+                    apxSize: toggle.apxSize,
+                    sizeScale: toggle.sizeScale,
+                    demoHoldActive: toggle.demoHoldActive,
                     pointerActive: false,
                     dragging: false,
                     pointerId: null,
@@ -3637,12 +4424,14 @@
                     pressedIndex: null,
                     pointerMoved: false,
                     suppressClick: false,
-                    motionOff: reduceMotionQuery.matches,
+                    motionOff: toggle.demoHoldActive
+                        ? false
+                        : reduceMotionQuery.matches,
                     x: initialX,
                     targetX: initialX,
                     velocityX: 0,
                     velocityUnit: 0,
-                    interaction: 0,
+                    interaction: toggle.demoHoldActive ? 1 : 0,
                     releaseHoldMs: 0,
                     transitioning: false,
                     transitionStartX: initialX,
@@ -3711,10 +4500,10 @@
                         channel + (onColor - channel) * toggle.progress
                     );
                 });
-                const width = 74 * (
+                const width = toggle.thumbWidthPx * (
                     1 + activity * (0.65 + delta * 0.025)
                 );
-                const height = 50 * (
+                const height = toggle.thumbHeightPx * (
                     1 + activity * (0.65 - delta * 0.025)
                 );
                 toggle.root.style.setProperty(
@@ -3723,7 +4512,7 @@
                 );
                 toggle.root.style.setProperty(
                     "--toggle-travel",
-                    `${(toggle.progress * 56).toFixed(2)}px`
+                    `${(toggle.progress * toggle.travelPx).toFixed(2)}px`
                 );
                 toggle.root.style.setProperty(
                     "--toggle-origin",
@@ -3751,7 +4540,7 @@
                 );
                 toggle.root.style.setProperty(
                     "--toggle-height",
-                    `${Math.max(50, height).toFixed(2)}px`
+                    `${Math.max(toggle.thumbHeightPx, height).toFixed(2)}px`
                 );
                 toggle.root.style.setProperty(
                     "--toggle-bridge-scale",
@@ -3771,12 +4560,14 @@
 
                 if (toggle.glassBar) {
                     const glassBar = toggle.glassBar;
-                    glassBar.x = 42 + toggle.progress * 56;
-                    glassBar.targetX = 42 + toggle.target * 56;
+                    glassBar.x =
+                        toggle.lensBaseX + toggle.progress * toggle.travelPx;
+                    glassBar.targetX =
+                        toggle.lensBaseX + toggle.target * toggle.travelPx;
                     glassBar.velocityX = toggle.velocityPx;
                     glassBar.velocityUnit = Math.max(
                         -1,
-                        Math.min(1, toggle.velocityPx / 12)
+                        Math.min(1, toggle.velocityPx / (12 * toggle.sizeScale))
                     );
                     glassBar.interaction = glass;
                     glassBar.pointerActive = toggle.pointerActive;
@@ -3839,16 +4630,33 @@
 
             function createLiquidToggle(root) {
                 const initial = Number(root.dataset.initial) >= 0.5 ? 1 : 0;
+                const demoHoldActive = root.dataset.demoActive === "true";
+                const apxSize = resolveApxSize(root);
+                root.style.setProperty(
+                    "--toggle-anchor",
+                    `${apxSize.toggleAnchorPx}px`
+                );
+                root.style.setProperty(
+                    "--toggle-canvas-pad",
+                    `${apxSize.toggleCanvasPadPx}px`
+                );
                 const toggle = {
                     root,
                     status: root.closest(".liquid-toggle-row")
                         .querySelector("[data-toggle-status]"),
+                    apxSize: apxSize.key,
+                    sizeScale: apxSize.scale,
+                    travelPx: apxSize.toggleTravelPx,
+                    lensBaseX: apxSize.toggleLensBaseX,
+                    thumbWidthPx: apxSize.toggleThumbWidthPx,
+                    thumbHeightPx: apxSize.toggleThumbHeightPx,
                     progress: initial,
                     target: initial,
                     committed: initial,
-                    activity: 0,
+                    activity: demoHoldActive ? 1 : 0,
                     activityVelocity: 0,
                     velocityPx: 0,
+                    demoHoldActive,
                     pointerActive: false,
                     dragging: false,
                     pointerId: null,
@@ -3858,77 +4666,95 @@
                     delayMs: 0,
                     releaseHoldMs: 0,
                     suppressPointerClick: false,
-                    motionOff: reduceMotionQuery.matches,
+                    motionOff: demoHoldActive ? false : reduceMotionQuery.matches,
                 };
 
-                root.addEventListener("pointerdown", (event) => {
-                    if (event.pointerType === "mouse" && event.button !== 0) return;
-                    ensureToggleGlassRenderer(toggle);
-                    toggle.pointerActive = true;
-                    toggle.dragging = false;
-                    toggle.pointerId = event.pointerId;
-                    toggle.startClientX = event.clientX;
-                    toggle.startProgress = toggle.progress;
-                    toggle.pressTime = performance.now();
-                    toggle.delayMs = 0;
-                    toggle.releaseHoldMs = 0;
-                    toggle.velocityPx = 0;
-                    root.setPointerCapture?.(event.pointerId);
-                    requestLoop();
-                });
-
-                root.addEventListener("pointermove", (event) => {
-                    if (
-                        !toggle.pointerActive
-                        || event.pointerId !== toggle.pointerId
-                    ) return;
-                    const dx = event.clientX - toggle.startClientX;
-                    if (!toggle.dragging && Math.abs(dx) <= 6) return;
-                    toggle.dragging = true;
-                    const previous = toggle.progress;
-                    toggle.progress = Math.max(
-                        0,
-                        Math.min(1, toggle.startProgress + dx / 56)
-                    );
-                    toggle.velocityPx = (
-                        toggle.progress - previous
-                    ) * 56;
-                    requestLoop();
-                });
-
-                root.addEventListener("pointerup", (event) => {
-                    endLiquidTogglePointer(toggle, event);
-                });
-                root.addEventListener("pointercancel", (event) => {
-                    endLiquidTogglePointer(toggle, event);
-                });
-                root.addEventListener("lostpointercapture", (event) => {
-                    if (toggle.pointerActive) {
-                        endLiquidTogglePointer(toggle, event);
-                    }
-                });
-                root.addEventListener("click", (event) => {
-                    if (event.detail !== 0 || toggle.suppressPointerClick) {
-                        event.preventDefault();
-                        return;
-                    }
-                    ensureToggleGlassRenderer(toggle);
-                    setLiquidToggleTarget(toggle, toggle.committed ? 0 : 1, {
-                        delayMs: reduceMotionQuery.matches ? 0 : 80,
+                if (demoHoldActive) {
+                    root.setAttribute("aria-disabled", "true");
+                    root.dataset.demoHeld = "true";
+                } else {
+                    root.addEventListener("pointerdown", (event) => {
+                        if (event.pointerType === "mouse" && event.button !== 0) return;
+                        ensureToggleGlassRenderer(toggle);
+                        toggle.pointerActive = true;
+                        toggle.dragging = false;
+                        toggle.pointerId = event.pointerId;
+                        toggle.startClientX = event.clientX;
+                        toggle.startProgress = toggle.progress;
+                        toggle.pressTime = performance.now();
+                        toggle.delayMs = 0;
+                        toggle.releaseHoldMs = 0;
+                        toggle.velocityPx = 0;
+                        root.setPointerCapture?.(event.pointerId);
+                        requestLoop();
                     });
-                    toggle.committed = toggle.target;
-                });
-                root.addEventListener("focus", () => {
-                    ensureToggleGlassRenderer(toggle);
-                });
+
+                    root.addEventListener("pointermove", (event) => {
+                        if (
+                            !toggle.pointerActive
+                            || event.pointerId !== toggle.pointerId
+                        ) return;
+                        const dx = event.clientX - toggle.startClientX;
+                        if (!toggle.dragging && Math.abs(dx) <= 6) return;
+                        toggle.dragging = true;
+                        const previous = toggle.progress;
+                        toggle.progress = Math.max(
+                            0,
+                            Math.min(
+                                1,
+                                toggle.startProgress + dx / toggle.travelPx
+                            )
+                        );
+                        toggle.velocityPx = (
+                            toggle.progress - previous
+                        ) * toggle.travelPx;
+                        requestLoop();
+                    });
+
+                    root.addEventListener("pointerup", (event) => {
+                        endLiquidTogglePointer(toggle, event);
+                    });
+                    root.addEventListener("pointercancel", (event) => {
+                        endLiquidTogglePointer(toggle, event);
+                    });
+                    root.addEventListener("lostpointercapture", (event) => {
+                        if (toggle.pointerActive) {
+                            endLiquidTogglePointer(toggle, event);
+                        }
+                    });
+                    root.addEventListener("click", (event) => {
+                        if (event.detail !== 0 || toggle.suppressPointerClick) {
+                            event.preventDefault();
+                            return;
+                        }
+                        ensureToggleGlassRenderer(toggle);
+                        setLiquidToggleTarget(toggle, toggle.committed ? 0 : 1, {
+                            delayMs: reduceMotionQuery.matches ? 0 : 80,
+                        });
+                        toggle.committed = toggle.target;
+                    });
+                    root.addEventListener("focus", () => {
+                        ensureToggleGlassRenderer(toggle);
+                    });
+                }
 
                 createToggleGlassBar(toggle);
+                if (demoHoldActive) ensureToggleGlassRenderer(toggle);
                 globalState.toggles.push(toggle);
                 renderLiquidToggle(toggle);
                 return toggle;
             }
 
             function updateLiquidToggle(toggle, dt) {
+                if (toggle.demoHoldActive) {
+                    toggle.progress = toggle.target;
+                    toggle.activity = 1;
+                    toggle.activityVelocity = 0;
+                    toggle.velocityPx = 0;
+                    renderLiquidToggle(toggle);
+                    return;
+                }
+
                 const frameScale = Math.max(0.5, Math.min(2, dt / 16.667));
                 if (toggle.motionOff) {
                     toggle.progress = toggle.target;
@@ -3952,7 +4778,9 @@
                     const previous = toggle.progress;
                     const ease = 1 - Math.exp(-dt / 48);
                     toggle.progress += (toggle.target - toggle.progress) * ease;
-                    toggle.velocityPx = (toggle.progress - previous) * 56;
+                    toggle.velocityPx = (
+                        toggle.progress - previous
+                    ) * toggle.travelPx;
                     if (Math.abs(toggle.target - toggle.progress) < 0.001) {
                         toggle.progress = toggle.target;
                         toggle.releaseHoldMs = 50;
@@ -4017,19 +4845,32 @@
                     && !bar.transitioning
                     && Math.abs(bar.x - bar.targetX) < 0.05
                     && Math.abs(bar.velocityX) < 0.04
-                    && bar.interaction < 0.002
+                    && (bar.demoHoldActive || bar.interaction < 0.002)
                 ));
                 const togglesSettled = globalState.toggles.every((toggle) => (
-                    !toggle.pointerActive
-                    && !toggle.dragging
-                    && Math.abs(toggle.progress - toggle.target) < 0.001
-                    && toggle.activity < 0.002
+                    toggle.demoHoldActive
+                    || (
+                        !toggle.pointerActive
+                        && !toggle.dragging
+                        && Math.abs(toggle.progress - toggle.target) < 0.001
+                        && toggle.activity < 0.002
+                    )
                 ));
                 return barsSettled && togglesSettled;
             }
 
             function updateBarMotion(bar, dt) {
                 if (bar.externalMotion) return;
+                if (bar.demoHoldActive) {
+                    bar.x = bar.targetX;
+                    bar.velocityX = 0;
+                    bar.velocityUnit = 0;
+                    bar.interaction = 1;
+                    bar.transitioning = false;
+                    bar.dragging = false;
+                    bar.pointerActive = false;
+                    return;
+                }
                 const frameScale = Math.max(0.5, Math.min(2, dt / 16.667));
                 if (bar.motionOff) {
                     bar.x = bar.targetX;
@@ -4060,7 +4901,9 @@
                 const previousX = bar.x;
                 if (bar.dragging) {
                     const dragSpeed = bar.velocityX / Math.max(
-                        bar.type === "range" ? 18 : bar.segmentWidth * 0.12,
+                        bar.type === "range"
+                            ? 18 * (bar.sizeScale || 1)
+                            : bar.segmentWidth * 0.12,
                         1
                     );
                     bar.velocityUnit += (
@@ -4096,7 +4939,9 @@
 
                 bar.velocityX = bar.x - previousX;
                 const rawVelocity = bar.velocityX / Math.max(
-                    bar.type === "range" ? 18 : bar.segmentWidth * 0.12,
+                    bar.type === "range"
+                        ? 18 * (bar.sizeScale || 1)
+                        : bar.segmentWidth * 0.12,
                     1
                 );
                 bar.velocityUnit += (
@@ -4132,6 +4977,14 @@
                     id: bar.root.id,
                     renderer: bar.renderer,
                     visible: bar.visible,
+                    apxSize: bar.apxSize || "md",
+                    sizeScale: Number(bar.root.dataset.sizeScale || 1),
+                    effectiveEdgeActivePx: Number(
+                        bar.root.dataset.effectiveEdgeActivePx || 0
+                    ),
+                    effectiveRgbBandWidthPx: Number(
+                        bar.root.dataset.effectiveRgbBandWidthPx || 0
+                    ),
                     dragging: bar.dragging,
                     trackTop: Number(bar.root.dataset.trackTop || 0),
                     trackBottom: Number(bar.root.dataset.trackBottom || 0),
@@ -4189,10 +5042,6 @@
                     globalState.bars.forEach((bar) => resizeBar(bar));
                     globalState.geometryDirty = false;
                 }
-                if (globalState.motionEnabled) {
-                    globalState.sceneTime += dt;
-                }
-                updateMotionBlocks(globalState.sceneTime);
                 globalState.toggles.forEach((toggle) => {
                     updateLiquidToggle(toggle, dt);
                 });
@@ -4204,10 +5053,7 @@
                 globalState.frames += 1;
                 updateDiagnostics(true);
 
-                const shouldContinue = (
-                    globalState.motionEnabled
-                    || !barsAreSettled()
-                );
+                const shouldContinue = !barsAreSettled();
                 if (shouldContinue && !document.hidden) {
                     globalState.raf = window.requestAnimationFrame(tick);
                 } else {
@@ -4220,31 +5066,10 @@
                 updateColorBlockLayout();
                 globalState.bars.forEach((bar) => resizeBar(bar));
                 globalState.geometryDirty = false;
-                updateMotionBlocks(globalState.sceneTime);
                 requestLoop();
             }
 
-            motionButton.addEventListener("click", () => {
-                globalState.motionEnabled = !globalState.motionEnabled;
-                if (!globalState.motionEnabled) {
-                    globalState.bars.forEach((bar) => {
-                        bar.x = bar.targetX;
-                        bar.velocityX = 0;
-                        bar.velocityUnit = 0;
-                        bar.interaction = 0;
-                        bar.releaseHoldMs = 0;
-                        bar.transitioning = false;
-                    });
-                }
-                motionButton.textContent = globalState.motionEnabled
-                    ? "Pause motion"
-                    : "Resume motion";
-                motionButton.setAttribute(
-                    "aria-pressed",
-                    String(!globalState.motionEnabled)
-                );
-                requestLoop();
-            });
+            tuningReset?.addEventListener("click", resetTuningControls);
 
             reduceMotionQuery.addEventListener?.("change", (event) => {
                 globalState.bars.forEach((bar) => {
@@ -4255,8 +5080,6 @@
                 });
                 if (event.matches) {
                     globalState.motionEnabled = false;
-                    motionButton.textContent = "Resume motion";
-                    motionButton.setAttribute("aria-pressed", "true");
                 }
                 requestLoop();
             });
@@ -4290,25 +5113,29 @@
                 }, { rootMargin: "120px 0px", threshold: 0 })
                 : null;
 
+            renderTuningControls();
             updateColorBlockLayout();
             document.querySelectorAll("[data-optical-switch]").forEach((root) => {
+                if (isHiddenTree(root)) return;
                 createOpticalBar(root);
                 barVisibilityObserver?.observe(root);
             });
-            if (strengthRangeRoot) {
-                createLiquidRange(strengthRangeRoot);
-                barVisibilityObserver?.observe(strengthRangeRoot);
-            }
+            document.querySelectorAll("[data-liquid-range]").forEach((root) => {
+                if (isHiddenTree(root)) return;
+                createLiquidRange(root);
+                barVisibilityObserver?.observe(root);
+            });
+            document.querySelectorAll("[data-liquid-square]").forEach((root) => {
+                if (isHiddenTree(root)) return;
+                createSquareGlass(root);
+                barVisibilityObserver?.observe(root);
+            });
             document.querySelectorAll("[data-liquid-toggle]").forEach((root) => {
+                if (isHiddenTree(root)) return;
                 createLiquidToggle(root);
                 barVisibilityObserver?.observe(root);
             });
             updateRendererBadge();
-            updateMotionBlocks(globalState.sceneTime);
-            if (!globalState.motionEnabled) {
-                motionButton.textContent = "Resume motion";
-                motionButton.setAttribute("aria-pressed", "true");
-            }
             document.fonts?.ready?.then(() => requestLoop());
             requestLoop();
         })();
