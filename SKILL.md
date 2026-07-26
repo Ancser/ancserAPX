@@ -89,8 +89,9 @@ implementations that "should" match.
 ## Strategy presets
 
 `STRATEGY_PRESETS` in `backend/alpha/factors.py` defines full strategies
-(sleeves + leverage + winner-lock), e.g. **Claude #1** (Core 70% momentum/pullback
-+ Satellite 30% v1.5S/RankAccel with winner-lock, 1.5x, weekly, top20). The UI
+(sleeves + leverage + winner-lock), e.g. the current **Claude #1** baseline
+(one long-only sleeve: 70% Momentum + 30% Reversion, no winner-lock, 1.5x,
+weekly, top20). The UI
 applies them via the **APPLY LIVE** button → `/live/apply`, which logs the exact
 params and that they take effect on the **next** daily/weekly rebalance.
 

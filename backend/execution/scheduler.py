@@ -3,8 +3,8 @@ AncserEventLoop — daily rebalance scheduler.
 Runs as a standalone process: python -m backend.execution.scheduler [--run-once] [--force]
 """
 
-import argparse, hashlib, json, logging, os, subprocess, time, uuid
-from datetime import datetime, timedelta, timezone
+import argparse, hashlib, json, logging, math, os, subprocess, time, uuid
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Dict, Optional
 from zoneinfo import ZoneInfo
@@ -24,6 +24,7 @@ DAILY_LOCK_DIR = "logs"
 PID_FILE = "logs/ancser_daemon.pid"
 MARKET_TZ = ZoneInfo("America/New_York")
 EXECUTION_LOCK_STALE_SECONDS = 2 * 60 * 60
+MARGIN_MIN_EQUITY_USD = 2_000.0
 
 
 def _market_now() -> datetime:
@@ -83,17 +84,78 @@ def _write_lock(account: str):
     )
 
 
-def _last_rebalance_date(account: str):
-    """Read the date of the last actual rebalance, or None."""
-    path = f"{DAILY_LOCK_DIR}/last_rebalance_{account}.json"
-    if not os.path.exists(path):
+def _completed_rebalance_date(snapshot) -> Optional[date]:
+    """Return an eligible rebalance date from one persisted snapshot.
+
+    Legacy snapshots did not persist ``snapshot_kind`` or an order status, so
+    an absent status remains eligible.  Once a status exists, only a terminally
+    completed batch can advance cadence.  Any malformed or non-rebalance row is
+    ignored instead of being interpreted as permission to skip a future run.
+    """
+    if not isinstance(snapshot, dict):
+        return None
+
+    snapshot_kind = snapshot.get("snapshot_kind")
+    if snapshot_kind is not None:
+        if not isinstance(snapshot_kind, str):
+            return None
+        if snapshot_kind.strip().lower() != "rebalance":
+            return None
+
+    order_summary = snapshot.get("order_summary")
+    if order_summary is None:
+        status = ""
+    elif isinstance(order_summary, dict):
+        raw_status = order_summary.get("status")
+        if raw_status is not None and not isinstance(raw_status, str):
+            return None
+        status = str(raw_status or "").strip().lower()
+    else:
+        return None
+    if status not in {"", "completed"}:
+        return None
+
+    raw_date = snapshot.get("rebalance_date") or snapshot.get("date")
+    if not isinstance(raw_date, str):
         return None
     try:
-        data = json.load(open(path))
-        ds = data.get("rebalance_date") or data.get("date")
-        return datetime.strptime(ds, "%Y-%m-%d").date() if ds else None
-    except Exception:
+        return datetime.strptime(raw_date, "%Y-%m-%d").date()
+    except ValueError:
         return None
+
+
+def _last_rebalance_date(account: str):
+    """Read the most recent completed/legacy alpha rebalance, or ``None``.
+
+    ``last_rebalance`` is authoritative when valid.  Older OMS versions could
+    overwrite it with a partial batch, so an ineligible or unreadable latest
+    snapshot falls back to the append-only rebalance history and selects its
+    newest completed (or status-less legacy) alpha rebalance.
+    """
+    last_path = Path(DAILY_LOCK_DIR) / f"last_rebalance_{account}.json"
+    try:
+        last_snapshot = json.loads(last_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        last_snapshot = None
+
+    last_date = _completed_rebalance_date(last_snapshot)
+    if last_date is not None:
+        return last_date
+
+    history_path = Path(DAILY_LOCK_DIR) / f"rebalance_history_{account}.json"
+    try:
+        history = json.loads(history_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return None
+    if not isinstance(history, list):
+        return None
+
+    candidates = [
+        date_value
+        for row in history
+        if (date_value := _completed_rebalance_date(row)) is not None
+    ]
+    return max(candidates) if candidates else None
 
 
 def _last_trading_day_of_week(today, account: str, target_dow: int = 4):
@@ -214,6 +276,120 @@ def _configured_factor_weights(config: Dict) -> Dict[str, float]:
     return {str(f): 1.0 / len(factors) for f in factors} if factors else {}
 
 
+def _validated_target_weights(
+    target_weights: Dict[str, float],
+) -> tuple[Dict[str, float], float]:
+    """Normalize target weights and reject non-finite gross before execution."""
+
+    clean = {}
+    for symbol, raw_weight in target_weights.items():
+        try:
+            weight = float(raw_weight)
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise RuntimeError(
+                f"Target weight for {symbol!s} is not numeric; target blocked"
+            ) from exc
+        if not math.isfinite(weight):
+            raise RuntimeError(
+                f"Target weight for {symbol!s} must be finite; target blocked"
+            )
+        clean[str(symbol)] = weight
+
+    requested_gross = sum(abs(weight) for weight in clean.values())
+    if not math.isfinite(requested_gross):
+        raise RuntimeError("Requested target gross must be finite; target blocked")
+    return clean, requested_gross
+
+
+def _apply_margin_eligibility_cap(
+    target_weights: Dict[str, float],
+    account_state: Dict,
+) -> tuple[Dict[str, float], Dict]:
+    """Authorize the account and cap gross when margin is not eligible.
+
+    Alpaca exposes ``multiplier=1`` for cash buying power and documents $2,000
+    equity as the threshold for margin access.  Both conditions are checked:
+    account status and broker block flags are enforced at every gross level;
+    missing/invalid margin fields fail closed for targets above 1x.  This does
+    not liquidate or submit anything; it only constrains the target handed to
+    the OMS, whose fresh-account preflight remains authoritative.
+    """
+
+    clean, requested_gross = _validated_target_weights(target_weights)
+    audit = {
+        "requested_gross": requested_gross,
+        "applied_gross_cap": None,
+        "equity": None,
+        "multiplier": None,
+        "triggered": False,
+        "reasons": [],
+    }
+
+    try:
+        equity = float(account_state.get("equity"))
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise RuntimeError(
+            "Broker account equity is unavailable or invalid; target blocked"
+        ) from exc
+    if not math.isfinite(equity) or equity <= 0:
+        raise RuntimeError(
+            "Broker account equity must be finite and positive; target blocked"
+        )
+    audit["equity"] = equity
+
+    status = str(account_state.get("status", "")).strip().upper()
+    if status != "ACTIVE":
+        raise RuntimeError(
+            f"Broker account status is not ACTIVE ({status or 'missing'}); target blocked"
+        )
+    if bool(account_state.get("account_blocked")) or bool(
+        account_state.get("trading_blocked")
+    ):
+        raise RuntimeError("Broker account or trading is blocked; target blocked")
+
+    if requested_gross <= 1.0 + 1e-9:
+        return clean, audit
+
+    required_margin_fields = ("multiplier", "account_blocked", "trading_blocked")
+    if any(field not in account_state for field in required_margin_fields) or any(
+        not isinstance(account_state.get(field), bool)
+        for field in ("account_blocked", "trading_blocked")
+    ):
+        raise RuntimeError(
+            "Broker margin eligibility fields are unavailable; leveraged target blocked"
+        )
+    raw_multiplier = account_state.get("multiplier")
+    if isinstance(raw_multiplier, bool):
+        raise RuntimeError(
+            "Broker margin eligibility fields are invalid; leveraged target blocked"
+        )
+    try:
+        multiplier = float(raw_multiplier)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise RuntimeError(
+            "Broker margin eligibility fields are unavailable; leveraged target blocked"
+        ) from exc
+    if not math.isfinite(multiplier) or multiplier < 1:
+        raise RuntimeError(
+            "Broker margin eligibility fields are invalid; leveraged target blocked"
+        )
+    audit["multiplier"] = multiplier
+    if equity < MARGIN_MIN_EQUITY_USD:
+        audit["reasons"].append("equity_below_2000_margin_minimum")
+    if multiplier <= 1:
+        audit["reasons"].append("broker_multiplier_is_cash_only")
+    if not audit["reasons"]:
+        return clean, audit
+    scale = 1.0 / requested_gross
+    capped = {symbol: weight * scale for symbol, weight in clean.items()}
+    audit.update({
+        "triggered": True,
+        "applied_gross_cap": 1.0,
+        "resulting_gross": sum(abs(weight) for weight in capped.values()),
+    })
+    return capped, audit
+
+
 def _effective_runtime_config(config: Dict, sync_report: Dict) -> Dict:
     """Build the immutable-per-run config authorized by asset eligibility."""
     configured = list(dict.fromkeys(
@@ -241,11 +417,22 @@ def _effective_runtime_config(config: Dict, sync_report: Dict) -> Dict:
 
 
 def _read_last_target(account: str) -> Dict:
-    path = Path(DAILY_LOCK_DIR) / f"last_rebalance_{account}.json"
-    try:
-        return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
-    except Exception:
-        return {}
+    # A partial run's frozen target is the intended book even though it must not
+    # advance completed cadence. Surface it to reconciliation/tracking first;
+    # fall back to the last fully completed rebalance when no pending state exists.
+    for name in (
+        f"pending_rebalance_{account}.json",
+        f"last_rebalance_{account}.json",
+    ):
+        path = Path(DAILY_LOCK_DIR) / name
+        try:
+            if path.exists():
+                value = json.loads(path.read_text(encoding="utf-8"))
+                if isinstance(value, dict):
+                    return value
+        except Exception:
+            continue
+    return {}
 
 
 def _stop_flag_path(account: str) -> Path:
@@ -538,6 +725,66 @@ def _merge_broker_history(path: str, rows: list, key: str) -> list:
     return result
 
 
+def _strategy_performance_baseline(account: str, config: Dict) -> Optional[Dict]:
+    """Return the equity snapshot that starts the currently saved strategy.
+
+    The live tracker predates the current strategy and may contain a different
+    account balance or preset.  ``saved_at`` marks the strategy epoch; the first
+    successful rebalance on/after that date is the earliest defensible equity
+    baseline.  An explicit baseline remains available for recovered/migrated
+    accounts whose rebalance history is incomplete.
+    """
+    explicit = config.get("performance_baseline")
+    if isinstance(explicit, dict) and explicit.get("date") and explicit.get("equity"):
+        try:
+            equity = float(explicit["equity"])
+        except (TypeError, ValueError):
+            return None
+        if equity > 0:
+            return {"date": str(explicit["date"])[:10], "equity": equity}
+        return None
+
+    saved_at = str(config.get("saved_at") or "").strip()
+    if len(saved_at) < 10:
+        return None
+    try:
+        strategy_date = datetime.strptime(saved_at[:10], "%Y-%m-%d").date()
+    except ValueError:
+        return None
+
+    path = Path(DAILY_LOCK_DIR) / f"rebalance_history_{account}.json"
+    try:
+        rows = json.loads(path.read_text(encoding="utf-8")) if path.exists() else []
+    except Exception:
+        rows = []
+    candidates = []
+    for row in rows if isinstance(rows, list) else []:
+        try:
+            rebalance_date = datetime.strptime(
+                str(row.get("rebalance_date") or row.get("date"))[:10], "%Y-%m-%d"
+            ).date()
+            equity = float(row.get("equity", 0) or 0)
+        except (AttributeError, TypeError, ValueError):
+            continue
+        status = str((row.get("order_summary") or {}).get("status") or "").lower()
+        # Legacy completed snapshots had no status/config payload. New snapshots
+        # are eligible only when terminally completed and tied to this saved
+        # strategy epoch. ``strategy_config_sha256`` cannot be compared directly
+        # because snapshots contain runtime-only eligibility/risk keys.
+        if status and status != "completed":
+            continue
+        row_config = row.get("strategy_config") or {}
+        row_saved_at = str(row_config.get("saved_at") or "")
+        if row_saved_at and row_saved_at != saved_at:
+            continue
+        if rebalance_date >= strategy_date and equity > 0:
+            candidates.append((rebalance_date, equity))
+    if not candidates:
+        return None
+    rebalance_date, equity = min(candidates, key=lambda value: value[0])
+    return {"date": rebalance_date.isoformat(), "equity": equity}
+
+
 def record_broker_observation(
     account: str,
     config: Optional[Dict] = None,
@@ -578,6 +825,31 @@ def record_broker_observation(
     fill_history = _merge_broker_history(
         f"logs/broker_fills_{account}.json", broker_fills, "id"
     )
+    cash_history = None
+    cash_error = None
+    try:
+        latest_cash = adapter.get_cash_activities(limit=500)
+        cash_history = _merge_broker_history(
+            f"logs/broker_cash_activities_{account}.json", latest_cash, "id"
+        )
+        tracker.record_event(
+            "broker_cash_activity_snapshot", "recorded", run_id=run_id,
+            details={
+                "latest_count": len(latest_cash),
+                "historical_count": len(cash_history),
+            },
+        )
+    except Exception as exc:
+        # Do not turn an unavailable transfer ledger into a false zero-flow
+        # assertion.  The account snapshot is still useful, but its return basis
+        # remains explicitly unadjusted until the TRANS ledger can be retrieved.
+        cash_error = str(exc)
+        tracker.record_event(
+            "broker_cash_activity_snapshot", "failed", run_id=run_id,
+            details={"reason": cash_error},
+        )
+
+    performance_baseline = _strategy_performance_baseline(account, config)
     last_target = _read_last_target(account)
     target_allocations = {
         symbol: float(detail.get("weight", 0) or 0)
@@ -601,31 +873,64 @@ def record_broker_observation(
         "broker_fill_snapshot", "recorded", run_id=run_id,
         details={"latest_count": len(broker_fills), "historical_count": len(fill_history)},
     )
-    state = tracker.record_daily_state(
-        date_str=_market_date().isoformat(),
-        equity=equity,
-        day_pnl=None,
-        total_pnl_pct=None,
-        allocations=target_allocations,
-        actual_allocations=actual_allocations,
-        factors=config.get("active_factors", []),
-        factor_weights=(
+    state_kwargs = {
+        "date_str": _market_date().isoformat(),
+        "equity": equity,
+        "day_pnl": None,
+        "total_pnl_pct": None,
+        "allocations": target_allocations,
+        "actual_allocations": actual_allocations,
+        "factors": config.get("active_factors", []),
+        "factor_weights": (
             last_target.get("factor_weights") or _configured_factor_weights(config)
         ),
-        target_scalar=sum(abs(w) for w in target_allocations.values()),
-        account_snapshot=account_state,
-        as_of_date=last_target.get("as_of_date"),
-        order_summary={
+        "target_scalar": sum(abs(w) for w in target_allocations.values()),
+        "account_snapshot": account_state,
+        "as_of_date": last_target.get("as_of_date"),
+        "order_summary": {
             "broker_orders_seen": len(order_history),
             "broker_fills_seen": len(fill_history),
+            "broker_cash_activities_seen": (
+                len(cash_history) if cash_history is not None else None
+            ),
+            "cash_activity_error": cash_error,
         },
-        run_id=run_id,
-    )
+        "run_id": run_id,
+    }
+    if cash_history is None and performance_baseline is not None:
+        # Do not append a legacy/unadjusted return row when the transfer ledger
+        # is unavailable. The last valid adjusted metric remains authoritative,
+        # while this live account/position snapshot stays visible in the audit.
+        state = {
+            **state_kwargs,
+            "performance_available": False,
+            "performance_error": cash_error,
+            "performance_baseline": performance_baseline,
+        }
+        tracker.record_event(
+            "account_state", "performance_blocked", run_id=run_id,
+            details=state,
+        )
+    else:
+        state = tracker.record_daily_state(
+            **state_kwargs,
+            cash_activities=(
+                cash_history
+                if cash_history is not None and performance_baseline is not None
+                else None
+            ),
+            performance_baseline=(
+                performance_baseline if cash_history is not None else None
+            ),
+        )
     return {
         "account": account_state,
         "positions": positions,
         "orders": broker_orders,
         "fills": broker_fills,
+        "cash_activities": cash_history,
+        "cash_activity_error": cash_error,
+        "performance_baseline": performance_baseline,
         "tracker_state": state,
     }
 
@@ -750,6 +1055,34 @@ def _execute_account_rebalance_locked(
             "run_id": run_id, "data_sync": sync_report,
             "unauthorized_targets": unauthorized_targets,
         }
+    requested_gross = None
+    try:
+        # Validate the target before any broker read. Account authorization is
+        # then checked for every gross level, including cash-only (<= 1x) books.
+        _, requested_gross = _validated_target_weights(allocations)
+        margin_account_state = AlpacaAdapter(account).get_account()
+        allocations, margin_safety = _apply_margin_eligibility_cap(
+            allocations, margin_account_state
+        )
+    except Exception as exc:
+        details = {
+            "stage": "margin_eligibility",
+            "reason": str(exc),
+            "requested_gross": requested_gross,
+        }
+        tracker.record_event(
+            "target_calculation", "blocked", run_id=run_id, details=details
+        )
+        return {
+            "error": details["reason"],
+            "stage": "margin_eligibility",
+            "run_id": run_id,
+            "data_sync": sync_report,
+        }
+    if margin_safety["triggered"]:
+        tracker.record_event(
+            "margin_safety", "gross_capped", run_id=run_id, details=margin_safety
+        )
     target_details = {
         "as_of_date": calculation_as_of,
         "expected_as_of": expected_as_of,
@@ -760,23 +1093,24 @@ def _execute_account_rebalance_locked(
         "factor_weights": strategy_result.get("factor_weights") or _configured_factor_weights(config),
         "vol_metrics": strategy_result.get("vol_metrics", {}),
         "daily_risk": risk_state,
+        "margin_safety": margin_safety,
         "effective_universe_count": len(effective_symbols),
     }
     tracker.record_event("target_calculation", "passed", run_id=run_id, details=target_details)
 
-    # The Windows task starts at 09:25 ET, but a slow asset/data sync must not
-    # turn a pre-open rebalance into an unintended after-open market-order batch.
+    # The Windows task starts at 09:35 ET. A slow asset/data sync must not turn
+    # that controlled post-open rebalance into an unbounded late market batch.
     # Explicit manual force bypasses cadence/window only; all data/as-of gates
     # above still apply.
     if not force and not _inside_scheduled_window():
         details = {
-            "stage": "preopen_window",
-            "reason": "Pre-open execution window elapsed before OMS",
+            "stage": "execution_window",
+            "reason": "Scheduled execution window elapsed before OMS",
             "market_time": _market_now().isoformat(),
         }
         tracker.record_event("rebalance_run", "blocked", run_id=run_id, details=details)
         return {
-            "error": details["reason"], "stage": "preopen_window", "run_id": run_id,
+            "error": details["reason"], "stage": "execution_window", "run_id": run_id,
             "data_sync": sync_report, "market_time": details["market_time"],
         }
 
@@ -790,6 +1124,7 @@ def _execute_account_rebalance_locked(
                 "as_of_date": calculation_as_of,
                 "data_sync": sync_report,
                 "factor_weights": target_details["factor_weights"],
+                "margin_safety": margin_safety,
             },
         )
     except Exception as exc:
@@ -800,17 +1135,19 @@ def _execute_account_rebalance_locked(
         return {"error": str(exc), "stage": "orders", "run_id": run_id,
                 "data_sync": sync_report}
 
-    # A partial submission has already changed broker state. Lock the run to
-    # prevent an automatic duplicate batch; audit exposes it for manual review.
-    _write_lock(account)
+    status = oms.last_summary.get("status", "failed")
+    # A partial submission has already changed broker state. Keep the same-day
+    # mutation lock to prevent a duplicate batch, but do not report it as a
+    # completed rebalance. A failure before any mutation remains retryable.
+    if status == "completed" or int(oms.last_summary.get("submitted", 0) or 0) > 0:
+        _write_lock(account)
     observation = record_broker_observation(account, config, run_id=run_id)
-    status = oms.last_summary.get("status", "submitted")
     tracker.record_event(
         "rebalance_run", status, run_id=run_id,
         details={"order_summary": oms.last_summary, "as_of_date": calculation_as_of},
     )
-    return {
-        "success": status != "failed",
+    result = {
+        "success": status == "completed",
         "status": status,
         "run_id": run_id,
         "orders": submitted,
@@ -818,8 +1155,16 @@ def _execute_account_rebalance_locked(
         "allocations": allocations,
         "as_of_date": calculation_as_of,
         "data_sync": sync_report,
+        "margin_safety": margin_safety,
         "broker_observation": observation,
     }
+    if status != "completed":
+        result["error"] = (
+            "Rebalance did not reconcile to the complete target; inspect "
+            "pending_rebalance and order_summary before retrying"
+        )
+        result["stage"] = "order_reconciliation"
+    return result
 
 
 def _weights_from_snapshot(snapshot: Dict) -> Dict[str, float]:
@@ -902,21 +1247,64 @@ def _execute_daily_risk_overlay_locked(
     # natural holding drift and retries a partial/failed liquidation next day.
     adapter = AlpacaAdapter(account)
     account_state = adapter.get_account()
-    equity = float(account_state.get("equity", 0) or 0)
-    if equity <= 0:
-        return {"error": "Broker account/equity unavailable", "stage": "risk_positions",
-                "run_id": run_id}
+    try:
+        capped_leverage, margin_safety = _apply_margin_eligibility_cap(
+            {"_desired_gross": desired}, account_state
+        )
+    except Exception as exc:
+        tracker.record_event(
+            "daily_risk", "blocked", run_id=run_id,
+            details={"stage": "margin_eligibility", "reason": str(exc)},
+        )
+        return {
+            "error": str(exc), "stage": "margin_eligibility", "run_id": run_id,
+            "risk_state": risk_state, "data_sync": sync_report,
+        }
+    equity = float(margin_safety["equity"])
+    uncapped_desired = desired
+    desired = abs(float(capped_leverage.get("_desired_gross", 0.0)))
+    risk_state = {
+        **risk_state,
+        "desired_leverage_before_margin_safety": uncapped_desired,
+        "desired_leverage": desired,
+        "margin_safety": margin_safety,
+    }
+    if margin_safety["triggered"]:
+        tracker.record_event(
+            "margin_safety", "gross_capped", run_id=run_id, details=margin_safety
+        )
     positions = adapter.get_positions()
-    broker_market_value = abs(float(account_state.get("long_market_value", 0) or 0)) + abs(
-        float(account_state.get("short_market_value", 0) or 0)
-    )
+    try:
+        broker_market_value = abs(
+            float(account_state.get("long_market_value", 0) or 0)
+        ) + abs(float(account_state.get("short_market_value", 0) or 0))
+    except (TypeError, ValueError, OverflowError) as exc:
+        return {
+            "error": f"Broker market value is invalid: {exc}",
+            "stage": "risk_positions", "run_id": run_id,
+        }
+    if not math.isfinite(broker_market_value):
+        return {
+            "error": "Broker market value must be finite",
+            "stage": "risk_positions", "run_id": run_id,
+        }
     if broker_market_value > 1.0 and not positions:
         return {"error": "Broker positions unavailable", "stage": "risk_positions",
                 "run_id": run_id}
-    current_weights = {
-        p["symbol"]: float(p.get("market_value", 0) or 0) / equity
-        for p in positions if p.get("symbol")
-    }
+    try:
+        current_weights, current_gross = _validated_target_weights({
+            p["symbol"]: float(p.get("market_value", 0) or 0) / equity
+            for p in positions if p.get("symbol")
+        })
+    except Exception as exc:
+        tracker.record_event(
+            "daily_risk", "blocked", run_id=run_id,
+            details={"stage": "risk_positions", "reason": str(exc)},
+        )
+        return {
+            "error": str(exc), "stage": "risk_positions", "run_id": run_id,
+            "risk_state": risk_state, "data_sync": sync_report,
+        }
     needs_fresh_alpha = bool(risk_state.get("transition")) and desired > 0
     if desired > 0 and not current_weights:
         needs_fresh_alpha = True
@@ -949,16 +1337,33 @@ def _execute_daily_risk_overlay_locked(
         decision_factor_weights = (
             selection.get("factor_weights") or decision_factor_weights
         )
-        raw = selection.get("allocations") or {}
-        gross = sum(abs(float(w)) for w in raw.values())
+        try:
+            raw, gross = _validated_target_weights(
+                selection.get("allocations") or {}
+            )
+        except Exception as exc:
+            return {
+                "error": str(exc), "stage": "risk_target_validation",
+                "run_id": run_id, "risk_state": risk_state,
+                "data_sync": sync_report,
+            }
         target_weights = {
             symbol: float(weight) * desired / gross for symbol, weight in raw.items()
         } if gross > 0 else {}
     else:
-        gross = sum(abs(float(w)) for w in current_weights.values())
         target_weights = {
-            symbol: float(weight) * desired / gross for symbol, weight in current_weights.items()
-        } if gross > 0 else {}
+            symbol: float(weight) * desired / current_gross
+            for symbol, weight in current_weights.items()
+        } if current_gross > 0 else {}
+
+    try:
+        target_weights, target_gross = _validated_target_weights(target_weights)
+    except Exception as exc:
+        return {
+            "error": str(exc), "stage": "risk_target_validation",
+            "run_id": run_id, "risk_state": risk_state,
+            "data_sync": sync_report,
+        }
 
     unauthorized_targets = sorted(
         str(symbol) for symbol in target_weights
@@ -989,8 +1394,8 @@ def _execute_daily_risk_overlay_locked(
         "daily_risk", "change_required" if changed else "unchanged", run_id=run_id,
         details={
             **risk_state,
-            "current_gross": sum(abs(w) for w in current_weights.values()),
-            "target_gross": sum(abs(w) for w in target_weights.values()),
+            "current_gross": current_gross,
+            "target_gross": target_gross,
             "reselected_alpha": needs_fresh_alpha,
         },
     )
@@ -1000,13 +1405,13 @@ def _execute_daily_risk_overlay_locked(
 
     if not _inside_scheduled_window():
         details = {
-            "stage": "preopen_window",
-            "reason": "Pre-open execution window elapsed before daily-risk OMS",
+            "stage": "execution_window",
+            "reason": "Scheduled execution window elapsed before daily-risk OMS",
             "market_time": _market_now().isoformat(),
         }
         tracker.record_event("daily_risk", "blocked", run_id=run_id, details=details)
         return {
-            "error": details["reason"], "stage": "preopen_window", "run_id": run_id,
+            "error": details["reason"], "stage": "execution_window", "run_id": run_id,
             "risk_state": risk_state, "data_sync": sync_report,
             "market_time": details["market_time"],
         }
@@ -1029,9 +1434,10 @@ def _execute_daily_risk_overlay_locked(
         return {"error": str(exc), "stage": "risk_orders", "run_id": run_id,
                 "risk_state": risk_state}
     observation = record_broker_observation(account, config, run_id=run_id)
-    return {
+    status = oms.last_summary.get("status", "failed")
+    result = {
         "active": True,
-        "status": oms.last_summary.get("status", "submitted"),
+        "status": status,
         "run_id": run_id,
         "orders": submitted,
         "order_summary": oms.last_summary,
@@ -1039,6 +1445,10 @@ def _execute_daily_risk_overlay_locked(
         "data_sync": sync_report,
         "broker_observation": observation,
     }
+    if status != "completed":
+        result["error"] = "Daily-risk orders did not reconcile to the complete target"
+        result["stage"] = "risk_order_reconciliation"
+    return result
 
 
 def _execution_lock_blocked_result(account: str, run_id: str, lock: Dict, event_type: str) -> Dict:
@@ -1106,6 +1516,7 @@ class AncserEventLoop:
 
     def rebalance_check(self, force: bool = False):
         accounts = get_configured_accounts()
+        all_ok = True
         for account in accounts:
             cfg_path = f"config/live_strategy_{account}.json" if account != "Main" else "config/live_strategy.json"
             if not os.path.exists(cfg_path):
@@ -1119,8 +1530,11 @@ class AncserEventLoop:
                 # A weekly strategy still needs daily P&L and order lifecycle
                 # observations. This is read-only broker reconciliation.
                 try:
-                    record_broker_observation(account, config, run_id=run_id)
+                    observation = record_broker_observation(account, config, run_id=run_id)
+                    if "error" in observation:
+                        all_ok = False
                 except Exception as observation_error:
+                    all_ok = False
                     logger.error(f"{account} broker observation failed: {observation_error}")
 
                 if _is_locked(account) and not force:
@@ -1134,6 +1548,7 @@ class AncserEventLoop:
                             account, config, run_id=run_id
                         )
                         if "error" in risk_result:
+                            all_ok = False
                             logger.error(
                                 f"{account} daily risk blocked at {risk_result.get('stage')}: "
                                 f"{risk_result['error']}"
@@ -1149,6 +1564,7 @@ class AncserEventLoop:
 
                 result = execute_account_rebalance(account, config, force=force, run_id=run_id)
                 if "error" in result:
+                    all_ok = False
                     logger.error(
                         f"{account} rebalance blocked at {result.get('stage')}: {result['error']}"
                     )
@@ -1159,16 +1575,19 @@ class AncserEventLoop:
                 )
 
             except Exception as e:
+                all_ok = False
                 logger.error(f"Rebalance failed for {account}: {e}")
                 import traceback; traceback.print_exc()
+        return all_ok
 
     def start(self):
         logger.info("Starting AncserEventLoop...")
-        # Rebalance at 09:25 ET (market open minus 5 minutes) Mon-Fri.
+        # Rebalance at 09:35 ET, after sell orders can fill and release buying
+        # power before the OMS starts its buy phase.
         # The New York timezone follows DST independently of the host timezone.
         self.scheduler.add_job(
             self.rebalance_check, "cron",
-            day_of_week="mon-fri", hour=9, minute=25,
+            day_of_week="mon-fri", hour=9, minute=35,
             timezone="America/New_York", id="rebalance",
         )
         # Daily data sync at 20:00 ET (after market close)
@@ -1179,7 +1598,7 @@ class AncserEventLoop:
         )
         self.scheduler.start()
         self.running = True
-        logger.info("Scheduler armed; no immediate startup trade. Next check is 09:25 ET.")
+        logger.info("Scheduler armed; no immediate startup trade. Next check is 09:35 ET.")
         try:
             while True:
                 time.sleep(5)
@@ -1193,11 +1612,11 @@ class AncserEventLoop:
 
 
 def run_once(force: bool = False):
-    AncserEventLoop().rebalance_check(force=force)
+    return AncserEventLoop().rebalance_check(force=force)
 
 
 def _inside_scheduled_window(now: Optional[datetime] = None) -> bool:
-    """Allow the intended pre-open window; reject late catch-up executions."""
+    """Allow the intended post-open launch window; reject late catch-ups."""
     if now is None:
         current = _market_now()
     elif now.tzinfo is None:
@@ -1207,7 +1626,7 @@ def _inside_scheduled_window(now: Optional[datetime] = None) -> bool:
     if current.weekday() >= 5:
         return False
     minute = current.hour * 60 + current.minute
-    return 9 * 60 + 20 <= minute <= 9 * 60 + 29
+    return 9 * 60 + 30 <= minute <= 9 * 60 + 44
 
 
 if __name__ == "__main__":
@@ -1216,19 +1635,22 @@ if __name__ == "__main__":
     parser.add_argument("--force", action="store_true")
     parser.add_argument(
         "--scheduled", action="store_true",
-        help="Require the current time to be within 09:20-09:29 America/New_York",
+        help="Require the current time to be within 09:30-09:44 America/New_York",
     )
     args = parser.parse_args()
     if args.run_once:
         if _check_single_instance():
             exit(0)
+        exit_code = 0
         try:
             if args.scheduled and not _inside_scheduled_window():
-                logger.error("Scheduled run is outside the 09:25 ET safety window; no trading attempted.")
+                logger.error("Scheduled run is outside the 09:35 ET safety window; no trading attempted.")
+                exit_code = 1
             else:
-                run_once(force=args.force)
+                exit_code = 0 if run_once(force=args.force) else 1
         finally:
             _remove_pid()
+        raise SystemExit(exit_code)
     else:
         if _check_single_instance():
             exit(0)

@@ -66,7 +66,7 @@ if not exist ".env" (
 )
 
 :: 5. Install/update the timezone-aware daily Windows task.
-echo [5/5] Installing daily task for 09:25 America/New_York...
+echo [5/5] Installing daily task for 09:35 America/New_York...
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%CD%\scripts\install_windows_task.ps1"
 if %errorlevel% neq 0 (
     echo.
@@ -80,6 +80,6 @@ echo.
 echo ==========================================
 echo   Setup Complete!
 echo   You can now run 'ancserAPX web.bat'
-echo   Daily live check is installed for 09:25 New York time.
+echo   Daily live check is installed for 09:35 New York time.
 echo ==========================================
 pause

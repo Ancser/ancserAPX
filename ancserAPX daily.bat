@@ -13,11 +13,16 @@ if exist .env (
 )
 
 echo [%date% %time%] ancserAPX scheduled run starting >> "logs\daily_task.log"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%CD%\scripts\wait_for_execution_window.ps1" >> "logs\daily_task.log" 2>&1
+if errorlevel 1 (
+    echo [%date% %time%] execution-window wait failed; no Python run attempted >> "logs\daily_task.log"
+    exit /b 1
+)
 "%PYTHON_EXEC%" -m backend.execution.scheduler --run-once --scheduled >> "logs\daily_task.log" 2>&1
 set "RUN_EXIT=%ERRORLEVEL%"
 echo [%date% %time%] ancserAPX scheduled run exit=%RUN_EXIT% >> "logs\daily_task.log"
 
-:: Recalculate tomorrow's local trigger from 09:25 America/New_York. This keeps
+:: Recalculate tomorrow's local trigger from 09:35 America/New_York. This keeps
 :: hosts in Arizona, Europe, Asia, etc. correct through DST transition weeks.
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%CD%\scripts\install_windows_task.ps1" -Refresh >> "logs\daily_task.log" 2>&1
 exit /b %RUN_EXIT%

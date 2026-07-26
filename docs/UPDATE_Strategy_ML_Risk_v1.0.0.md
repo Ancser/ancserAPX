@@ -632,17 +632,22 @@ fallback」。本次真正改變的是資料、執行、風控、成本與審計
 3. **Daily risk 真正在非調倉日執行。** 200EMA 跌破退出、20EMA 重入、vol／
    throttle 每日檢查；一般縮槓桿只縮放 broker 真實 drifted holdings，不每日重選
    alpha，只有 regime transition／re-entry 才重算。部分清倉會依隔日真實剩餘持倉
-   重試。
+   重試。`partial`／`failed`／`pending` rebalance 不再推進 cadence；只認
+   `completed` 或無 status 的 legacy snapshot，並可從 append-only history 回退到
+   最近一次真正完成的 rebalance。
 4. **審計不再覆蓋。** 每次資料 gate、目標、order plan、submitted／failed、
-   broker order/fill 與 account state 都有 append-only JSONL；tracker 使用 broker
-   `equity-last_equity` 記錄 day P&L。網站的 Final P&L 是可用 fills 的 gross FIFO
-   realized gain，並明示 fees、cashflows、dividends 與 pre-history lots 的限制。
-5. **Windows 安裝自動化。** `install.bat` 會安裝 09:25 America/New_York 的 task；
-   California 對應 06:25。`daily.bat` 同步等待 Python 完成、保存 exit/output，並
-   每日重算 DST。程式內 daemon 與 Windows one-shot 的差異是：前者必須常駐，
+   broker order/fill 與 account state 都有 append-only JSONL；tracker 讀取 broker
+   TRANS 的 CSD／CSW，使用 cash-flow-adjusted linked return，入金與出金不再被算成
+   策略損益；若 TRANS 暫時不可用，會保留最後一筆有效結果並明示 unavailable，
+   不會退回錯誤的未調整報酬。網站的 Final P&L 仍是可用 fills 的 gross FIFO
+   realized gain，並明示 fees、dividends 與 pre-history lots 的限制。
+5. **Windows 安裝自動化。** `install.bat` 會安裝 09:35 America/New_York 的 task；
+   California 對應 06:35。`daily.bat` 同步等待 Python 完成、保存 exit/output，並
+   每日重算 DST；既有 09:25 privileged task 若因權限暫時無法覆寫，launcher 會在
+   15 分鐘上限內等待到 09:35 才啟動 Python。程式內 daemon 與 Windows one-shot 的差異是：前者必須常駐，
    後者由 Windows 喚醒程序；實際交易安全邏輯相同。帳戶級跨程序 execution
    lock 阻止網站連點、daemon 與 Windows task 對同一帳戶重複送單；sync 若拖過
-   09:29，non-force runner 會在 OMS 前再次阻擋。Manual Force 只可越過 cadence／
+   09:44，non-force runner 會在 OMS 前再次阻擋。Manual Force 只可越過 cadence／
    時窗，不能越過資料、as-of 或 broker eligibility gate。
 6. **回測成本分離。** `commission_bps`、`slippage_bps`、
    `regulatory_sell_bps` 分開按實際 traded notional 計算。預設 broker commission
@@ -656,9 +661,21 @@ fallback」。本次真正改變的是資料、執行、風控、成本與審計
    真正計算的動態權重，而不是 config 初始值；手動 Fetch 與 Coverage 亦跟隨畫面
    所選 Universe。Browser title 與 header 均為 `ancserAPX 1.0.0`。
 
-8. **驗證結果。** 隔離式測試為 research safety 16 項加其餘 128 項，共 144 項
+8. **驗證結果。** 隔離式測試為 research safety 16 項加其餘 200 項，共 216 項
    全通過；JavaScript syntax、Python compile、diff check 及 Claude #1 同一 as-of
    的 backtest/live target parity 均通過（Top-20、gross 1.5、最大權重差 0）。
+
+9. **入金與 margin eligibility 防護（2026-07-20）。** 7/17 的 $1,000 CSD 已從
+   linked TWR 排除；截至 7/20 的 equity $2,833.03 對淨投入 $3,000，endpoint P&L
+   為 -$166.97；期末現金流假設下的 cash-adjusted linked-return 估計為 -9.4164%，不再顯示把入金算成獲利的
+   +50.85%。若 equity 低於 $2,000 或 broker multiplier 為 cash-only，scheduler
+   會將外層 gross 壓到 1.0；帳戶 blocked／非 ACTIVE、NaN／Inf 權重或 equity
+   則在所有 gross 水準直接 hard-block，槓桿目標缺欄亦 fail closed。LETF 產品內
+   日槓桿不受此數字掩蓋。7/17 planned 29／submitted 9／failed 20
+   的 partial batch 也不再覆寫最近完成日，後續會以兩階段 OMS 先 sell／cancel、
+   刷新 buying power，再 preflight buys。美元損益是確定值；因 transfer 當下沒有
+   account valuation，linked return 會明示為 estimate，tracker 亦分開 observation
+   P&L 與 cash-adjusted calendar-day dollar P&L。
 
 仍有一項已知 cadence 語義差異：現有 backtest 的 5D 是由模擬起點每 5 個
 session，live 的 5D preset 是每週最後 NYSE session。因兩者錨點不同，不能把

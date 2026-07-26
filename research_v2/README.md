@@ -323,3 +323,24 @@ proxy，不是 exact Main parity：Main config 目前為 510 檔，且 productio
 成交。首次建倉、stale catch-up 與 calendar fallback 也不在此正常週期 A/B。
 這個研究只測 static broad-sector neutralization；缺少歷史 point-in-time market cap
 與 shares 時，不會輸出或冒稱市值中性化結果。
+
+## LETF universe rotation
+
+跨 sector 的 Seed-30 LETF rotation 使用獨立的 research-only runner；它不修改 live
+universe，也不匯入 broker execution。Universe 身分事件、proxy-first 訊號、next-open
+成交、成本／容量、同實現波動 SPY control 與 robustness gate 的完整規格及目前結論見
+[`docs/LETF_ROTATION_RESEARCH.md`](../docs/LETF_ROTATION_RESEARCH.md)。
+
+```powershell
+python -m research_v2.run_letf_rotation `
+  --snapshot research_v2/snapshots/letf-sip-clean-20260717-v2 `
+  --run-id letf-seed30-sip-20260720-v4 `
+  --bootstrap-repetitions 5000
+```
+
+目前正式結果分類為 `PIT_APPROX_INVALID_FOR_ALPHA_CLAIM`：主策略相對同實現
+波動 SPY evaluation control 的 5,000 次 paired block bootstrap 勝出機率只有
+10.16%，5 個
+rebalance offsets 與 16 個預先聲明鄰域皆無正 excess。這是可重現的否證結果，
+不是 live deployment candidate；完整數字、Seed-30 survivorship 限制與兩週實盤
+cash-flow 對帳見上述研究報告。

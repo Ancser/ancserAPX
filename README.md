@@ -33,20 +33,31 @@ python -m backend.data.fetcher
 ## Daily scheduler
 
 `ancserAPX install.bat` installs or updates the Windows task automatically. Its
-trigger is calculated from **09:25 America/New_York** (five minutes before the
-NYSE open), so a California host runs at 06:25. The launcher refreshes the local
-trigger after each run for DST and rejects launches outside the 09:20–09:29 ET
-pre-open safety window.
+trigger is calculated from **09:35 America/New_York** (five minutes after the
+NYSE open), so a California host runs at 06:35. The launcher refreshes the local
+trigger after each run for DST and rejects launches outside the 09:30–09:44 ET
+execution safety window.
+
+If an older privileged task cannot be refreshed without Administrator rights
+and still wakes at 09:25 ET, the launcher waits until 09:35 ET before starting
+Python. This compatibility wait is capped at 15 minutes; a genuinely late or
+missed task is still rejected instead of sleeping into an uncontrolled run.
 
 The installed task uses the current user's interactive logon token, so that user
 must remain logged in. A second account-level execution lock prevents a website
 click, daemon, and Windows task from mutating the same brokerage account at the
-same time. If synchronization runs past the pre-open window, the scheduled run
+same time. If synchronization runs past the execution window, the scheduled run
 is audited and blocked before OMS; an explicit manual Force can bypass only the
 cadence/window, never the data or as-of gates.
 
+Rebalances use a terminal-state barrier: existing orders must be confirmed
+canceled, all sell orders must be confirmed filled, and positions/equity/buying
+power are re-read before any buy is submitted. A partial or unknown batch is
+audited as incomplete and never advances the completed-rebalance snapshot.
+External CSD/CSW transfers are excluded from linked live returns.
+
 ```bash
-# Daemon mode — remains running and checks at 09:25 ET
+# Daemon mode — remains running and checks at 09:35 ET
 python -m backend.execution.scheduler
 
 # One-shot (runs rebalance once and exits)

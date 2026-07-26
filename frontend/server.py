@@ -256,9 +256,15 @@ def _tracker_history_records(path: Path) -> List[Dict[str, Any]]:
             "equity_curve": list(curve),
             "performance": {
                 "final_pnl": None,
-                "day_pnl": row.get("day_pnl"),
+                "day_pnl": row.get(
+                    "broker_calendar_day_cash_adjusted_pnl", row.get("day_pnl")
+                ),
                 "total_pnl_pct": row.get("total_pnl_pct"),
-                "note": "Historical tracker snapshot; realized gain requires broker fill history.",
+                "note": (
+                    "Historical tracker snapshot; calendar-day P&L uses broker prior-close "
+                    "equity net of external cash flows when available. Linked return is an "
+                    "estimate when no valuation exists at the transfer time."
+                ),
             },
             "orders": [],
             "activities": [],

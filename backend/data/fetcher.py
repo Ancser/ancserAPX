@@ -38,7 +38,7 @@ def _utc_now() -> str:
 def expected_completed_session(adapter: AlpacaAdapter, now: Optional[datetime] = None) -> str:
     """Return the latest NYSE session whose daily bar should be complete.
 
-    The normal live run is 09:25 New York time, so today's still-forming session
+    The normal live run is 09:35 New York time, so today's still-forming session
     is deliberately excluded.  A manual run after 16:15 ET may use today's bar.
     The Alpaca calendar is authoritative; inability to obtain it is a data-safety
     failure rather than a reason to guess around exchange holidays.
@@ -332,7 +332,7 @@ def sync_and_validate_live_data(
     report["sync_symbol_count"] = len(sync_symbols)
 
     # Alpaca bar request end is exclusive. Fetch through the day after the
-    # required session, which is normally the current NY date at 09:25 ET.
+    # required session, which is normally the current NY date at 09:35 ET.
     fetch_end = (date.fromisoformat(expected) + timedelta(days=1)).isoformat()
     try:
         report["sync"] = fetch_incremental(

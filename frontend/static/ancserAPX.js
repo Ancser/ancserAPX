@@ -1559,6 +1559,10 @@ function renderLiveSnapshot(snapshot) {
     const config = status.live_config || {};
     const performance = snapshot.performance || {};
     const positions = status.positions || [];
+    const trackerHistory = Array.isArray(status.tracker_history) ? status.tracker_history : [];
+    const latestAdjustedTracker = trackerHistory.slice().reverse().find(row =>
+        row?.total_pnl_basis === 'cash_flow_adjusted_linked_return'
+    );
     const unrealizedFallback = positions.reduce((sum, p) => sum + (Number(p.unrealized_pl) || 0), 0);
     const realized = performance.final_pnl ?? performance.realized_pnl;
     const unrealized = performance.unrealized_pnl ?? unrealizedFallback;
@@ -1570,6 +1574,23 @@ function renderLiveSnapshot(snapshot) {
         { l: 'BUYING POWER', v: '$' + fmtNum(account.buying_power, 2), c: '' },
         { l: 'POSITIONS', v: String(positions.length), c: '' },
     ];
+    if (latestAdjustedTracker) {
+        const linkedReturn = Number(latestAdjustedTracker.total_pnl_pct) || 0;
+        const baselineEquity = Number(latestAdjustedTracker.performance_baseline?.equity) || 0;
+        const netCashFlow = Number(latestAdjustedTracker.net_cash_flow_since_baseline) || 0;
+        const trackedEquity = Number(latestAdjustedTracker.equity) || 0;
+        const strategyNetPnl = trackedEquity - baselineEquity - netCashFlow;
+        metricRows.push({
+            l: 'STRATEGY TWR · CASH-FLOW ADJ',
+            v: fmtNum(linkedReturn * 100, 2) + '%',
+            c: linkedReturn >= 0 ? 'pos' : 'neg',
+        });
+        metricRows.push({
+            l: 'STRATEGY NET PNL · CASH-FLOW ADJ',
+            v: '$' + fmtNum(strategyNetPnl, 2),
+            c: strategyNetPnl >= 0 ? 'pos' : 'neg',
+        });
+    }
     if (performance.fill_count != null) metricRows.push({ l: 'FILLS IN SCOPE', v: String(performance.fill_count), c: '' });
     const grid = document.getElementById('live-metrics-grid');
     if (grid) {
@@ -1665,9 +1686,19 @@ function renderLiveOrders(orders, activities, localAudit = [], trackerHistory = 
     }
     trackerHistory.slice().reverse().forEach(event => {
         const when = event.timestamp || event.recorded_at || event.date || '--';
+        const basis = event.total_pnl_basis === 'cash_flow_adjusted_linked_return'
+            ? 'cash-flow adjusted'
+            : 'legacy unadjusted';
+        const hasBrokerDayPnl = Number.isFinite(Number(event.broker_calendar_day_cash_adjusted_pnl));
+        const pnlValue = hasBrokerDayPnl
+            ? event.broker_calendar_day_cash_adjusted_pnl
+            : event.observation_pnl ?? event.day_pnl;
+        const pnlLabel = hasBrokerDayPnl ? 'calendar-day P/L' : 'observation P/L';
+        const estimate = event.return_calculation?.is_estimate ? ' estimate' : '';
         add(`<span class="log-msg">TRACKER ${escHtml(String(when).replace('T', ' ').slice(0, 19))}` +
-            ` · equity $${fmtNum(event.equity, 2)} · day P/L $${fmtNum(event.day_pnl, 2)}` +
-            ` · total ${fmtNum((Number(event.total_pnl_pct) || 0) * 100, 2)}%</span>`, 'log-info');
+            ` · equity $${fmtNum(event.equity, 2)} · ${pnlLabel} $${fmtNum(pnlValue, 2)}` +
+            ` · total ${fmtNum((Number(event.total_pnl_pct) || 0) * 100, 2)}%` +
+            ` · ${escHtml(basis + estimate)}</span>`, 'log-info');
     });
 }
 

@@ -1,0 +1,4317 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="color-scheme" content="dark">
+    <title>ancserAPX · Shared-scene Optical Glass Lab</title>
+    <style>
+        :root {
+            --page-ink: #f2f1ed;
+            --page-muted: #aaa9a5;
+            --page-dim: #797a7c;
+            --edge-gray: rgba(126, 130, 138, 0.38);
+            --edge-gray-soft: rgba(112, 116, 124, 0.24);
+            --surface: rgba(9, 11, 15, 0.24);
+            --surface-deep: rgba(9, 11, 15, 0.42);
+            --surface-soft: rgba(19, 21, 25, 0.24);
+            --accent: #e8926f;
+            --positive: #b3c77b;
+            --shadow: rgba(0, 0, 0, 0.32);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            min-height: 100%;
+            margin: 0;
+        }
+
+        html {
+            background: #050505;
+        }
+
+        body {
+            min-height: 100vh;
+            overflow-x: hidden;
+            color: var(--page-ink);
+            background: #050505;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
+        }
+
+        button,
+        input {
+            font: inherit;
+        }
+
+        button {
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .optical-page-background,
+        .optical-motion-field {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+        }
+
+        .optical-page-background {
+            z-index: 0;
+            overflow: hidden;
+            background: #050505;
+        }
+
+        .optical-color-canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        .optical-motion-field {
+            z-index: 2;
+            overflow: hidden;
+        }
+
+        .optical-motion-block {
+            position: absolute;
+            top: 0;
+            left: 0;
+            display: grid;
+            place-items: center;
+            border: 1px solid rgba(135, 139, 147, 0.48);
+            border-radius: 18px;
+            color: rgba(238, 237, 231, 0.78);
+            background: rgba(var(--block-rgb), var(--block-alpha));
+            transform-origin: 50% 50%;
+            will-change: transform;
+        }
+
+        .optical-motion-block span {
+            font-size: 10px;
+            font-weight: 760;
+            letter-spacing: 0.14em;
+        }
+
+        .optical-demo-stage {
+            position: relative;
+            z-index: 3;
+            min-height: 100vh;
+            padding: clamp(14px, 3.3vw, 44px);
+        }
+
+        .optical-demo-shell {
+            width: min(1240px, 100%);
+            margin: 0 auto;
+            overflow: visible;
+            border: 1px solid var(--edge-gray-soft);
+            border-radius: clamp(26px, 3.5vw, 42px);
+            background: rgba(7, 9, 12, 0.15);
+            box-shadow: 0 30px 75px var(--shadow);
+        }
+
+        .glass-surface {
+            border: 1px solid var(--edge-gray-soft);
+            background: var(--surface);
+            box-shadow: inset 0 0 0 1px rgba(40, 42, 47, 0.22);
+        }
+
+        .optical-demo-topbar {
+            position: relative;
+            display: grid;
+            min-height: 112px;
+            padding: 22px clamp(20px, 3vw, 38px);
+            grid-template-columns: 1fr auto 1fr;
+            align-items: center;
+            border: 0;
+            border-bottom: 1px solid var(--edge-gray-soft);
+            border-radius: inherit;
+            border-bottom-right-radius: 0;
+            border-bottom-left-radius: 0;
+        }
+
+        .optical-demo-brand {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            min-width: 0;
+            font-size: 15px;
+            font-weight: 760;
+            letter-spacing: -0.02em;
+        }
+
+        .optical-demo-brand-mark {
+            display: grid;
+            width: 34px;
+            height: 34px;
+            place-items: center;
+            border: 1px solid var(--edge-gray);
+            border-radius: 12px;
+            color: #e7e4dc;
+            background: rgba(26, 27, 30, 0.54);
+        }
+
+        .optical-demo-brand strong {
+            color: var(--accent);
+        }
+
+        .optical-demo-renderer {
+            justify-self: end;
+            padding: 8px 11px;
+            border: 1px solid var(--edge-gray-soft);
+            border-radius: 999px;
+            color: var(--page-muted);
+            background: rgba(12, 14, 18, 0.35);
+            font-size: 10px;
+            font-weight: 760;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .optical-demo-renderer[data-state="active"] {
+            color: var(--positive);
+        }
+
+        .optical-switch {
+            --segments: 2;
+            --selected-index: 0;
+            --switch-height: 64px;
+            --canvas-pad-x: 36px;
+            --canvas-pad-y: 32px;
+            position: relative;
+            isolation: isolate;
+            display: grid;
+            width: clamp(300px, 35vw, 430px);
+            height: var(--switch-height);
+            grid-template-columns: repeat(var(--segments), minmax(0, 1fr));
+            overflow: visible;
+            contain: layout style;
+            touch-action: pan-y;
+            user-select: none;
+        }
+
+        .optical-switch--compact {
+            width: 100%;
+            --switch-height: 58px;
+        }
+
+        .optical-switch-canvas {
+            position: absolute;
+            top: calc(var(--canvas-pad-y) * -1);
+            right: calc(var(--canvas-pad-x) * -1);
+            bottom: calc(var(--canvas-pad-y) * -1);
+            left: calc(var(--canvas-pad-x) * -1);
+            z-index: 0;
+            display: block;
+            width: calc(100% + var(--canvas-pad-x) * 2);
+            height: calc(100% + var(--canvas-pad-y) * 2);
+            max-width: none;
+            border-radius: 0;
+            pointer-events: none;
+        }
+
+        .optical-switch-fallback {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            display: grid;
+            padding: 5px;
+            grid-template-columns: repeat(var(--segments), 1fr);
+            overflow: hidden;
+            border: 1px solid var(--edge-gray);
+            border-radius: 999px;
+            background: rgba(15, 17, 21, 0.58);
+        }
+
+        .optical-switch-fallback::before {
+            width: 100%;
+            height: 100%;
+            border: 0;
+            border-radius: 999px;
+            content: "";
+            background: rgb(34 38 44);
+            transform: translateX(calc(var(--selected-index) * 100%));
+            transition: transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+
+        .optical-switch[data-renderer="webgl"] .optical-switch-fallback {
+            display: none;
+        }
+
+        .optical-switch[data-renderer="css"] .optical-switch-canvas {
+            display: none;
+        }
+
+        .optical-switch-button {
+            position: relative;
+            z-index: 2;
+            display: inline-flex;
+            min-width: 0;
+            min-height: 44px;
+            align-items: center;
+            justify-content: center;
+            margin: 5px;
+            padding: 0 clamp(8px, 1.4vw, 15px);
+            border: 0;
+            border-radius: 999px;
+            outline: none;
+            color: var(--page-muted);
+            background: transparent;
+            cursor: pointer;
+            font-size: clamp(11px, 1vw, 13px);
+            font-weight: 730;
+            letter-spacing: 0.02em;
+        }
+
+        .optical-switch-button[aria-selected="true"],
+        .optical-switch-button[aria-checked="true"] {
+            color: var(--page-ink);
+        }
+
+        .optical-switch[data-renderer="webgl"] .optical-switch-button-content {
+            opacity: 0;
+        }
+
+        .optical-switch[data-renderer="webgl"][data-glass-active="true"] .optical-switch-button:not([aria-selected="true"]):not([aria-checked="true"]) .optical-switch-button-content {
+            opacity: 1;
+        }
+
+        .optical-switch-button:focus-visible {
+            box-shadow:
+                0 0 0 2px rgba(8, 10, 13, 0.92),
+                0 0 0 4px #b6c788;
+        }
+
+        .optical-switch-button-content {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .optical-demo-hero {
+            display: grid;
+            min-height: 610px;
+            padding: clamp(48px, 7vw, 86px);
+            grid-template-columns: minmax(0, 1.08fr) minmax(320px, 0.92fr);
+            gap: clamp(34px, 6vw, 78px);
+            align-items: center;
+        }
+
+        .optical-demo-eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--accent);
+            font-size: 11px;
+            font-weight: 780;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+        }
+
+        .optical-demo-eyebrow::before {
+            width: 28px;
+            height: 1px;
+            content: "";
+            background: currentColor;
+        }
+
+        .optical-demo-copy h1 {
+            max-width: 680px;
+            margin: 18px 0 0;
+            font-size: clamp(47px, 6.7vw, 82px);
+            font-weight: 760;
+            letter-spacing: -0.065em;
+            line-height: 0.94;
+        }
+
+        .optical-demo-copy h1 span {
+            color: var(--accent);
+        }
+
+        .optical-demo-copy > p {
+            max-width: 650px;
+            margin: 24px 0 0;
+            color: var(--page-muted);
+            font-size: clamp(15px, 1.6vw, 18px);
+            line-height: 1.72;
+        }
+
+        .optical-demo-proof {
+            display: grid;
+            margin-top: 30px;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .optical-demo-proof-item {
+            min-height: 92px;
+            padding: 15px;
+            border-radius: 18px;
+        }
+
+        .optical-demo-proof-item strong {
+            display: block;
+            font-size: 12px;
+        }
+
+        .optical-demo-proof-item span {
+            display: block;
+            margin-top: 7px;
+            color: var(--page-muted);
+            font-size: 10px;
+            line-height: 1.45;
+        }
+
+        .optical-demo-card-stack {
+            position: relative;
+            min-height: 382px;
+        }
+
+        .optical-demo-card {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: 382px;
+            padding: 30px;
+            border-radius: 30px;
+            opacity: 0;
+            transform: translateX(18px) scale(0.985);
+            pointer-events: none;
+            transition: opacity 220ms ease, transform 300ms cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+
+        .optical-demo-card.is-active {
+            opacity: 1;
+            transform: translateX(0) scale(1);
+            pointer-events: auto;
+        }
+
+        .optical-demo-card-head {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        .optical-demo-card-label,
+        .optical-demo-lab-kicker {
+            color: var(--page-muted);
+            font-size: 10px;
+            font-weight: 760;
+            letter-spacing: 0.13em;
+            text-transform: uppercase;
+        }
+
+        .optical-demo-card-value {
+            margin-top: 9px;
+            font-size: clamp(38px, 4vw, 52px);
+            font-weight: 760;
+            letter-spacing: -0.055em;
+        }
+
+        .optical-demo-status {
+            height: fit-content;
+            padding: 7px 10px;
+            border: 1px solid rgba(166, 183, 112, 0.42);
+            border-radius: 999px;
+            color: #c0d08b;
+            background: rgba(104, 121, 61, 0.14);
+            font-size: 10px;
+            font-weight: 760;
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+        }
+
+        .optical-demo-curve {
+            position: relative;
+            height: 138px;
+            overflow: hidden;
+            border: 1px solid rgba(123, 127, 135, 0.18);
+            border-radius: 19px;
+            background:
+                linear-gradient(rgba(126, 130, 138, 0.18) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(126, 130, 138, 0.18) 1px, transparent 1px),
+                rgba(7, 9, 12, 0.18);
+            background-size: 100% 34px, 25% 100%, auto;
+        }
+
+        .optical-demo-curve::before {
+            position: absolute;
+            inset: 17% -5% 10%;
+            content: "";
+            clip-path: polygon(0 80%, 12% 66%, 24% 73%, 35% 46%, 47% 55%, 59% 28%, 70% 39%, 81% 17%, 90% 25%, 100% 0, 100% 100%, 0 100%);
+            background: linear-gradient(to bottom, rgba(230, 142, 105, 0.30), transparent);
+        }
+
+        .optical-demo-card-foot {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 11px;
+        }
+
+        .optical-demo-stat {
+            padding-top: 13px;
+            border-top: 1px solid var(--edge-gray-soft);
+        }
+
+        .optical-demo-stat span {
+            display: block;
+            color: var(--page-muted);
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .optical-demo-stat strong {
+            display: block;
+            margin-top: 6px;
+            font-size: 15px;
+        }
+
+        .optical-demo-lab {
+            padding: 0 clamp(30px, 6vw, 82px) clamp(52px, 7vw, 86px);
+        }
+
+        .optical-demo-lab-head {
+            display: flex;
+            align-items: end;
+            justify-content: space-between;
+            gap: 28px;
+            margin-bottom: 24px;
+        }
+
+        .optical-demo-lab-head h2 {
+            margin: 8px 0 0;
+            font-size: clamp(29px, 3.5vw, 44px);
+            letter-spacing: -0.04em;
+        }
+
+        .optical-demo-lab-head p {
+            max-width: 500px;
+            margin: 0;
+            color: var(--page-muted);
+            font-size: 13px;
+            line-height: 1.6;
+            text-align: right;
+        }
+
+        .optical-demo-lab-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+        }
+
+        .optical-demo-lab-card {
+            position: relative;
+            min-width: 0;
+            min-height: 190px;
+            padding: 24px;
+            border-radius: 25px;
+        }
+
+        .optical-demo-lab-card--wide {
+            grid-column: 1 / -1;
+        }
+
+        .optical-demo-lab-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 23px;
+        }
+
+        .optical-demo-lab-title h3 {
+            margin: 0;
+            font-size: 18px;
+            letter-spacing: -0.02em;
+        }
+
+        .optical-demo-lab-title span {
+            color: var(--page-dim);
+            font-size: 10px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .optical-demo-block-readout {
+            display: grid;
+            margin-top: 22px;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+        }
+
+        .optical-demo-block-readout div {
+            padding: 10px;
+            border: 1px solid rgba(125, 129, 137, 0.22);
+            border-radius: 14px;
+            color: var(--page-muted);
+            background: rgba(10, 12, 16, 0.17);
+            font-size: 10px;
+            text-align: center;
+        }
+
+        .liquid-control-suite {
+            padding: 0 clamp(30px, 6vw, 82px) clamp(52px, 7vw, 86px);
+        }
+
+        .liquid-control-suite-head {
+            display: flex;
+            align-items: end;
+            justify-content: space-between;
+            gap: 28px;
+            margin-bottom: 24px;
+        }
+
+        .liquid-control-suite-head h2 {
+            margin: 8px 0 0;
+            font-size: clamp(29px, 3.5vw, 44px);
+            letter-spacing: -0.04em;
+        }
+
+        .liquid-control-suite-head p {
+            max-width: 500px;
+            margin: 0;
+            color: var(--page-muted);
+            font-size: 13px;
+            line-height: 1.6;
+            text-align: right;
+        }
+
+        .liquid-control-grid {
+            display: grid;
+            grid-template-columns: minmax(300px, 0.82fr) minmax(0, 1.18fr);
+            gap: 16px;
+        }
+
+        .liquid-control-card {
+            min-width: 0;
+            padding: clamp(22px, 3vw, 30px);
+            border-radius: 25px;
+        }
+
+        .liquid-control-card-head {
+            display: flex;
+            align-items: start;
+            justify-content: space-between;
+            gap: 18px;
+            margin-bottom: 24px;
+        }
+
+        .liquid-control-card-head h3 {
+            margin: 0;
+            font-size: 18px;
+            letter-spacing: -0.02em;
+        }
+
+        .liquid-control-card-head p {
+            max-width: 280px;
+            margin: 6px 0 0;
+            color: var(--page-muted);
+            font-size: 11px;
+            line-height: 1.55;
+        }
+
+        .liquid-control-badge {
+            flex: 0 0 auto;
+            padding: 7px 9px;
+            border: 1px solid var(--edge-gray-soft);
+            border-radius: 999px;
+            color: var(--page-dim);
+            font-size: 9px;
+            font-weight: 760;
+            letter-spacing: 0.09em;
+            text-transform: uppercase;
+        }
+
+        .liquid-toggle-list {
+            display: grid;
+            gap: 10px;
+        }
+
+        .liquid-toggle-row {
+            display: flex;
+            min-height: 72px;
+            padding: 10px 11px 10px 15px;
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+            border: 1px solid rgba(120, 124, 132, 0.20);
+            border-radius: 18px;
+            background: rgba(9, 11, 15, 0.16);
+        }
+
+        .liquid-toggle-copy strong,
+        .liquid-toggle-copy span {
+            display: block;
+        }
+
+        .liquid-toggle-copy strong {
+            font-size: 12px;
+        }
+
+        .liquid-toggle-copy span {
+            margin-top: 5px;
+            color: var(--page-dim);
+            font-size: 10px;
+        }
+
+        .liquid-toggle-control {
+            --toggle-progress: 0;
+            --toggle-activity: 0;
+            --toggle-delta: 0;
+            --toggle-travel: 0px;
+            --toggle-width: 74px;
+            --toggle-height: 50px;
+            --toggle-bridge-scale: 0.2;
+            --toggle-bridge-opacity: 0;
+            --toggle-origin: 0%;
+            --toggle-solid-color: rgb(43 47 54);
+            --toggle-glass: 0;
+            position: relative;
+            flex: 0 0 140px;
+            width: 140px;
+            height: 60px;
+            padding: 0;
+            overflow: visible;
+            border: 0;
+            border-radius: 999px;
+            outline: none;
+            color: #a3a69c;
+            background: transparent;
+            cursor: pointer;
+            touch-action: pan-y;
+            user-select: none;
+        }
+
+        .liquid-toggle-control[aria-checked="true"] {
+            color: #abc87d;
+        }
+
+        .liquid-toggle-control:focus-visible {
+            box-shadow:
+                0 0 0 2px rgba(8, 10, 13, 0.92),
+                0 0 0 4px #b6c788;
+        }
+
+        .liquid-toggle-track {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            overflow: hidden;
+            border: 0;
+            border-radius: 999px;
+            background: rgb(30 34 40);
+            box-shadow: none;
+        }
+
+        .liquid-toggle-track::before,
+        .liquid-toggle-track::after {
+            position: absolute;
+            inset: 0;
+            content: "";
+            border-radius: inherit;
+        }
+
+        .liquid-toggle-track::before {
+            background: linear-gradient(
+                105deg,
+                rgb(86 105 57),
+                rgb(121 145 78)
+            );
+            opacity: var(--toggle-progress);
+        }
+
+        .liquid-toggle-track::after {
+            box-shadow: none;
+            opacity: 0;
+        }
+
+        .liquid-toggle-goo {
+            position: absolute;
+            inset: -18px;
+            z-index: 2;
+            filter: url("#liquid-toggle-goo");
+            opacity: calc(1 - var(--toggle-glass));
+            pointer-events: none;
+        }
+
+        .liquid-toggle-canvas {
+            position: absolute;
+            top: -32px;
+            right: -32px;
+            bottom: -32px;
+            left: -32px;
+            z-index: 1;
+            width: calc(100% + 64px);
+            height: calc(100% + 64px);
+            max-width: none;
+            opacity: var(--toggle-glass);
+            pointer-events: none;
+        }
+
+        .liquid-toggle-control[data-renderer="css"] .liquid-toggle-canvas {
+            display: none;
+        }
+
+        .liquid-toggle-control[data-renderer="css"] .liquid-toggle-goo {
+            opacity: 1;
+        }
+
+        .liquid-toggle-bridge {
+            position: absolute;
+            top: 50%;
+            left: 60px;
+            width: 56px;
+            height: 30px;
+            border-radius: 999px;
+            background: currentColor;
+            opacity: var(--toggle-bridge-opacity);
+            transform: translateY(-50%) scaleX(var(--toggle-bridge-scale));
+            transform-origin: var(--toggle-origin) 50%;
+        }
+
+        .liquid-toggle-thumb {
+            position: absolute;
+            top: 50%;
+            left: 60px;
+            width: var(--toggle-width);
+            height: var(--toggle-height);
+            border: 0;
+            border-radius: 999px;
+            background: var(--toggle-solid-color);
+            box-shadow:
+                0 8px 22px rgb(0 0 0 / calc(var(--toggle-glass) * 0.26));
+            translate:
+                calc(var(--toggle-travel) - 50%)
+                -50%;
+            will-change: width, height, translate;
+        }
+
+        .liquid-toggle-thumb::after {
+            position: absolute;
+            inset: 4px;
+            border-radius: inherit;
+            content: "";
+            background: transparent;
+            opacity: 0;
+        }
+
+        .liquid-range-readout {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 18px;
+            margin: 6px 0 34px;
+        }
+
+        .liquid-range-readout strong {
+            font-size: clamp(32px, 4vw, 48px);
+            letter-spacing: -0.055em;
+        }
+
+        .liquid-range-readout span {
+            color: var(--page-muted);
+            font-size: 11px;
+        }
+
+        .liquid-range-surface {
+            --canvas-pad-x: 66px;
+            --canvas-pad-y: 38px;
+            position: relative;
+            isolation: isolate;
+            width: 100%;
+            height: 10px;
+            margin: 0 auto;
+            overflow: visible;
+            contain: layout style;
+            touch-action: none;
+        }
+
+        .liquid-range-surface .optical-switch-canvas {
+            top: calc(var(--canvas-pad-y) * -1);
+            right: calc(var(--canvas-pad-x) * -1);
+            bottom: calc(var(--canvas-pad-y) * -1);
+            left: calc(var(--canvas-pad-x) * -1);
+            width: calc(100% + var(--canvas-pad-x) * 2);
+            height: calc(100% + var(--canvas-pad-y) * 2);
+        }
+
+        .liquid-range-fallback {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            overflow: visible;
+            border: 1px solid var(--edge-gray);
+            border-radius: 999px;
+            background:
+                linear-gradient(
+                    to right,
+                    #92ad67 0 var(--range-progress, 8%),
+                    rgba(24, 27, 32, 0.72) var(--range-progress, 8%) 100%
+                );
+        }
+
+        .liquid-range-fallback::after {
+            position: absolute;
+            top: 50%;
+            left: var(--range-progress, 8%);
+            width: 65px;
+            height: 42px;
+            border: 0;
+            border-radius: 999px;
+            content: "";
+            background: rgb(43 47 54);
+            box-shadow: 0 7px 18px rgba(0, 0, 0, 0.28);
+            transform: translate(-50%, -50%);
+        }
+
+        .liquid-range-surface[data-renderer="webgl"] .liquid-range-fallback {
+            display: none;
+        }
+
+        .liquid-range-surface[data-renderer="css"] .optical-switch-canvas {
+            display: none;
+        }
+
+        .liquid-range-input {
+            position: absolute;
+            top: -29px;
+            left: -33px;
+            z-index: 2;
+            width: calc(100% + 66px);
+            height: 68px;
+            margin: 0;
+            opacity: 0;
+            cursor: ew-resize;
+            appearance: none;
+            touch-action: none;
+        }
+
+        .liquid-range-input::-webkit-slider-thumb {
+            width: 66px;
+            height: 60px;
+            appearance: none;
+        }
+
+        .liquid-range-input::-moz-range-thumb {
+            width: 66px;
+            height: 60px;
+            border: 0;
+            background: transparent;
+        }
+
+        .liquid-range-surface:has(.liquid-range-input:focus-visible) {
+            outline: 3px solid #b6c788;
+            outline-offset: 13px;
+            border-radius: 999px;
+        }
+
+        .liquid-range-scale {
+            display: flex;
+            margin-top: 29px;
+            justify-content: space-between;
+            color: var(--page-dim);
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+        }
+
+        .liquid-filter-definitions {
+            position: fixed;
+            width: 0;
+            height: 0;
+            overflow: hidden;
+            pointer-events: none;
+        }
+
+        .optical-demo-controls {
+            display: flex;
+            min-height: 76px;
+            padding: 15px clamp(20px, 3vw, 38px);
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            border: 0;
+            border-top: 1px solid var(--edge-gray-soft);
+            border-radius: inherit;
+            border-top-right-radius: 0;
+            border-top-left-radius: 0;
+        }
+
+        .optical-demo-hint {
+            color: var(--page-muted);
+            font-size: 11px;
+        }
+
+        .optical-demo-control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .optical-demo-control-group label {
+            color: var(--page-muted);
+            font-size: 10px;
+            font-weight: 740;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .optical-demo-slider {
+            width: 112px;
+            accent-color: #a3a58f;
+        }
+
+        .optical-demo-button {
+            min-height: 36px;
+            padding: 0 14px;
+            border: 1px solid var(--edge-gray-soft);
+            border-radius: 999px;
+            color: var(--page-ink);
+            background: rgba(13, 15, 19, 0.35);
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .optical-demo-button:focus-visible,
+        .optical-demo-slider:focus-visible {
+            outline: 2px solid #b6c788;
+            outline-offset: 3px;
+        }
+
+        .optical-demo-sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        @media (max-width: 900px) {
+            .optical-demo-stage {
+                padding: 12px;
+            }
+
+            .optical-demo-shell {
+                border-radius: 30px;
+            }
+
+            .optical-demo-topbar {
+                grid-template-columns: 1fr;
+                gap: 12px;
+                padding-block: 23px;
+            }
+
+            .optical-demo-brand,
+            .optical-demo-renderer {
+                display: none;
+            }
+
+            .optical-switch {
+                width: min(100%, 430px);
+                justify-self: center;
+            }
+
+            .optical-demo-hero {
+                grid-template-columns: 1fr;
+                gap: 48px;
+                padding-block: 54px;
+            }
+
+            .optical-demo-copy {
+                text-align: center;
+            }
+
+            .optical-demo-copy > p {
+                margin-inline: auto;
+            }
+
+            .optical-demo-eyebrow {
+                justify-content: center;
+            }
+
+            .optical-demo-proof {
+                max-width: 620px;
+                margin-inline: auto;
+                margin-top: 30px;
+            }
+
+            .optical-demo-card-stack {
+                width: min(480px, 100%);
+                margin: 0 auto;
+            }
+
+            .optical-demo-lab-head {
+                display: block;
+                text-align: center;
+            }
+
+            .optical-demo-lab-head p {
+                margin: 12px auto 0;
+                text-align: center;
+            }
+
+            .optical-demo-lab-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .liquid-control-suite-head {
+                display: block;
+                text-align: center;
+            }
+
+            .liquid-control-suite-head p {
+                margin: 12px auto 0;
+                text-align: center;
+            }
+
+            .liquid-control-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .optical-demo-lab-card--wide {
+                grid-column: auto;
+            }
+
+            .optical-demo-controls {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .optical-demo-hint {
+                width: 100%;
+                text-align: center;
+            }
+        }
+
+        @media (max-width: 520px) {
+            .optical-demo-stage {
+                padding: 0;
+            }
+
+            .optical-demo-shell {
+                border-right: 0;
+                border-left: 0;
+                border-radius: 0;
+            }
+
+            .optical-demo-topbar {
+                padding-inline: 16px;
+            }
+
+            .optical-switch {
+                width: 100%;
+                --switch-height: 60px;
+                --canvas-pad-x: 36px;
+                --canvas-pad-y: 28px;
+            }
+
+            .optical-switch--compact {
+                --switch-height: 56px;
+            }
+
+            .optical-switch-button {
+                padding-inline: 5px;
+                font-size: 10px;
+            }
+
+            .optical-demo-hero {
+                padding: 46px 20px;
+            }
+
+            .optical-demo-copy h1 {
+                font-size: clamp(43px, 14vw, 62px);
+            }
+
+            .optical-demo-proof {
+                grid-template-columns: 1fr;
+            }
+
+            .optical-demo-card {
+                min-height: 360px;
+                padding: 22px;
+            }
+
+            .optical-demo-lab {
+                padding: 0 14px 50px;
+            }
+
+            .liquid-control-suite {
+                padding: 0 14px 50px;
+            }
+
+            .optical-demo-lab-card {
+                padding: 20px 15px;
+            }
+
+            .liquid-control-card {
+                padding: 20px 15px 28px;
+            }
+
+            .liquid-toggle-row {
+                padding-left: 12px;
+            }
+
+            .liquid-range-surface {
+                --canvas-pad-x: 66px;
+                --canvas-pad-y: 36px;
+            }
+
+            .optical-demo-block-readout {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .optical-demo-control-group {
+                width: 100%;
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                scroll-behavior: auto !important;
+                transition-duration: 0.001ms !important;
+            }
+
+            .optical-motion-block {
+                will-change: auto;
+            }
+        }
+
+        @media (forced-colors: active) {
+            .optical-page-background,
+            .optical-page-shade,
+            .optical-motion-field,
+            .optical-switch-canvas,
+            .liquid-toggle-canvas {
+                display: none;
+            }
+
+            .liquid-toggle-control {
+                --toggle-glass: 0 !important;
+            }
+
+            .liquid-toggle-goo {
+                filter: none;
+                opacity: 1;
+            }
+
+            .liquid-range-fallback {
+                display: block !important;
+            }
+
+            .optical-switch[data-renderer="webgl"] .optical-switch-fallback {
+                display: grid;
+            }
+
+            .optical-switch[data-renderer="webgl"] .optical-switch-button-content {
+                opacity: 1;
+            }
+
+            .optical-switch-button[aria-selected="true"],
+            .optical-switch-button[aria-checked="true"] {
+                color: HighlightText;
+                background: Highlight;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="optical-page-background" id="optical-page-background" aria-hidden="true">
+        <canvas
+            class="optical-color-canvas"
+            id="optical-color-canvas"
+            aria-hidden="true"
+        ></canvas>
+    </div>
+    <div class="optical-motion-field" id="optical-motion-field" aria-hidden="true">
+        <i
+            class="optical-motion-block"
+            data-motion-block
+            style="--block-rgb: 169, 83, 59; --block-alpha: 0.34"
+        ><span>A01</span></i>
+        <i
+            class="optical-motion-block"
+            data-motion-block
+            style="--block-rgb: 104, 124, 64; --block-alpha: 0.30"
+        ><span>FLOW</span></i>
+        <i
+            class="optical-motion-block"
+            data-motion-block
+            style="--block-rgb: 91, 77, 121; --block-alpha: 0.32"
+        ><span>EDGE</span></i>
+        <i
+            class="optical-motion-block"
+            data-motion-block
+            style="--block-rgb: 151, 111, 52; --block-alpha: 0.27"
+        ><span>GRID</span></i>
+    </div>
+    <svg
+        class="liquid-filter-definitions"
+        aria-hidden="true"
+        focusable="false"
+    >
+        <defs>
+            <filter
+                id="liquid-toggle-goo"
+                x="-35%"
+                y="-55%"
+                width="170%"
+                height="210%"
+                color-interpolation-filters="sRGB"
+            >
+                <feGaussianBlur
+                    in="SourceGraphic"
+                    stdDeviation="2.2"
+                    result="liquid-blur"
+                />
+                <feColorMatrix
+                    in="liquid-blur"
+                    type="matrix"
+                    values="
+                        1 0 0 0 0
+                        0 1 0 0 0
+                        0 0 1 0 0
+                        0 0 0 17 -8
+                    "
+                    result="liquid-alpha"
+                />
+                <feComposite
+                    in="SourceGraphic"
+                    in2="liquid-alpha"
+                    operator="atop"
+                />
+            </filter>
+        </defs>
+    </svg>
+
+    <main
+        class="optical-demo-stage"
+        id="optical-demo-stage"
+        data-frame-count="0"
+        data-idle="true"
+        data-contexts="0"
+    >
+        <section class="optical-demo-shell" aria-labelledby="optical-demo-title">
+            <header class="optical-demo-topbar glass-surface">
+                <div class="optical-demo-brand" aria-label="ancserAPX">
+                    <span class="optical-demo-brand-mark" aria-hidden="true">A</span>
+                    <span><strong>ancser</strong>APX</span>
+                </div>
+
+                <div
+                    class="optical-switch"
+                    id="optical-switch-workspace"
+                    role="tablist"
+                    aria-label="Workspace view"
+                    data-optical-switch
+                    data-renderer="css"
+                    data-scene-tint="0.12"
+                    style="--segments: 2; --selected-index: 0"
+                >
+                    <canvas class="optical-switch-canvas" aria-hidden="true"></canvas>
+                    <span class="optical-switch-fallback" aria-hidden="true"></span>
+                    <button
+                        class="optical-switch-button"
+                        id="optical-tab-backtest"
+                        type="button"
+                        role="tab"
+                        aria-selected="true"
+                        aria-controls="optical-panel-backtest"
+                        tabindex="0"
+                        data-index="0"
+                        data-label="Backtest"
+                    ><span class="optical-switch-button-content">Backtest</span></button>
+                    <button
+                        class="optical-switch-button"
+                        id="optical-tab-live"
+                        type="button"
+                        role="tab"
+                        aria-selected="false"
+                        aria-controls="optical-panel-live"
+                        tabindex="-1"
+                        data-index="1"
+                        data-label="Live"
+                    ><span class="optical-switch-button-content">Live</span></button>
+                </div>
+
+                <div class="optical-demo-renderer" id="optical-renderer" data-state="idle">
+                    Initializing
+                </div>
+            </header>
+
+            <section class="optical-demo-hero">
+                <div class="optical-demo-copy">
+                    <div class="optical-demo-eyebrow">Shared background optics</div>
+                    <h1 id="optical-demo-title">Edge only. <span>Scene aware.</span></h1>
+                    <p>
+                        整頁共用同一組黑底色塊與移動物件。拖曳時，圓角鏡片會超出母膠囊上下邊界；
+                        外層維持中性玻璃，只有活動中的內層鏡片折射背景並拆分 RGB 通道。
+                    </p>
+
+                    <div class="optical-demo-proof" aria-label="Optical behavior">
+                        <article class="optical-demo-proof-item glass-surface">
+                            <strong>Solid until press</strong>
+                            <span>內層 idle 是無灰框純色；按下或切換時才淡入玻璃。</span>
+                        </article>
+                        <article class="optical-demo-proof-item glass-surface">
+                            <strong>Three-zone lens</strong>
+                            <span>中央內容輕微縮小，越過外層折射後再回捲成帶 RGB 色散的圓滑邊緣。</span>
+                        </article>
+                        <article class="optical-demo-proof-item glass-surface">
+                            <strong>Neutral outer glass</strong>
+                            <span>外層 container 一直是玻璃，但不加入三色色散。</span>
+                        </article>
+                    </div>
+                </div>
+
+                <div class="optical-demo-card-stack">
+                    <article
+                        class="optical-demo-card glass-surface is-active"
+                        id="optical-panel-backtest"
+                        role="tabpanel"
+                        aria-labelledby="optical-tab-backtest"
+                    >
+                        <div class="optical-demo-card-head">
+                            <div>
+                                <div class="optical-demo-card-label">Research workspace</div>
+                                <div class="optical-demo-card-value">+38.6%</div>
+                            </div>
+                            <div class="optical-demo-status">Ready</div>
+                        </div>
+                        <div class="optical-demo-curve" aria-label="Decorative backtest curve"></div>
+                        <div class="optical-demo-card-foot">
+                            <div class="optical-demo-stat"><span>Sharpe</span><strong>1.84</strong></div>
+                            <div class="optical-demo-stat"><span>Max DD</span><strong>−12.4%</strong></div>
+                            <div class="optical-demo-stat"><span>Universe</span><strong>30</strong></div>
+                        </div>
+                    </article>
+
+                    <article
+                        class="optical-demo-card glass-surface"
+                        id="optical-panel-live"
+                        role="tabpanel"
+                        aria-labelledby="optical-tab-live"
+                        hidden
+                    >
+                        <div class="optical-demo-card-head">
+                            <div>
+                                <div class="optical-demo-card-label">Live workspace</div>
+                                <div class="optical-demo-card-value">$2,903</div>
+                            </div>
+                            <div class="optical-demo-status">Synced</div>
+                        </div>
+                        <div class="optical-demo-curve" aria-label="Decorative live account curve"></div>
+                        <div class="optical-demo-card-foot">
+                            <div class="optical-demo-stat"><span>Exposure</span><strong>1.50×</strong></div>
+                            <div class="optical-demo-stat"><span>Positions</span><strong>20</strong></div>
+                            <div class="optical-demo-stat"><span>Orders</span><strong>Filled</strong></div>
+                        </div>
+                    </article>
+                </div>
+            </section>
+
+            <section class="optical-demo-lab" aria-labelledby="optical-lab-title">
+                <div class="optical-demo-lab-head">
+                    <div>
+                        <div class="optical-demo-lab-kicker">Stress field</div>
+                        <h2 id="optical-lab-title">Multiple bars, one scene.</h2>
+                    </div>
+                    <p>
+                        慢慢拖曳每一列。外層保持中性玻璃；活動中的內層會折射背景、移動方塊與白字，
+                        色彩只來自 RGB 錯位取樣，不是固定色點或白霧。
+                    </p>
+                </div>
+
+                <div class="optical-demo-lab-grid">
+                    <article class="optical-demo-lab-card glass-surface">
+                        <div class="optical-demo-lab-title">
+                            <h3>Risk posture</h3>
+                            <span>3-way bar</span>
+                        </div>
+                        <div
+                            class="optical-switch optical-switch--compact"
+                            id="optical-switch-risk"
+                            role="radiogroup"
+                            aria-label="Risk posture"
+                            data-optical-switch
+                            data-renderer="css"
+                            data-scene-tint="0.12"
+                            style="--segments: 3; --selected-index: 1"
+                        >
+                            <canvas class="optical-switch-canvas" aria-hidden="true"></canvas>
+                            <span class="optical-switch-fallback" aria-hidden="true"></span>
+                            <button class="optical-switch-button" type="button" role="radio" aria-checked="false" tabindex="-1" data-index="0" data-label="Momentum"><span class="optical-switch-button-content">Momentum</span></button>
+                            <button class="optical-switch-button" type="button" role="radio" aria-checked="true" tabindex="0" data-index="1" data-label="Balance"><span class="optical-switch-button-content">Balance</span></button>
+                            <button class="optical-switch-button" type="button" role="radio" aria-checked="false" tabindex="-1" data-index="2" data-label="Defense"><span class="optical-switch-button-content">Defense</span></button>
+                        </div>
+                    </article>
+
+                    <article class="optical-demo-lab-card glass-surface">
+                        <div class="optical-demo-lab-title">
+                            <h3>Signal window</h3>
+                            <span>4-way bar</span>
+                        </div>
+                        <div
+                            class="optical-switch optical-switch--compact"
+                            id="optical-switch-window"
+                            role="radiogroup"
+                            aria-label="Signal window"
+                            data-optical-switch
+                            data-renderer="css"
+                            data-scene-tint="0.12"
+                            style="--segments: 4; --selected-index: 2"
+                        >
+                            <canvas class="optical-switch-canvas" aria-hidden="true"></canvas>
+                            <span class="optical-switch-fallback" aria-hidden="true"></span>
+                            <button class="optical-switch-button" type="button" role="radio" aria-checked="false" tabindex="-1" data-index="0" data-label="1D"><span class="optical-switch-button-content">1D</span></button>
+                            <button class="optical-switch-button" type="button" role="radio" aria-checked="false" tabindex="-1" data-index="1" data-label="1W"><span class="optical-switch-button-content">1W</span></button>
+                            <button class="optical-switch-button" type="button" role="radio" aria-checked="true" tabindex="0" data-index="2" data-label="1M"><span class="optical-switch-button-content">1M</span></button>
+                            <button class="optical-switch-button" type="button" role="radio" aria-checked="false" tabindex="-1" data-index="3" data-label="3M"><span class="optical-switch-button-content">3M</span></button>
+                        </div>
+                    </article>
+
+                    <article class="optical-demo-lab-card optical-demo-lab-card--wide glass-surface">
+                        <div class="optical-demo-lab-title">
+                            <h3>Execution path</h3>
+                            <span>5-way bar · moving-object calibration</span>
+                        </div>
+                        <div
+                            class="optical-switch optical-switch--compact"
+                            id="optical-switch-flow"
+                            role="radiogroup"
+                            aria-label="Execution path"
+                            data-optical-switch
+                            data-renderer="css"
+                            data-scene-tint="0.12"
+                            style="--segments: 5; --selected-index: 0"
+                        >
+                            <canvas class="optical-switch-canvas" aria-hidden="true"></canvas>
+                            <span class="optical-switch-fallback" aria-hidden="true"></span>
+                            <button class="optical-switch-button" type="button" role="radio" aria-checked="true" tabindex="0" data-index="0" data-label="Scan"><span class="optical-switch-button-content">Scan</span></button>
+                            <button class="optical-switch-button" type="button" role="radio" aria-checked="false" tabindex="-1" data-index="1" data-label="Rank"><span class="optical-switch-button-content">Rank</span></button>
+                            <button class="optical-switch-button" type="button" role="radio" aria-checked="false" tabindex="-1" data-index="2" data-label="Size"><span class="optical-switch-button-content">Size</span></button>
+                            <button class="optical-switch-button" type="button" role="radio" aria-checked="false" tabindex="-1" data-index="3" data-label="Trade"><span class="optical-switch-button-content">Trade</span></button>
+                            <button class="optical-switch-button" type="button" role="radio" aria-checked="false" tabindex="-1" data-index="4" data-label="Review"><span class="optical-switch-button-content">Review</span></button>
+                        </div>
+                        <div class="optical-demo-block-readout" aria-label="Animated scene objects">
+                            <div>A01 · coral tile</div>
+                            <div>FLOW · moss tile</div>
+                            <div>EDGE · violet tile</div>
+                            <div>GRID · amber tile</div>
+                        </div>
+                    </article>
+                </div>
+            </section>
+
+            <section
+                class="liquid-control-suite"
+                aria-labelledby="liquid-control-suite-title"
+            >
+                <div class="liquid-control-suite-head">
+                    <div>
+                        <div class="optical-demo-lab-kicker">Control synthesis</div>
+                        <h2 id="liquid-control-suite-title">Press. Stretch. Refract.</h2>
+                    </div>
+                    <p>
+                        Toggle 的按壓、拖曳與落點共用同一套液態節奏；on/off 與長條 slider
+                        在活動時都切換到同一套 WebGL 背景取樣與內層色散。
+                    </p>
+                </div>
+
+                <div class="liquid-control-grid">
+                    <article class="liquid-control-card glass-surface">
+                        <div class="liquid-control-card-head">
+                            <div>
+                                <h3>On / off switches</h3>
+                                <p>Tap or drag. The bubble stretches with pointer velocity.</p>
+                            </div>
+                            <span class="liquid-control-badge">Goo motion</span>
+                        </div>
+
+                        <div class="liquid-toggle-list">
+                            <div class="liquid-toggle-row">
+                                <div class="liquid-toggle-copy">
+                                    <strong>Premarket routing</strong>
+                                    <span data-toggle-status>On</span>
+                                </div>
+                                <button
+                                    class="liquid-toggle-control"
+                                    id="liquid-toggle-premarket"
+                                    type="button"
+                                    role="switch"
+                                    aria-checked="true"
+                                    aria-label="Premarket routing"
+                                    data-liquid-toggle
+                                    data-initial="1"
+                                >
+                                    <span class="liquid-toggle-track" aria-hidden="true"></span>
+                                    <canvas class="liquid-toggle-canvas" aria-hidden="true"></canvas>
+                                    <span class="liquid-toggle-goo" aria-hidden="true">
+                                        <span class="liquid-toggle-bridge"></span>
+                                        <span class="liquid-toggle-thumb"></span>
+                                    </span>
+                                </button>
+                            </div>
+
+                            <div class="liquid-toggle-row">
+                                <div class="liquid-toggle-copy">
+                                    <strong>Margin guard</strong>
+                                    <span data-toggle-status>On</span>
+                                </div>
+                                <button
+                                    class="liquid-toggle-control"
+                                    id="liquid-toggle-margin"
+                                    type="button"
+                                    role="switch"
+                                    aria-checked="true"
+                                    aria-label="Margin guard"
+                                    data-liquid-toggle
+                                    data-initial="1"
+                                >
+                                    <span class="liquid-toggle-track" aria-hidden="true"></span>
+                                    <canvas class="liquid-toggle-canvas" aria-hidden="true"></canvas>
+                                    <span class="liquid-toggle-goo" aria-hidden="true">
+                                        <span class="liquid-toggle-bridge"></span>
+                                        <span class="liquid-toggle-thumb"></span>
+                                    </span>
+                                </button>
+                            </div>
+
+                            <div class="liquid-toggle-row">
+                                <div class="liquid-toggle-copy">
+                                    <strong>Universe auto-rotation</strong>
+                                    <span data-toggle-status>Off</span>
+                                </div>
+                                <button
+                                    class="liquid-toggle-control"
+                                    id="liquid-toggle-universe"
+                                    type="button"
+                                    role="switch"
+                                    aria-checked="false"
+                                    aria-label="Universe auto-rotation"
+                                    data-liquid-toggle
+                                    data-initial="0"
+                                >
+                                    <span class="liquid-toggle-track" aria-hidden="true"></span>
+                                    <canvas class="liquid-toggle-canvas" aria-hidden="true"></canvas>
+                                    <span class="liquid-toggle-goo" aria-hidden="true">
+                                        <span class="liquid-toggle-bridge"></span>
+                                        <span class="liquid-toggle-thumb"></span>
+                                    </span>
+                                </button>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article class="liquid-control-card glass-surface">
+                        <div class="liquid-control-card-head">
+                            <div>
+                                <h3>Edge refraction</h3>
+                                <p>Long-form progress control with the same liquid press motion and shared scene shader.</p>
+                            </div>
+                            <span class="liquid-control-badge">Shared WebGL</span>
+                        </div>
+
+                        <div class="liquid-range-readout">
+                            <strong><output id="optical-strength-output" for="optical-strength">8</output>%</strong>
+                            <span id="optical-strength-help">Drag the glass thumb or use arrow keys.</span>
+                        </div>
+
+                        <div
+                            class="liquid-range-surface"
+                            id="liquid-range-strength"
+                            data-liquid-range
+                            data-renderer="css"
+                            data-scene-tint="0.10"
+                            style="--range-progress: 8%"
+                        >
+                            <canvas class="optical-switch-canvas" aria-hidden="true"></canvas>
+                            <span class="liquid-range-fallback" aria-hidden="true"></span>
+                            <input
+                                class="liquid-range-input"
+                                id="optical-strength"
+                                type="range"
+                                min="8"
+                                max="100"
+                                value="8"
+                                aria-label="Edge refraction strength"
+                                aria-describedby="optical-strength-help"
+                            >
+                        </div>
+
+                        <div class="liquid-range-scale" aria-hidden="true">
+                            <span>Minimal</span>
+                            <span>Balanced</span>
+                            <span>Maximum</span>
+                        </div>
+                    </article>
+                </div>
+            </section>
+
+            <footer class="optical-demo-controls glass-surface">
+                <div class="optical-demo-hint">
+                    Outer glass stays neutral · inner glass appears on interaction · RGB comes from the shared scene
+                </div>
+                <div class="optical-demo-control-group">
+                    <button
+                        class="optical-demo-button"
+                        id="optical-motion"
+                        type="button"
+                        aria-pressed="false"
+                    >Pause motion</button>
+                </div>
+            </footer>
+        </section>
+
+        <p class="optical-demo-sr-only" id="optical-announcer" aria-live="polite"></p>
+    </main>
+
+    <script>
+        (() => {
+            "use strict";
+
+            const CANVAS_PAD_X = 36;
+            const CANVAS_PAD_Y = 32;
+            const stage = document.getElementById("optical-demo-stage");
+            const pageBackground = document.getElementById("optical-page-background");
+            const colorBackgroundCanvas = document.getElementById(
+                "optical-color-canvas"
+            );
+            const colorBackgroundContext = colorBackgroundCanvas.getContext(
+                "2d",
+                { alpha: false }
+            );
+            const rendererBadge = document.getElementById("optical-renderer");
+            const strengthInput = document.getElementById("optical-strength");
+            const strengthOutput = document.getElementById("optical-strength-output");
+            const strengthRangeRoot = document.getElementById("liquid-range-strength");
+            const motionButton = document.getElementById("optical-motion");
+            const announcer = document.getElementById("optical-announcer");
+            const reduceMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+            const qaMode = new URLSearchParams(window.location.search).has("qa");
+
+            const vertexShaderSource = `#version 300 es
+                precision highp float;
+                out vec2 vUV;
+
+                void main() {
+                    vec2 p = vec2(
+                        gl_VertexID == 1 ? 2.0 : 0.0,
+                        gl_VertexID == 2 ? 2.0 : 0.0
+                    );
+                    vUV = p;
+                    gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
+                }
+            `;
+
+            const fragmentShaderSource = `#version 300 es
+                precision highp float;
+
+                uniform sampler2D uScene;
+                uniform vec2 uResolution;
+                uniform vec2 uTrackCenterPx;
+                uniform vec2 uTrackHalfSizePx;
+                uniform vec2 uLensCenterPx;
+                uniform vec2 uLensHalfSizePx;
+                uniform float uInteraction;
+                uniform float uStrength;
+                uniform float uPixelRatio;
+                uniform float uVelocity;
+                uniform float uTrackVisibility;
+                uniform float uNeutralWeight;
+
+                in vec2 vUV;
+                out vec4 fragColor;
+
+                vec2 safeUV(vec2 px) {
+                    vec2 halfTexel = vec2(0.5);
+                    return clamp(px, halfTexel, uResolution - halfTexel) / uResolution;
+                }
+
+                vec4 sceneAt(vec2 px) {
+                    return texture(uScene, safeUV(px));
+                }
+
+                float capsuleDistance(
+                    vec2 point,
+                    vec2 halfSize
+                ) {
+                    float radius = min(halfSize.x, halfSize.y);
+                    float axisHalf = max(halfSize.x - radius, 0.0);
+                    vec2 axisPoint = vec2(
+                        clamp(point.x, -axisHalf, axisHalf),
+                        0.0
+                    );
+                    return length(point - axisPoint) - radius;
+                }
+
+                float trackSignedDistanceAt(vec2 px) {
+                    vec2 d = px - uTrackCenterPx;
+                    float radiusPx = uTrackHalfSizePx.y;
+                    float axisHalfPx = max(uTrackHalfSizePx.x - radiusPx, 0.0);
+                    vec2 axisPoint = vec2(clamp(d.x, -axisHalfPx, axisHalfPx), 0.0);
+                    return length(d - axisPoint) - radiusPx;
+                }
+
+                float trackMaskAt(vec2 px) {
+                    float signedDistance = trackSignedDistanceAt(px);
+                    float aa = max(fwidth(signedDistance), 0.75);
+                    return 1.0 - smoothstep(-aa, aa, signedDistance);
+                }
+
+                void main() {
+                    vec2 fragPx = vUV * uResolution;
+                    vec4 base = sceneAt(fragPx);
+                    float trackMask = trackMaskAt(fragPx);
+                    float trackSignedDistance =
+                        trackSignedDistanceAt(fragPx);
+                    vec2 trackDelta = fragPx - uTrackCenterPx;
+                    float trackRadiusPx = uTrackHalfSizePx.y;
+                    float trackAxisHalfPx = max(
+                        uTrackHalfSizePx.x - trackRadiusPx,
+                        0.0
+                    );
+                    vec2 trackAxisPoint = vec2(
+                        clamp(
+                            trackDelta.x,
+                            -trackAxisHalfPx,
+                            trackAxisHalfPx
+                        ),
+                        0.0
+                    );
+                    vec2 trackRadial = trackDelta - trackAxisPoint;
+                    vec2 trackNormal = length(trackRadial) > 0.0001
+                        ? normalize(trackRadial)
+                        : vec2(0.0, 1.0);
+                    float trackEdgeWidthPx = 6.0 * uPixelRatio;
+                    float neutralTrackBand =
+                        smoothstep(
+                            -trackEdgeWidthPx,
+                            -0.45 * uPixelRatio,
+                            trackSignedDistance
+                        )
+                        * (1.0 - smoothstep(
+                            0.0,
+                            max(fwidth(trackSignedDistance), 0.75),
+                            trackSignedDistance
+                        ))
+                        * trackMask
+                        * uTrackVisibility;
+                    vec4 neutralTrackRefraction = sceneAt(
+                        fragPx
+                            - trackNormal
+                            * mix(1.15, 2.05, uStrength)
+                            * uPixelRatio
+                    );
+                    base = mix(
+                        base,
+                        neutralTrackRefraction,
+                        neutralTrackBand * mix(0.34, 0.54, uStrength)
+                    );
+
+                    vec2 d = fragPx - uLensCenterPx;
+                    float lensRadiusPx = min(
+                        uLensHalfSizePx.x,
+                        uLensHalfSizePx.y
+                    );
+                    float lensAxisHalfPx = max(
+                        uLensHalfSizePx.x - lensRadiusPx,
+                        0.0
+                    );
+                    vec2 lensAxisPoint = vec2(
+                        clamp(d.x, -lensAxisHalfPx, lensAxisHalfPx),
+                        0.0
+                    );
+                    vec2 lensRadial = d - lensAxisPoint;
+                    float lensRadialLength = length(lensRadial);
+                    float glassActivation = smoothstep(
+                        0.08,
+                        0.36,
+                        uInteraction
+                    );
+                    float rawLensSignedDistance = capsuleDistance(
+                        d,
+                        uLensHalfSizePx
+                    );
+                    float lensHorizontalProgress = clamp(
+                        abs(d.x) / max(uLensHalfSizePx.x, 1.0),
+                        0.0,
+                        1.0
+                    );
+                    float topSidePull =
+                        smoothstep(
+                            0.04,
+                            0.92,
+                            clamp(-d.y / max(uLensHalfSizePx.y, 1.0), 0.0, 1.0)
+                        )
+                        * (1.0 - smoothstep(
+                            0.10,
+                            0.76,
+                            lensHorizontalProgress
+                        ));
+                    float lensSignedDistance =
+                        rawLensSignedDistance
+                        + topSidePull
+                            * glassActivation
+                            * mix(3.2, 10.4, uStrength)
+                            * uPixelRatio;
+                    float lensAA = max(
+                        fwidth(lensSignedDistance) * 1.15,
+                        0.75
+                    );
+                    float lensMask = 1.0 - smoothstep(
+                        -lensAA,
+                        lensAA,
+                        lensSignedDistance
+                    );
+                    float shadowSignedDistance = capsuleDistance(
+                        fragPx
+                            - (
+                                uLensCenterPx
+                                + vec2(
+                                    0.0,
+                                    mix(6.5, 15.0, uInteraction) * uPixelRatio
+                                )
+                            ),
+                        uLensHalfSizePx
+                            + vec2(
+                                mix(4.0, 7.6, uStrength),
+                                mix(4.0, 8.8, uStrength)
+                            ) * uPixelRatio
+                    );
+                    float lowerShadowFalloff =
+                        1.0 - smoothstep(
+                            -1.5 * uPixelRatio,
+                            31.0 * uPixelRatio,
+                            shadowSignedDistance
+                        );
+                    float lowerShadowMask =
+                        lowerShadowFalloff
+                        * (1.0 - lensMask)
+                        * smoothstep(
+                            -0.34,
+                            1.0,
+                            (fragPx.y - uLensCenterPx.y)
+                                / max(uLensHalfSizePx.y, 1.0)
+                        )
+                        * glassActivation
+                        * mix(0.26, 0.56, uStrength);
+                    float glassOutputMask = max(
+                        trackMask * uTrackVisibility,
+                        lensMask
+                    );
+                    float outputMask = max(glassOutputMask, lowerShadowMask);
+
+                    if (outputMask <= 0.001) {
+                        fragColor = vec4(0.0);
+                        return;
+                    }
+
+                    float edgeWidthPx =
+                        mix(15.5, 30.0, uInteraction) * uPixelRatio;
+                    float normalizedLensDepth = clamp(
+                        -lensSignedDistance / max(lensRadiusPx, 1.0),
+                        0.0,
+                        1.0
+                    );
+                    float interiorContentBand =
+                        smoothstep(0.14, 0.52, normalizedLensDepth)
+                        * lensMask
+                        * glassActivation;
+                    float contentSampleScale =
+                        1.0
+                        + 0.085
+                            * uInteraction
+                            * mix(0.72, 1.0, uStrength);
+                    vec2 compressedContentPx =
+                        uLensCenterPx + d * contentSampleScale;
+                    vec4 compressedContent = sceneAt(compressedContentPx);
+                    base = mix(
+                        base,
+                        compressedContent,
+                        max(
+                            interiorContentBand,
+                            lensMask * smoothstep(0.02, 0.14, uInteraction)
+                        )
+                    );
+
+                    float edgeBand =
+                        smoothstep(
+                            -edgeWidthPx,
+                            -0.65 * uPixelRatio,
+                            lensSignedDistance
+                        )
+                        * (1.0 - smoothstep(
+                            0.0,
+                            lensAA,
+                            lensSignedDistance
+                        ))
+                        * lensMask
+                        * glassActivation;
+
+                    if (edgeBand <= 0.001) {
+                        fragColor = vec4(
+                            base.rgb * glassOutputMask,
+                            outputMask
+                        );
+                        return;
+                    }
+
+                    vec2 normal2D = lensRadialLength > 0.0001
+                        ? lensRadial / lensRadialLength
+                        : vec2(0.0, 1.0);
+                    vec2 tangent = vec2(-normal2D.y, normal2D.x);
+                    float edgeProgress = smoothstep(
+                        -edgeWidthPx,
+                        0.0,
+                        lensSignedDistance
+                    );
+                    float displacementPx =
+                        mix(5.0, 9.0, uStrength)
+                        * uPixelRatio
+                        * mix(0.82, 1.16, uInteraction);
+                    vec2 trackToLensRatio = clamp(
+                        uTrackHalfSizePx / uLensHalfSizePx,
+                        vec2(0.05),
+                        vec2(1.0)
+                    );
+                    vec2 boundaryMappedPx =
+                        uLensCenterPx + d * trackToLensRatio;
+                    vec2 refractedPx = mix(
+                        fragPx,
+                        boundaryMappedPx,
+                        edgeProgress
+                            * uInteraction
+                            * mix(0.64, 0.88, uStrength)
+                    ) - normal2D
+                        * displacementPx
+                        * pow(edgeProgress, 1.35)
+                        + vec2(
+                            -uVelocity
+                                * 3.2
+                                * uPixelRatio
+                                * edgeProgress,
+                            0.0
+                        );
+
+                    float mirrorRadiusPx = lensRadiusPx;
+                    float mirroredDepthPx = mirrorRadiusPx
+                        * mix(0.52, 0.06, edgeProgress);
+                    vec2 reflectedPx =
+                        uLensCenterPx
+                        - normal2D * mirroredDepthPx
+                        + tangent * dot(d, tangent) * 0.30;
+
+                    float blurRadiusPx =
+                        mix(0.9, 1.75, uInteraction) * uPixelRatio;
+                    vec4 refracted =
+                        sceneAt(refractedPx) * 0.40
+                        + sceneAt(
+                            refractedPx + tangent * blurRadiusPx
+                        ) * 0.15
+                        + sceneAt(
+                            refractedPx - tangent * blurRadiusPx
+                        ) * 0.15
+                        + sceneAt(
+                            refractedPx + normal2D * blurRadiusPx
+                        ) * 0.15
+                        + sceneAt(
+                            refractedPx - normal2D * blurRadiusPx
+                        ) * 0.15;
+                    float chromaticShiftPx =
+                        mix(1.45, 6.20, uInteraction)
+                        * mix(0.82, 1.16, uStrength)
+                        * uPixelRatio;
+                    vec2 dispersionRay = refractedPx - fragPx;
+                    vec2 dispersionDirection =
+                        length(dispersionRay) > 0.01
+                            ? normalize(dispersionRay)
+                            : -normal2D;
+                    vec4 redChannel = sceneAt(
+                        refractedPx
+                            + dispersionDirection
+                            * chromaticShiftPx
+                            * 0.82
+                    );
+                    vec4 greenChannel = sceneAt(refractedPx);
+                    vec4 blueChannel = sceneAt(
+                        refractedPx
+                            - dispersionDirection
+                            * chromaticShiftPx
+                    );
+                    vec3 dispersedRGB = vec3(
+                        redChannel.r,
+                        greenChannel.g,
+                        blueChannel.b
+                    );
+                    float dispersedLuma = dot(
+                        dispersedRGB,
+                        vec3(0.2126, 0.7152, 0.0722)
+                    );
+                    dispersedRGB = clamp(
+                        mix(vec3(dispersedLuma), dispersedRGB, 1.68),
+                        0.0,
+                        1.0
+                    );
+                    float chromaticBand =
+                        smoothstep(0.10, 0.72, edgeProgress);
+                    vec4 reflected = sceneAt(reflectedPx);
+                    float reflectionMix =
+                        smoothstep(
+                            -5.0 * uPixelRatio,
+                            0.0,
+                            lensSignedDistance
+                        )
+                        * mix(0.14, 0.25, uStrength)
+                        * mix(0.72, 1.0, uInteraction)
+                        * mix(0.58, 1.0, uNeutralWeight);
+                    vec4 edgePixels = mix(refracted, reflected, reflectionMix);
+                    float chromaMix = clamp(
+                        chromaticBand
+                            * mix(0.78, 1.12, uInteraction)
+                            * (1.0 - reflectionMix * 0.45),
+                        0.0,
+                        1.0
+                    );
+                    edgePixels.rgb = mix(
+                        edgePixels.rgb,
+                        dispersedRGB,
+                        chromaMix
+                    );
+                    float topFoldBand =
+                        edgeBand
+                        * smoothstep(0.18, 0.96, -normal2D.y)
+                        * smoothstep(0.08, 0.92, edgeProgress);
+                    float topLineFocus = pow(
+                        smoothstep(0.30, 1.0, edgeProgress),
+                        1.7
+                    );
+                    vec2 topFoldDirection = normalize(
+                        vec2(sign(d.x + 0.0001) * 0.34, -1.0)
+                    );
+                    vec2 topFoldPx =
+                        uLensCenterPx
+                        + vec2(
+                            d.x * mix(0.82, 0.30, topLineFocus),
+                            -uLensHalfSizePx.y
+                                * mix(0.62, 0.03, topLineFocus)
+                        );
+                    vec3 topFoldRGB = vec3(
+                        sceneAt(
+                            topFoldPx
+                                + topFoldDirection
+                                    * chromaticShiftPx
+                                    * 1.05
+                        ).r,
+                        sceneAt(topFoldPx).g,
+                        sceneAt(
+                            topFoldPx
+                                - topFoldDirection
+                                    * chromaticShiftPx
+                                    * 1.12
+                        ).b
+                    );
+                    float topFoldLuma = dot(
+                        topFoldRGB,
+                        vec3(0.2126, 0.7152, 0.0722)
+                    );
+                    topFoldRGB = clamp(
+                        mix(vec3(topFoldLuma), topFoldRGB, 1.82) * 1.08,
+                        0.0,
+                        1.0
+                    );
+                    edgePixels.rgb = mix(
+                        edgePixels.rgb,
+                        topFoldRGB,
+                        topFoldBand * mix(0.56, 0.92, uInteraction)
+                    );
+                    vec4 glassPixels = mix(base, edgePixels, edgeBand);
+
+                    float shoulderWidthPx =
+                        mix(8.5, 14.0, uInteraction) * uPixelRatio;
+                    float shoulderBand =
+                        smoothstep(
+                            -shoulderWidthPx,
+                            -1.1 * uPixelRatio,
+                            lensSignedDistance
+                        )
+                        * (1.0 - smoothstep(
+                            -0.15 * uPixelRatio,
+                            lensAA,
+                            lensSignedDistance
+                        ))
+                        * lensMask
+                        * glassActivation;
+                    float directionalLight = clamp(
+                        0.52
+                            + dot(
+                                normal2D,
+                                normalize(vec2(-0.62, -0.78))
+                            ) * 0.48,
+                        0.0,
+                        1.0
+                    );
+                    float fresnel = pow(edgeProgress, 6.0);
+                    float rimLuma = dot(
+                        glassPixels.rgb,
+                        vec3(0.2126, 0.7152, 0.0722)
+                    );
+                    vec3 shoulderTone = clamp(
+                        glassPixels.rgb * mix(
+                            1.32,
+                            0.72,
+                            smoothstep(0.38, 0.64, rimLuma)
+                        ),
+                        0.0,
+                        1.0
+                    );
+                    glassPixels.rgb = mix(
+                        glassPixels.rgb,
+                        shoulderTone,
+                        shoulderBand
+                            * (0.22 + directionalLight * 0.34)
+                            * (0.72 + fresnel * 0.28)
+                            * mix(0.52, 1.0, uNeutralWeight)
+                    );
+
+                    float coreWidthPx =
+                        mix(2.25, 3.60, uInteraction) * uPixelRatio;
+                    float coreBand =
+                        smoothstep(
+                            -coreWidthPx,
+                            -0.28 * uPixelRatio,
+                            lensSignedDistance
+                        )
+                        * (1.0 - smoothstep(
+                            0.0,
+                            lensAA,
+                            lensSignedDistance
+                        ))
+                        * lensMask
+                        * glassActivation;
+                    vec3 coreTone = clamp(
+                        glassPixels.rgb * mix(
+                            1.44,
+                            0.58,
+                            smoothstep(0.40, 0.66, rimLuma)
+                        ),
+                        0.0,
+                        1.0
+                    );
+                    glassPixels.rgb = mix(
+                        glassPixels.rgb,
+                        coreTone,
+                        coreBand
+                            * mix(0.70, 0.88, uInteraction)
+                            * mix(0.58, 1.0, uNeutralWeight)
+                    );
+
+                    float topShadowBand =
+                        coreBand
+                        * smoothstep(0.15, 0.92, -normal2D.y)
+                        * uInteraction;
+                    float bottomLightBand =
+                        coreBand
+                        * smoothstep(0.15, 0.92, normal2D.y)
+                        * uInteraction;
+                    glassPixels.rgb *= 1.0 - topShadowBand * 0.22;
+                    vec3 lowerLightTone = clamp(
+                        glassPixels.rgb * 1.28 + vec3(0.035),
+                        0.0,
+                        1.0
+                    );
+                    glassPixels.rgb = mix(
+                        glassPixels.rgb,
+                        lowerLightTone,
+                        bottomLightBand * 0.72
+                    );
+                    float lowerEdgeShadowBand =
+                        shoulderBand
+                        * smoothstep(0.04, 0.96, normal2D.y)
+                        * uInteraction;
+                    glassPixels.rgb *= 1.0 - lowerEdgeShadowBand * 0.30;
+                    glassPixels.rgb *= 1.0 - lowerShadowMask * 0.42;
+
+                    fragColor = vec4(
+                        glassPixels.rgb * glassOutputMask,
+                        outputMask
+                    );
+                }
+            `;
+
+            const colorBlockSpecs = [
+                {
+                    label: "夏日之聲",
+                    colorA: [255, 77, 138],
+                    colorB: [255, 156, 45],
+                    orb: [255, 220, 35],
+                },
+                {
+                    label: "熱門",
+                    colorA: [244, 196, 0],
+                    colorB: [239, 155, 0],
+                    orb: [28, 31, 38],
+                },
+                {
+                    label: "訊號",
+                    colorA: [244, 58, 128],
+                    colorB: [255, 100, 83],
+                    orb: [89, 23, 87],
+                },
+                {
+                    label: "資金流",
+                    colorA: [42, 106, 229],
+                    colorB: [70, 74, 220],
+                    orb: [15, 31, 60],
+                },
+                {
+                    label: "風險",
+                    colorA: [242, 132, 26],
+                    colorB: [232, 72, 59],
+                    orb: [104, 26, 50],
+                },
+                {
+                    label: "ALPHA",
+                    colorA: [0, 196, 139],
+                    colorB: [9, 151, 106],
+                    orb: [9, 77, 66],
+                },
+            ];
+
+            const blockSpecs = [
+                {
+                    label: "A01",
+                    rgb: [169, 83, 59],
+                    alpha: 0.34,
+                    width: 118,
+                    height: 54,
+                    baseX: 0.13,
+                    baseY: 0.24,
+                    rangeX: 0.10,
+                    rangeY: 0.08,
+                    speed: 0.00019,
+                    phase: 0.2,
+                    rotation: -10,
+                },
+                {
+                    label: "FLOW",
+                    rgb: [104, 124, 64],
+                    alpha: 0.30,
+                    width: 142,
+                    height: 60,
+                    baseX: 0.77,
+                    baseY: 0.27,
+                    rangeX: 0.11,
+                    rangeY: 0.09,
+                    speed: 0.00015,
+                    phase: 1.6,
+                    rotation: 8,
+                },
+                {
+                    label: "EDGE",
+                    rgb: [91, 77, 121],
+                    alpha: 0.32,
+                    width: 104,
+                    height: 104,
+                    baseX: 0.30,
+                    baseY: 0.76,
+                    rangeX: 0.14,
+                    rangeY: 0.08,
+                    speed: 0.00013,
+                    phase: 2.8,
+                    rotation: 14,
+                },
+                {
+                    label: "GRID",
+                    rgb: [151, 111, 52],
+                    alpha: 0.27,
+                    width: 174,
+                    height: 52,
+                    baseX: 0.77,
+                    baseY: 0.74,
+                    rangeX: 0.09,
+                    rangeY: 0.12,
+                    speed: 0.00017,
+                    phase: 4.1,
+                    rotation: -6,
+                },
+            ];
+
+            const globalState = {
+                bars: [],
+                toggles: [],
+                rangeBar: null,
+                colorBlockRects: [],
+                blockElements: [...document.querySelectorAll("[data-motion-block]")],
+                blockPoses: [],
+                motionEnabled: !reduceMotionQuery.matches && !qaMode,
+                sceneTime: qaMode ? 2400 : 0,
+                lastTime: 0,
+                raf: 0,
+                frames: 0,
+                contexts: 0,
+                contextFailures: 0,
+                strength: Number(strengthInput.value) / 100,
+                dpr: 1,
+                geometryDirty: true,
+            };
+
+            window.__liquidGlassDiagnostics = {
+                renderer: "css",
+                frames: 0,
+                idle: true,
+                dpr: 1,
+                contexts: 0,
+                contextFailures: 0,
+                sceneVersion: 0,
+                centerOffsetPx: 0,
+                edgeOffsetPx: 2.8,
+                bars: [],
+            };
+
+            function compileShader(gl, type, source) {
+                const shader = gl.createShader(type);
+                gl.shaderSource(shader, source);
+                gl.compileShader(shader);
+                if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                    const message = gl.getShaderInfoLog(shader) || "Shader compilation failed";
+                    gl.deleteShader(shader);
+                    throw new Error(message);
+                }
+                return shader;
+            }
+
+            function createProgram(gl) {
+                const vertex = compileShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+                const fragment = compileShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+                const program = gl.createProgram();
+                gl.attachShader(program, vertex);
+                gl.attachShader(program, fragment);
+                gl.linkProgram(program);
+                gl.deleteShader(vertex);
+                gl.deleteShader(fragment);
+                if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                    const message = gl.getProgramInfoLog(program) || "Program linking failed";
+                    gl.deleteProgram(program);
+                    throw new Error(message);
+                }
+                return program;
+            }
+
+            function roundedRectPath(context, x, y, width, height, radius) {
+                const r = Math.min(radius, width / 2, height / 2);
+                context.beginPath();
+                context.moveTo(x + r, y);
+                context.arcTo(x + width, y, x + width, y + height, r);
+                context.arcTo(x + width, y + height, x, y + height, r);
+                context.arcTo(x, y + height, x, y, r);
+                context.arcTo(x, y, x + width, y, r);
+                context.closePath();
+            }
+
+            function getDpr() {
+                const coarsePointer = window.matchMedia("(pointer: coarse)").matches;
+                return Math.min(window.devicePixelRatio || 1, coarsePointer ? 1.25 : 1.5);
+            }
+
+            function updateColorBlockLayout() {
+                const viewportWidth = window.innerWidth;
+                const viewportHeight = window.innerHeight;
+                const padding = Math.max(
+                    22,
+                    Math.min(62, viewportWidth * 0.04)
+                );
+                const gap = Math.max(
+                    14,
+                    Math.min(36, viewportWidth * 0.022)
+                );
+                const width = Math.max(
+                    1,
+                    (viewportWidth - padding * 2 - gap) / 2
+                );
+                const height = Math.max(
+                    170,
+                    Math.min(300, viewportHeight * 0.28)
+                );
+
+                globalState.colorBlockRects = colorBlockSpecs.map(
+                    (spec, index) => {
+                        const column = index % 2;
+                        const row = Math.floor(index / 2);
+                        const rect = {
+                            ...spec,
+                            left: padding + column * (width + gap),
+                            top: padding + row * (height + gap),
+                            width,
+                            height,
+                            radius: Math.max(
+                                24,
+                                Math.min(46, width * 0.075)
+                            ),
+                        };
+                        return rect;
+                    }
+                );
+                const backgroundDpr = getDpr();
+                colorBackgroundCanvas.width = Math.max(
+                    1,
+                    Math.round(viewportWidth * backgroundDpr)
+                );
+                colorBackgroundCanvas.height = Math.max(
+                    1,
+                    Math.round(viewportHeight * backgroundDpr)
+                );
+                colorBackgroundContext.setTransform(
+                    backgroundDpr,
+                    0,
+                    0,
+                    backgroundDpr,
+                    0,
+                    0
+                );
+                colorBackgroundContext.fillStyle = "#050505";
+                colorBackgroundContext.fillRect(
+                    0,
+                    0,
+                    viewportWidth,
+                    viewportHeight
+                );
+                drawColorBlocks(
+                    colorBackgroundContext,
+                    { left: 0, top: 0 }
+                );
+                pageBackground.dataset.ready = "true";
+            }
+
+            function drawColorBlocks(context, canvasRect) {
+                globalState.colorBlockRects.forEach((rect, index) => {
+                    const x = rect.left - canvasRect.left;
+                    const y = rect.top - canvasRect.top;
+                    context.save();
+                    roundedRectPath(
+                        context,
+                        x,
+                        y,
+                        rect.width,
+                        rect.height,
+                        rect.radius
+                    );
+                    context.clip();
+
+                    const gradient = context.createLinearGradient(
+                        x,
+                        y,
+                        x + rect.width,
+                        y + rect.height
+                    );
+                    gradient.addColorStop(
+                        0,
+                        `rgb(${rect.colorA.join(",")})`
+                    );
+                    gradient.addColorStop(
+                        1,
+                        `rgb(${rect.colorB.join(",")})`
+                    );
+                    context.fillStyle = gradient;
+                    context.fillRect(x, y, rect.width, rect.height);
+
+                    context.fillStyle = `rgba(${rect.orb.join(",")},0.72)`;
+                    context.beginPath();
+                    context.arc(
+                        x + rect.width * 0.73,
+                        y + rect.height * 0.34,
+                        rect.height * 0.36,
+                        0,
+                        Math.PI * 2
+                    );
+                    context.fill();
+
+                    context.translate(
+                        x + rect.width * 0.70,
+                        y + rect.height * 0.72
+                    );
+                    context.rotate(-12 * Math.PI / 180);
+                    roundedRectPath(
+                        context,
+                        -rect.width * 0.35,
+                        -rect.height * 0.12,
+                        rect.width * 0.70,
+                        rect.height * 0.24,
+                        rect.height * 0.12
+                    );
+                    context.fillStyle = "rgba(248,246,240,0.13)";
+                    context.fill();
+                    context.restore();
+
+                    context.save();
+                    context.fillStyle = "rgba(248,246,240,0.94)";
+                    context.font = `820 ${
+                        Math.max(18, Math.min(42, rect.width * 0.06))
+                    }px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif`;
+                    context.textBaseline = "alphabetic";
+                    context.textAlign = index % 2 === 0 ? "left" : "right";
+                    context.fillText(
+                        rect.label,
+                        x + rect.width * (index % 2 === 0 ? 0.08 : 0.92),
+                        y + rect.height * 0.88
+                    );
+                    context.restore();
+                });
+            }
+
+            function calculateBlockPose(spec, time) {
+                const widthScale = Math.max(0.72, Math.min(1.12, window.innerWidth / 1280));
+                const width = spec.width * widthScale;
+                const height = spec.height * widthScale;
+                const cycle = time * spec.speed + spec.phase;
+                const x = window.innerWidth * (
+                    spec.baseX + Math.sin(cycle) * spec.rangeX
+                );
+                const y = window.innerHeight * (
+                    spec.baseY + Math.cos(cycle * 0.83) * spec.rangeY
+                );
+                const rotation = spec.rotation + Math.sin(cycle * 0.61) * 8;
+                return { ...spec, x, y, width, height, rotation };
+            }
+
+            function updateMotionBlocks(time) {
+                globalState.blockPoses = blockSpecs.map((spec) => (
+                    calculateBlockPose(spec, time)
+                ));
+
+                globalState.blockElements.forEach((element, index) => {
+                    const pose = globalState.blockPoses[index];
+                    element.style.width = `${pose.width}px`;
+                    element.style.height = `${pose.height}px`;
+                    element.style.transform = [
+                        `translate3d(${pose.x - pose.width / 2}px,`,
+                        `${pose.y - pose.height / 2}px, 0)`,
+                        `rotate(${pose.rotation}deg)`,
+                    ].join(" ");
+                });
+            }
+
+            function drawBackgroundCover(context, canvasRect, width, height) {
+                context.fillStyle = "#050505";
+                context.fillRect(0, 0, width, height);
+                if (
+                    colorBackgroundCanvas.width
+                    && colorBackgroundCanvas.height
+                ) {
+                    context.drawImage(
+                        colorBackgroundCanvas,
+                        0,
+                        0,
+                        colorBackgroundCanvas.width,
+                        colorBackgroundCanvas.height,
+                        -canvasRect.left,
+                        -canvasRect.top,
+                        window.innerWidth,
+                        window.innerHeight
+                    );
+                }
+            }
+
+            function drawMotionBlocks(context, canvasRect) {
+                globalState.blockPoses.forEach((pose) => {
+                    context.save();
+                    context.translate(
+                        pose.x - canvasRect.left,
+                        pose.y - canvasRect.top
+                    );
+                    context.rotate(pose.rotation * Math.PI / 180);
+                    context.fillStyle = `rgba(${pose.rgb.join(",")},${pose.alpha})`;
+                    context.strokeStyle = "rgba(135,139,147,0.48)";
+                    context.lineWidth = 1;
+                    roundedRectPath(
+                        context,
+                        -pose.width / 2,
+                        -pose.height / 2,
+                        pose.width,
+                        pose.height,
+                        18
+                    );
+                    context.fill();
+                    context.stroke();
+                    context.fillStyle = "rgba(238,237,231,0.78)";
+                    context.font = "760 10px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
+                    context.textAlign = "center";
+                    context.textBaseline = "middle";
+                    context.fillText(pose.label, 0, 0);
+                    context.restore();
+                });
+            }
+
+            function drawBarScene(bar) {
+                if (!bar.sceneContext || !bar.width || !bar.height) return;
+                const context = bar.sceneContext;
+                const dpr = bar.dpr;
+                const sceneWidth = bar.canvasCssWidth;
+                const sceneHeight = bar.canvasCssHeight;
+                const canvasRect = bar.canvasRect;
+                const targetWidth = Math.round(sceneWidth * dpr);
+                const targetHeight = Math.round(sceneHeight * dpr);
+
+                if (
+                    bar.scene.width !== targetWidth
+                    || bar.scene.height !== targetHeight
+                ) {
+                    bar.scene.width = targetWidth;
+                    bar.scene.height = targetHeight;
+                }
+                context.setTransform(dpr, 0, 0, dpr, 0, 0);
+                context.clearRect(0, 0, sceneWidth, sceneHeight);
+                drawBackgroundCover(context, canvasRect, sceneWidth, sceneHeight);
+                drawMotionBlocks(context, canvasRect);
+
+                context.fillStyle = "rgba(7,9,12,0.08)";
+                context.fillRect(0, 0, sceneWidth, sceneHeight);
+                const tint = Number(bar.root.dataset.sceneTint || 0.12);
+                context.fillStyle = `rgba(9,11,15,${tint})`;
+                context.fillRect(0, 0, sceneWidth, sceneHeight);
+                const quietSelection = Math.max(
+                    0,
+                    1 - Math.min(1, bar.interaction * 1.35)
+                );
+
+                if (bar.type === "toggle") {
+                    roundedRectPath(
+                        context,
+                        bar.padX,
+                        bar.padY,
+                        bar.width,
+                        bar.height,
+                        bar.height / 2
+                    );
+                    context.fillStyle = "rgb(30 34 40)";
+                    context.fill();
+                    context.globalAlpha = bar.toggle.progress;
+                    context.fillStyle = "rgb(103 126 67)";
+                    context.fill();
+                    context.globalAlpha = 1;
+                } else if (bar.type === "range") {
+                    roundedRectPath(
+                        context,
+                        bar.padX,
+                        bar.padY,
+                        bar.width,
+                        bar.height,
+                        bar.height / 2
+                    );
+                    context.fillStyle = "rgba(29,32,38,0.76)";
+                    context.fill();
+
+                    context.save();
+                    roundedRectPath(
+                        context,
+                        bar.padX,
+                        bar.padY,
+                        bar.width,
+                        bar.height,
+                        bar.height / 2
+                    );
+                    context.clip();
+                    const progressGradient = context.createLinearGradient(
+                        bar.padX,
+                        0,
+                        bar.padX + bar.width,
+                        0
+                    );
+                    progressGradient.addColorStop(0, "rgba(140,166,96,0.92)");
+                    progressGradient.addColorStop(1, "rgba(185,205,128,0.88)");
+                    context.fillStyle = progressGradient;
+                    context.fillRect(
+                        bar.padX,
+                        bar.padY,
+                        Math.max(0, Math.min(bar.width, bar.x)),
+                        bar.height
+                    );
+                    context.restore();
+
+                    roundedRectPath(
+                        context,
+                        bar.padX,
+                        bar.padY,
+                        bar.width,
+                        bar.height,
+                        bar.height / 2
+                    );
+                    context.strokeStyle = "rgba(126,130,138,0.58)";
+                    context.lineWidth = 1.4;
+                    context.stroke();
+
+                    if (quietSelection > 0.001) {
+                        roundedRectPath(
+                            context,
+                            bar.padX + bar.x - 32.5,
+                            bar.padY + bar.height / 2 - 21,
+                            65,
+                            42,
+                            21
+                        );
+                        context.fillStyle = `rgba(43,47,54,${
+                            (quietSelection * 0.96).toFixed(3)
+                        })`;
+                        context.fill();
+                    }
+                } else {
+                roundedRectPath(
+                    context,
+                    bar.padX,
+                    bar.padY,
+                    bar.width,
+                    bar.height,
+                    bar.height / 2
+                );
+                context.fillStyle = "rgba(15,17,21,0.54)";
+                context.fill();
+                context.strokeStyle = "rgba(126,130,138,0.46)";
+                context.lineWidth = 1.6;
+                context.stroke();
+
+                if (quietSelection > 0.001) {
+                    const quietHalfHeight = Math.max(
+                        20,
+                        bar.height / 2 - 6
+                    );
+                    const quietHalfWidth = Math.max(
+                        bar.segmentWidth * 0.48,
+                        quietHalfHeight + 1
+                    );
+                    roundedRectPath(
+                        context,
+                        bar.padX + bar.x - quietHalfWidth,
+                        bar.padY + bar.height / 2 - quietHalfHeight,
+                        quietHalfWidth * 2,
+                        quietHalfHeight * 2,
+                        quietHalfHeight
+                    );
+                    context.fillStyle = `rgba(34,38,44,${
+                        (quietSelection * 0.88).toFixed(3)
+                    })`;
+                    context.fill();
+                }
+
+                context.save();
+                roundedRectPath(
+                    context,
+                    bar.padX,
+                    bar.padY,
+                    bar.width,
+                    bar.height,
+                    bar.height / 2
+                );
+                context.clip();
+
+                context.strokeStyle = "rgba(125,129,137,0.18)";
+                context.lineWidth = 1;
+                for (let index = 1; index < bar.count; index += 1) {
+                    const x = bar.padX + bar.segmentWidth * index;
+                    context.beginPath();
+                    context.moveTo(x, bar.padY + 11);
+                    context.lineTo(x, bar.padY + bar.height - 11);
+                    context.stroke();
+                }
+
+                context.font = `${
+                    bar.count >= 5 ? 680 : 720
+                } ${bar.count >= 5 ? 11 : 13}px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif`;
+                context.textAlign = "center";
+                context.textBaseline = "middle";
+                const glassLabelIsolation = (
+                    bar.interaction > 0.035
+                    || bar.dragging
+                    || bar.transitioning
+                    || bar.releaseHoldMs > 0
+                );
+                bar.buttons.forEach((button, index) => {
+                    const selected = index === bar.selected;
+                    if (glassLabelIsolation && !selected) return;
+                    context.fillStyle = selected
+                        ? "rgba(241,240,235,0.96)"
+                        : "rgba(173,173,169,0.66)";
+                    context.fillText(
+                        button.dataset.label || button.textContent.trim(),
+                        bar.padX + bar.segmentWidth * (index + 0.5),
+                        bar.padY + bar.height / 2 + 0.5
+                    );
+                });
+                context.restore();
+                }
+
+                const gl = bar.gl;
+                if (gl && bar.texture) {
+                    gl.activeTexture(gl.TEXTURE0);
+                    gl.bindTexture(gl.TEXTURE_2D, bar.texture);
+                    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+                    if (
+                        bar.textureWidth !== bar.scene.width
+                        || bar.textureHeight !== bar.scene.height
+                    ) {
+                        gl.texImage2D(
+                            gl.TEXTURE_2D,
+                            0,
+                            gl.RGBA,
+                            gl.RGBA,
+                            gl.UNSIGNED_BYTE,
+                            bar.scene
+                        );
+                        bar.textureWidth = bar.scene.width;
+                        bar.textureHeight = bar.scene.height;
+                    } else {
+                        gl.texSubImage2D(
+                            gl.TEXTURE_2D,
+                            0,
+                            0,
+                            0,
+                            gl.RGBA,
+                            gl.UNSIGNED_BYTE,
+                            bar.scene
+                        );
+                    }
+                }
+            }
+
+            function renderBar(bar) {
+                if (bar.renderer !== "webgl" || !bar.gl || !bar.program) return;
+                if (!bar.visible && !bar.dragging) return;
+                if (
+                    bar.type === "toggle"
+                    && bar.interaction < 0.002
+                    && !bar.pointerActive
+                ) return;
+                drawBarScene(bar);
+
+                const gl = bar.gl;
+                const dpr = bar.dpr;
+                const transitionPulse = bar.transitioning
+                    ? Math.sin(bar.transitionProgress * Math.PI) * 0.10
+                    : 0;
+                const interaction = bar.motionOff
+                    ? 0
+                    : Math.min(1, bar.interaction + transitionPulse);
+                const speed = Math.min(1, Math.abs(bar.velocityUnit));
+                const idleHalfHeight = bar.type === "range"
+                    ? 21
+                    : bar.type === "toggle"
+                        ? 25
+                        : Math.max(20, bar.height / 2 - 6);
+                const dragHalfHeight = bar.type === "range"
+                    ? 34
+                    : bar.type === "toggle"
+                        ? 41.25
+                        : bar.height / 2 + 15;
+                const idleHalfWidth = bar.type === "range"
+                    ? 32.5
+                    : bar.type === "toggle"
+                        ? 37
+                        : Math.max(
+                            bar.segmentWidth * 0.48,
+                            idleHalfHeight + 1
+                        );
+                const dragHalfWidth = bar.type === "range"
+                    ? 53.6
+                    : bar.type === "toggle"
+                        ? 61.05
+                        : Math.max(
+                            bar.segmentWidth * 0.60,
+                            dragHalfHeight + 1
+                        );
+                const halfWidth = (
+                    idleHalfWidth
+                    + (dragHalfWidth - idleHalfWidth) * interaction
+                    + speed
+                        * interaction
+                        * (
+                            bar.type === "range"
+                                ? 9
+                                : bar.type === "toggle"
+                                    ? 11.1
+                                    : bar.segmentWidth * 0.055
+                        )
+                ) * dpr;
+                const halfHeight = (
+                    idleHalfHeight
+                    + (dragHalfHeight - idleHalfHeight) * interaction
+                    - speed
+                        * interaction
+                        * (bar.type === "toggle" ? 7.5 : 3)
+                ) * dpr;
+                const lensCenterX = (bar.padX + bar.x) * dpr;
+                const lensCenterY = (bar.padY + bar.height / 2) * dpr;
+
+                gl.useProgram(bar.program);
+                gl.activeTexture(gl.TEXTURE0);
+                gl.bindTexture(gl.TEXTURE_2D, bar.texture);
+                gl.uniform2f(
+                    bar.uniforms.resolution,
+                    bar.canvas.width,
+                    bar.canvas.height
+                );
+                gl.uniform2f(
+                    bar.uniforms.trackCenter,
+                    (bar.padX + bar.width / 2) * dpr,
+                    (bar.padY + bar.height / 2) * dpr
+                );
+                gl.uniform2f(
+                    bar.uniforms.trackHalfSize,
+                    bar.width / 2 * dpr,
+                    bar.height / 2 * dpr
+                );
+                gl.uniform2f(
+                    bar.uniforms.lensCenter,
+                    lensCenterX,
+                    lensCenterY
+                );
+                gl.uniform2f(
+                    bar.uniforms.lensHalfSize,
+                    halfWidth,
+                    halfHeight
+                );
+                gl.uniform1f(bar.uniforms.interaction, interaction);
+                gl.uniform1f(bar.uniforms.strength, globalState.strength);
+                gl.uniform1f(bar.uniforms.pixelRatio, dpr);
+                gl.uniform1f(bar.uniforms.velocity, bar.velocityUnit);
+                gl.uniform1f(
+                    bar.uniforms.trackVisibility,
+                    bar.type === "toggle" ? 0 : 1
+                );
+                gl.uniform1f(
+                    bar.uniforms.neutralWeight,
+                    bar.type === "switch" ? 1 : 0
+                );
+                gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+                const trackTop = bar.rootRect.top;
+                const trackBottom = bar.rootRect.bottom;
+                const lensTop = bar.canvasRect.top + lensCenterY / dpr - halfHeight / dpr;
+                const lensBottom = bar.canvasRect.top + lensCenterY / dpr + halfHeight / dpr;
+                const lensLeft = bar.canvasRect.left
+                    + lensCenterX / dpr
+                    - halfWidth / dpr;
+                const lensRight = bar.canvasRect.left
+                    + lensCenterX / dpr
+                    + halfWidth / dpr;
+                const lensOverflow = Math.max(
+                    trackTop - lensTop,
+                    lensBottom - trackBottom,
+                    0
+                );
+                bar.maxLensOverflow = Math.max(
+                    bar.maxLensOverflow,
+                    lensOverflow
+                );
+                const canvasClip = Math.max(
+                    bar.canvasRect.left - lensLeft,
+                    lensRight - bar.canvasRect.right,
+                    bar.canvasRect.top - lensTop,
+                    lensBottom - bar.canvasRect.bottom,
+                    0
+                );
+                bar.maxCanvasClip = Math.max(
+                    bar.maxCanvasClip,
+                    canvasClip
+                );
+                bar.root.dataset.dragging = String(bar.dragging);
+                bar.root.dataset.glassActive = String(interaction >= 0.08);
+                bar.root.dataset.chromaticLayer = interaction >= 0.08
+                    ? "inner"
+                    : "none";
+                bar.root.dataset.trackTop = trackTop.toFixed(2);
+                bar.root.dataset.trackBottom = trackBottom.toFixed(2);
+                bar.root.dataset.lensTop = lensTop.toFixed(2);
+                bar.root.dataset.lensBottom = lensBottom.toFixed(2);
+                bar.root.dataset.lensHalfWidth = (halfWidth / dpr).toFixed(2);
+                bar.root.dataset.lensHalfHeight = (halfHeight / dpr).toFixed(2);
+                bar.root.dataset.maxLensOverflow = bar.maxLensOverflow.toFixed(2);
+                bar.root.dataset.maxCanvasClip = bar.maxCanvasClip.toFixed(2);
+                bar.root.dataset.lensCenterX = bar.x.toFixed(2);
+                bar.root.dataset.targetCenterX = bar.targetX.toFixed(2);
+                bar.root.dataset.centerOffsetPx = "0";
+                bar.root.dataset.edgeOffsetPx = (
+                    3.0 + (5.8 - 3.0) * globalState.strength
+                ).toFixed(2);
+            }
+
+            function initWebGL(bar) {
+                try {
+                    const gl = bar.canvas.getContext("webgl2", {
+                        alpha: true,
+                        antialias: false,
+                        depth: false,
+                        stencil: false,
+                        premultipliedAlpha: true,
+                        preserveDrawingBuffer: false,
+                        powerPreference: "high-performance",
+                    });
+                    if (!gl) throw new Error("WebGL2 unavailable");
+
+                    const program = createProgram(gl);
+                    const texture = gl.createTexture();
+                    gl.activeTexture(gl.TEXTURE0);
+                    gl.bindTexture(gl.TEXTURE_2D, texture);
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+                    gl.useProgram(program);
+                    const sceneUniform = gl.getUniformLocation(program, "uScene");
+                    gl.uniform1i(sceneUniform, 0);
+                    gl.enable(gl.BLEND);
+                    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+
+                    bar.gl = gl;
+                    bar.program = program;
+                    bar.texture = texture;
+                    bar.textureWidth = 0;
+                    bar.textureHeight = 0;
+                    bar.uniforms = {
+                        resolution: gl.getUniformLocation(program, "uResolution"),
+                        trackCenter: gl.getUniformLocation(program, "uTrackCenterPx"),
+                        trackHalfSize: gl.getUniformLocation(program, "uTrackHalfSizePx"),
+                        lensCenter: gl.getUniformLocation(program, "uLensCenterPx"),
+                        lensHalfSize: gl.getUniformLocation(program, "uLensHalfSizePx"),
+                        interaction: gl.getUniformLocation(program, "uInteraction"),
+                        strength: gl.getUniformLocation(program, "uStrength"),
+                        pixelRatio: gl.getUniformLocation(program, "uPixelRatio"),
+                        velocity: gl.getUniformLocation(program, "uVelocity"),
+                        trackVisibility: gl.getUniformLocation(
+                            program,
+                            "uTrackVisibility"
+                        ),
+                        neutralWeight: gl.getUniformLocation(
+                            program,
+                            "uNeutralWeight"
+                        ),
+                    };
+                    bar.renderer = "webgl";
+                    bar.root.dataset.renderer = "webgl";
+                    return true;
+                } catch (error) {
+                    bar.renderer = "css";
+                    bar.root.dataset.renderer = "css";
+                    globalState.contextFailures += 1;
+                    return false;
+                }
+            }
+
+            function updateRendererBadge() {
+                const webglCount = globalState.bars.filter(
+                    (bar) => bar.renderer === "webgl"
+                ).length;
+                const pendingLazy = globalState.bars.filter(
+                    (bar) => bar.lazyRenderer && !bar.rendererAttempted
+                ).length;
+                const requiredBars = globalState.bars.filter(
+                    (bar) => !bar.lazyRenderer || bar.rendererAttempted
+                );
+                const hasRequiredFailure = requiredBars.some(
+                    (bar) => bar.renderer !== "webgl"
+                );
+                globalState.contexts = webglCount;
+                const renderer = webglCount > 0 && !hasRequiredFailure
+                    ? "webgl"
+                    : webglCount > 0
+                        ? "mixed"
+                        : "css";
+                rendererBadge.textContent = renderer === "webgl"
+                    ? pendingLazy
+                        ? `${webglCount}× WebGL · ${pendingLazy} on-demand`
+                        : `${webglCount}× WebGL · shared scene`
+                    : renderer === "mixed"
+                        ? `${webglCount}/${requiredBars.length} WebGL`
+                        : "CSS fallback";
+                window.__liquidGlassDiagnostics.renderer = renderer;
+                window.__liquidGlassDiagnostics.contexts = globalState.contexts;
+                window.__liquidGlassDiagnostics.contextFailures = globalState.contextFailures;
+                stage.dataset.contexts = String(globalState.contexts);
+            }
+
+            function resizeBar(bar) {
+                if (bar.lazyRenderer && !bar.gl) return;
+                bar.rootRect = bar.root.getBoundingClientRect();
+                bar.width = Math.max(1, bar.rootRect.width);
+                bar.height = Math.max(1, bar.rootRect.height);
+                bar.segmentWidth = bar.type === "range"
+                    ? bar.width
+                    : bar.width / bar.count;
+                bar.padX = bar.type === "range"
+                    ? 66
+                    : bar.type === "toggle"
+                        ? 32
+                        : CANVAS_PAD_X;
+                bar.padY = bar.type === "range"
+                    ? (window.innerWidth <= 520 ? 36 : 38)
+                    : bar.type === "toggle"
+                        ? 32
+                        : (window.innerWidth <= 520 ? 28 : CANVAS_PAD_Y);
+                bar.dpr = getDpr();
+                bar.canvasRect = bar.canvas.getBoundingClientRect();
+                bar.canvasCssWidth = Math.max(1, bar.canvasRect.width);
+                bar.canvasCssHeight = Math.max(1, bar.canvasRect.height);
+                const bitmapWidth = Math.max(
+                    1,
+                    Math.round(bar.canvasCssWidth * bar.dpr)
+                );
+                const bitmapHeight = Math.max(
+                    1,
+                    Math.round(bar.canvasCssHeight * bar.dpr)
+                );
+                if (bar.canvas.width !== bitmapWidth) {
+                    bar.canvas.width = bitmapWidth;
+                }
+                if (bar.canvas.height !== bitmapHeight) {
+                    bar.canvas.height = bitmapHeight;
+                }
+                if (bar.gl) {
+                    bar.gl.viewport(0, 0, bar.canvas.width, bar.canvas.height);
+                }
+                if (bar.type === "range") {
+                    const min = Number(bar.input.min);
+                    const max = Number(bar.input.max);
+                    const ratio = (Number(bar.input.value) - min) / (max - min);
+                    bar.targetX = ratio * bar.width;
+                } else {
+                    bar.targetX = bar.segmentWidth * (bar.selected + 0.5);
+                }
+                if (!bar.dragging && !bar.transitioning) {
+                    bar.x = bar.targetX;
+                }
+                globalState.dpr = Math.max(globalState.dpr, bar.dpr);
+            }
+
+            function setBarSelection(bar, nextIndex, options = {}) {
+                const next = Math.max(
+                    0,
+                    Math.min(bar.count - 1, Number(nextIndex) || 0)
+                );
+                const changed = next !== bar.selected;
+                bar.selected = next;
+                bar.root.style.setProperty("--selected-index", String(next));
+                bar.targetX = bar.segmentWidth * (next + 0.5);
+
+                bar.buttons.forEach((button, index) => {
+                    const selected = index === next;
+                    if (button.getAttribute("role") === "tab") {
+                        button.setAttribute("aria-selected", String(selected));
+                    } else {
+                        button.setAttribute("aria-checked", String(selected));
+                    }
+                    button.tabIndex = selected ? 0 : -1;
+                });
+
+                if (bar.panels.length) {
+                    bar.panels.forEach((panel, index) => {
+                        const selected = index === next;
+                        panel.hidden = !selected;
+                        panel.classList.toggle("is-active", selected);
+                    });
+                }
+
+                if (changed) {
+                    announcer.textContent = `${
+                        bar.buttons[next].dataset.label
+                    } selected`;
+                    if (!bar.dragging) {
+                        startBarTransition(bar);
+                    }
+                }
+                if (options.focus) bar.buttons[next].focus();
+                requestLoop();
+            }
+
+            function pointerX(bar, event) {
+                const raw = event.clientX - bar.rootRect.left;
+                const firstCenter = bar.segmentWidth / 2;
+                const lastCenter = bar.width - firstCenter;
+                return Math.max(firstCenter, Math.min(lastCenter, raw));
+            }
+
+            function endPointer(bar, event) {
+                if (
+                    !bar.pointerActive
+                    || (event && event.pointerId !== bar.pointerId)
+                ) return;
+                const wasDragging = bar.dragging;
+                const wasCancelled = event?.type === "pointercancel";
+                const pressedIndex = bar.pressedIndex;
+                bar.pointerActive = false;
+                bar.dragging = false;
+                if (wasCancelled) {
+                    setBarSelection(bar, bar.pointerStartSelected);
+                    bar.releaseHoldMs = 0;
+                } else if (wasDragging) {
+                    bar.targetX = bar.segmentWidth * (bar.selected + 0.5);
+                    startBarTransition(bar, 150);
+                } else if (pressedIndex !== null) {
+                    setBarSelection(bar, pressedIndex);
+                }
+                if (
+                    event
+                    && bar.root.hasPointerCapture?.(event.pointerId)
+                ) {
+                    bar.root.releasePointerCapture(event.pointerId);
+                }
+                bar.pointerId = null;
+                bar.pressedIndex = null;
+                if (wasDragging && bar.pointerMoved) {
+                    bar.suppressClick = true;
+                    window.setTimeout(() => {
+                        bar.suppressClick = false;
+                    }, 0);
+                }
+                if (wasDragging) requestLoop();
+            }
+
+            function bindBarEvents(bar) {
+                bar.buttons.forEach((button) => {
+                    button.addEventListener("click", (event) => {
+                        if (bar.suppressClick) {
+                            event.preventDefault();
+                            return;
+                        }
+                        setBarSelection(bar, Number(button.dataset.index));
+                    });
+
+                    button.addEventListener("keydown", (event) => {
+                        let next = bar.selected;
+                        if (event.key === "ArrowLeft" || event.key === "ArrowUp") next -= 1;
+                        else if (event.key === "ArrowRight" || event.key === "ArrowDown") next += 1;
+                        else if (event.key === "Home") next = 0;
+                        else if (event.key === "End") next = bar.count - 1;
+                        else return;
+
+                        event.preventDefault();
+                        if (next < 0) next = bar.count - 1;
+                        if (next >= bar.count) next = 0;
+                        setBarSelection(bar, next, { focus: true });
+                    });
+                });
+
+                bar.root.addEventListener("pointerdown", (event) => {
+                    if (event.pointerType === "mouse" && event.button !== 0) return;
+                    bar.rootRect = bar.root.getBoundingClientRect();
+                    bar.pointerActive = true;
+                    bar.dragging = false;
+                    bar.pointerId = event.pointerId;
+                    bar.pointerStartX = event.clientX;
+                    bar.pointerStartSelected = bar.selected;
+                    bar.pointerMoved = false;
+                    bar.velocityX = 0;
+                    bar.releaseHoldMs = 0;
+                    bar.root.setPointerCapture?.(event.pointerId);
+                    const pressedButton = event.target.closest(
+                        ".optical-switch-button"
+                    );
+                    bar.pressedIndex = pressedButton
+                        ? Number(pressedButton.dataset.index)
+                        : Math.round(
+                            pointerX(bar, event) / bar.segmentWidth - 0.5
+                        );
+                    requestLoop();
+                });
+
+                bar.root.addEventListener("pointermove", (event) => {
+                    if (
+                        !bar.pointerActive
+                        || event.pointerId !== bar.pointerId
+                    ) return;
+                    const pointerDistance = Math.abs(
+                        event.clientX - bar.pointerStartX
+                    );
+                    if (!bar.dragging && pointerDistance <= 6) return;
+                    if (!bar.dragging) {
+                        bar.dragging = true;
+                        bar.pointerMoved = true;
+                        bar.root.setPointerCapture?.(event.pointerId);
+                        bar.x = pointerX(bar, event);
+                        bar.velocityX = 0;
+                    }
+                    const nextX = pointerX(bar, event);
+                    bar.velocityX = nextX - bar.x;
+                    bar.x = nextX;
+                    const nextIndex = Math.round(
+                        bar.x / bar.segmentWidth - 0.5
+                    );
+                    if (nextIndex !== bar.selected) {
+                        setBarSelection(bar, nextIndex);
+                    }
+                    requestLoop();
+                });
+
+                bar.root.addEventListener("pointerup", (event) => {
+                    endPointer(bar, event);
+                });
+                bar.root.addEventListener("pointercancel", (event) => {
+                    endPointer(bar, event);
+                });
+                bar.root.addEventListener("lostpointercapture", (event) => {
+                    endPointer(bar, event);
+                });
+
+                bar.canvas.addEventListener("webglcontextlost", (event) => {
+                    event.preventDefault();
+                    bar.renderer = "css";
+                    bar.root.dataset.renderer = "css";
+                    globalState.contextFailures += 1;
+                    updateRendererBadge();
+                });
+
+                bar.canvas.addEventListener("webglcontextrestored", () => {
+                    initWebGL(bar);
+                    resizeBar(bar);
+                    updateRendererBadge();
+                    requestLoop();
+                });
+            }
+
+            function createOpticalBar(root) {
+                const buttons = [...root.querySelectorAll(".optical-switch-button")];
+                const selected = Math.max(
+                    0,
+                    buttons.findIndex((button) => (
+                        button.getAttribute("aria-selected") === "true"
+                        || button.getAttribute("aria-checked") === "true"
+                    ))
+                );
+                const panels = buttons
+                    .map((button) => {
+                        const id = button.getAttribute("aria-controls");
+                        return id ? document.getElementById(id) : null;
+                    })
+                    .filter(Boolean);
+                const canvas = root.querySelector(".optical-switch-canvas");
+                const scene = document.createElement("canvas");
+                const sceneContext = scene.getContext("2d", { alpha: true });
+                const bar = {
+                    type: "switch",
+                    root,
+                    buttons,
+                    panels,
+                    canvas,
+                    scene,
+                    sceneContext,
+                    count: buttons.length,
+                    selected,
+                    renderer: "css",
+                    visible: true,
+                    pointerActive: false,
+                    dragging: false,
+                    pointerId: null,
+                    pointerStartX: 0,
+                    pointerStartSelected: selected,
+                    pressedIndex: null,
+                    pointerMoved: false,
+                    suppressClick: false,
+                    motionOff: reduceMotionQuery.matches,
+                    x: 0,
+                    targetX: 0,
+                    velocityX: 0,
+                    velocityUnit: 0,
+                    interaction: 0,
+                    releaseHoldMs: 0,
+                    transitioning: false,
+                    transitionStartX: 0,
+                    transitionElapsed: 0,
+                    transitionDuration: 180,
+                    transitionProgress: 0,
+                    width: 0,
+                    height: 0,
+                    segmentWidth: 0,
+                    padX: CANVAS_PAD_X,
+                    padY: CANVAS_PAD_Y,
+                    canvasCssWidth: 0,
+                    canvasCssHeight: 0,
+                    dpr: 1,
+                    rootRect: null,
+                    canvasRect: null,
+                    gl: null,
+                    program: null,
+                    texture: null,
+                    textureWidth: 0,
+                    textureHeight: 0,
+                    uniforms: null,
+                    maxLensOverflow: 0,
+                    maxCanvasClip: 0,
+                };
+
+                globalState.bars.push(bar);
+                root.dataset.visible = "true";
+                bindBarEvents(bar);
+                initWebGL(bar);
+                resizeBar(bar);
+                setBarSelection(bar, selected);
+                return bar;
+            }
+
+            function rangeRatio(input) {
+                const min = Number(input.min);
+                const max = Number(input.max);
+                return (Number(input.value) - min) / Math.max(1, max - min);
+            }
+
+            function updateRangePresentation(bar, direct = false) {
+                const ratio = rangeRatio(bar.input);
+                const nextX = ratio * bar.width;
+                bar.root.style.setProperty(
+                    "--range-progress",
+                    `${(ratio * 100).toFixed(2)}%`
+                );
+                strengthOutput.value = bar.input.value;
+                globalState.strength = Number(bar.input.value) / 100;
+
+                if (direct || bar.motionOff) {
+                    const previousX = bar.x;
+                    bar.x = nextX;
+                    bar.targetX = nextX;
+                    bar.velocityX = bar.x - previousX;
+                    bar.transitioning = false;
+                } else {
+                    bar.targetX = nextX;
+                    startBarTransition(bar, 180);
+                }
+                requestLoop();
+            }
+
+            function endRangePointer(bar, event) {
+                if (
+                    !bar.pointerActive
+                    || (event && event.pointerId !== bar.pointerId)
+                ) return;
+                bar.pointerActive = false;
+                bar.dragging = false;
+                bar.pointerId = null;
+                bar.releaseHoldMs = 50;
+                requestLoop();
+            }
+
+            function bindRangeEvents(bar) {
+                bar.input.addEventListener("pointerdown", (event) => {
+                    if (event.pointerType === "mouse" && event.button !== 0) return;
+                    bar.pointerActive = true;
+                    bar.dragging = true;
+                    bar.pointerId = event.pointerId;
+                    bar.transitioning = false;
+                    bar.velocityX = 0;
+                    bar.releaseHoldMs = 0;
+                    bar.input.setPointerCapture?.(event.pointerId);
+                    requestLoop();
+                });
+
+                bar.input.addEventListener("input", () => {
+                    updateRangePresentation(bar, bar.pointerActive);
+                });
+
+                bar.input.addEventListener("pointerup", (event) => {
+                    endRangePointer(bar, event);
+                });
+                bar.input.addEventListener("pointercancel", (event) => {
+                    endRangePointer(bar, event);
+                });
+                bar.input.addEventListener("lostpointercapture", (event) => {
+                    endRangePointer(bar, event);
+                });
+
+                bar.canvas.addEventListener("webglcontextlost", (event) => {
+                    event.preventDefault();
+                    bar.renderer = "css";
+                    bar.root.dataset.renderer = "css";
+                    globalState.contextFailures += 1;
+                    updateRendererBadge();
+                });
+
+                bar.canvas.addEventListener("webglcontextrestored", () => {
+                    initWebGL(bar);
+                    resizeBar(bar);
+                    updateRendererBadge();
+                    requestLoop();
+                });
+            }
+
+            function createLiquidRange(root) {
+                const input = root.querySelector(".liquid-range-input");
+                const canvas = root.querySelector(".optical-switch-canvas");
+                const scene = document.createElement("canvas");
+                const sceneContext = scene.getContext("2d", { alpha: true });
+                const bar = {
+                    type: "range",
+                    root,
+                    input,
+                    buttons: [],
+                    panels: [],
+                    canvas,
+                    scene,
+                    sceneContext,
+                    count: 1,
+                    selected: 0,
+                    renderer: "css",
+                    visible: true,
+                    pointerActive: false,
+                    dragging: false,
+                    pointerId: null,
+                    suppressClick: false,
+                    motionOff: reduceMotionQuery.matches,
+                    x: 0,
+                    targetX: 0,
+                    velocityX: 0,
+                    velocityUnit: 0,
+                    interaction: 0,
+                    releaseHoldMs: 0,
+                    transitioning: false,
+                    transitionStartX: 0,
+                    transitionElapsed: 0,
+                    transitionDuration: 180,
+                    transitionProgress: 0,
+                    width: 0,
+                    height: 0,
+                    segmentWidth: 0,
+                    padX: 52,
+                    padY: 38,
+                    canvasCssWidth: 0,
+                    canvasCssHeight: 0,
+                    dpr: 1,
+                    rootRect: null,
+                    canvasRect: null,
+                    gl: null,
+                    program: null,
+                    texture: null,
+                    textureWidth: 0,
+                    textureHeight: 0,
+                    uniforms: null,
+                    maxLensOverflow: 0,
+                    maxCanvasClip: 0,
+                };
+
+                globalState.bars.push(bar);
+                globalState.rangeBar = bar;
+                root.dataset.visible = "true";
+                bindRangeEvents(bar);
+                initWebGL(bar);
+                resizeBar(bar);
+                updateRangePresentation(bar, true);
+                return bar;
+            }
+
+            function createToggleGlassBar(toggle) {
+                const root = toggle.root;
+                const canvas = root.querySelector(".liquid-toggle-canvas");
+                const scene = document.createElement("canvas");
+                const sceneContext = scene.getContext("2d", { alpha: true });
+                const initialX = 42 + toggle.progress * 56;
+                const bar = {
+                    type: "toggle",
+                    externalMotion: true,
+                    lazyRenderer: true,
+                    rendererAttempted: false,
+                    toggle,
+                    root,
+                    buttons: [],
+                    panels: [],
+                    canvas,
+                    scene,
+                    sceneContext,
+                    count: 1,
+                    selected: toggle.committed,
+                    renderer: "css",
+                    visible: true,
+                    pointerActive: false,
+                    dragging: false,
+                    pointerId: null,
+                    pointerStartX: 0,
+                    pointerStartSelected: toggle.committed,
+                    pressedIndex: null,
+                    pointerMoved: false,
+                    suppressClick: false,
+                    motionOff: reduceMotionQuery.matches,
+                    x: initialX,
+                    targetX: initialX,
+                    velocityX: 0,
+                    velocityUnit: 0,
+                    interaction: 0,
+                    releaseHoldMs: 0,
+                    transitioning: false,
+                    transitionStartX: initialX,
+                    transitionElapsed: 0,
+                    transitionDuration: 180,
+                    transitionProgress: 0,
+                    width: 0,
+                    height: 0,
+                    segmentWidth: 0,
+                    padX: 28,
+                    padY: 32,
+                    canvasCssWidth: 0,
+                    canvasCssHeight: 0,
+                    dpr: 1,
+                    rootRect: null,
+                    canvasRect: null,
+                    gl: null,
+                    program: null,
+                    texture: null,
+                    textureWidth: 0,
+                    textureHeight: 0,
+                    uniforms: null,
+                    maxLensOverflow: 0,
+                    maxCanvasClip: 0,
+                };
+
+                canvas.addEventListener("webglcontextlost", (event) => {
+                    event.preventDefault();
+                    bar.renderer = "css";
+                    root.dataset.renderer = "css";
+                    globalState.contextFailures += 1;
+                    updateRendererBadge();
+                });
+                canvas.addEventListener("webglcontextrestored", () => {
+                    initWebGL(bar);
+                    resizeBar(bar);
+                    updateRendererBadge();
+                    requestLoop();
+                });
+
+                toggle.glassBar = bar;
+                globalState.bars.push(bar);
+                root.dataset.visible = "true";
+                root.dataset.renderer = "css";
+                return bar;
+            }
+
+            function ensureToggleGlassRenderer(toggle) {
+                const bar = toggle.glassBar;
+                if (!bar || bar.gl || bar.rendererAttempted) return;
+                bar.rendererAttempted = true;
+                if (initWebGL(bar)) {
+                    resizeBar(bar);
+                }
+                updateRendererBadge();
+                requestLoop();
+            }
+
+            function renderLiquidToggle(toggle) {
+                const activity = Math.max(0, Math.min(1.16, toggle.activity));
+                const glass = Math.min(1, activity);
+                const delta = Math.min(12, Math.abs(toggle.velocityPx));
+                const solidColor = [43, 47, 54].map((channel, index) => {
+                    const onColor = [48, 55, 43][index];
+                    return Math.round(
+                        channel + (onColor - channel) * toggle.progress
+                    );
+                });
+                const width = 74 * (
+                    1 + activity * (0.65 + delta * 0.025)
+                );
+                const height = 50 * (
+                    1 + activity * (0.65 - delta * 0.025)
+                );
+                toggle.root.style.setProperty(
+                    "--toggle-progress",
+                    toggle.progress.toFixed(4)
+                );
+                toggle.root.style.setProperty(
+                    "--toggle-travel",
+                    `${(toggle.progress * 56).toFixed(2)}px`
+                );
+                toggle.root.style.setProperty(
+                    "--toggle-origin",
+                    `${(toggle.progress * 100).toFixed(2)}%`
+                );
+                toggle.root.style.setProperty(
+                    "--toggle-activity",
+                    activity.toFixed(4)
+                );
+                toggle.root.style.setProperty(
+                    "--toggle-glass",
+                    glass.toFixed(4)
+                );
+                toggle.root.style.setProperty(
+                    "--toggle-solid-color",
+                    `rgb(${solidColor.join(" ")})`
+                );
+                toggle.root.style.setProperty(
+                    "--toggle-delta",
+                    delta.toFixed(3)
+                );
+                toggle.root.style.setProperty(
+                    "--toggle-width",
+                    `${width.toFixed(2)}px`
+                );
+                toggle.root.style.setProperty(
+                    "--toggle-height",
+                    `${Math.max(50, height).toFixed(2)}px`
+                );
+                toggle.root.style.setProperty(
+                    "--toggle-bridge-scale",
+                    Math.min(1, 0.2 + activity * 0.8).toFixed(4)
+                );
+                toggle.root.style.setProperty(
+                    "--toggle-bridge-opacity",
+                    Math.min(0.48, activity * 0.48).toFixed(4)
+                );
+                toggle.root.dataset.dragging = String(toggle.dragging);
+                toggle.root.dataset.progress = toggle.progress.toFixed(4);
+                toggle.root.dataset.activity = activity.toFixed(4);
+                toggle.root.dataset.glassActive = String(glass >= 0.08);
+                toggle.root.dataset.chromaticLayer = glass >= 0.08
+                    ? "inner"
+                    : "none";
+
+                if (toggle.glassBar) {
+                    const glassBar = toggle.glassBar;
+                    glassBar.x = 42 + toggle.progress * 56;
+                    glassBar.targetX = 42 + toggle.target * 56;
+                    glassBar.velocityX = toggle.velocityPx;
+                    glassBar.velocityUnit = Math.max(
+                        -1,
+                        Math.min(1, toggle.velocityPx / 12)
+                    );
+                    glassBar.interaction = glass;
+                    glassBar.pointerActive = toggle.pointerActive;
+                    glassBar.dragging = toggle.dragging;
+                    glassBar.selected = toggle.committed;
+                    glassBar.motionOff = toggle.motionOff;
+                }
+            }
+
+            function setLiquidToggleTarget(toggle, next, options = {}) {
+                toggle.target = next >= 0.5 ? 1 : 0;
+                toggle.delayMs = options.delayMs || 0;
+                toggle.releaseHoldMs = 0;
+                toggle.root.setAttribute(
+                    "aria-checked",
+                    String(toggle.target === 1)
+                );
+                toggle.status.textContent = toggle.target === 1 ? "On" : "Off";
+                announcer.textContent = `${
+                    toggle.root.getAttribute("aria-label")
+                } ${toggle.target === 1 ? "on" : "off"}`;
+                requestLoop();
+            }
+
+            function endLiquidTogglePointer(toggle, event) {
+                if (
+                    !toggle.pointerActive
+                    || event.pointerId !== toggle.pointerId
+                ) return;
+                const cancelled = event.type === "pointercancel";
+                const elapsed = performance.now() - toggle.pressTime;
+                const distance = Math.abs(event.clientX - toggle.startClientX);
+                const wasDragging = toggle.dragging;
+                toggle.pointerActive = false;
+                toggle.dragging = false;
+                toggle.pointerId = null;
+                if (toggle.root.hasPointerCapture?.(event.pointerId)) {
+                    toggle.root.releasePointerCapture(event.pointerId);
+                }
+
+                if (cancelled) {
+                    setLiquidToggleTarget(toggle, toggle.committed);
+                } else if (wasDragging) {
+                    setLiquidToggleTarget(toggle, toggle.progress >= 0.5 ? 1 : 0);
+                } else if (elapsed <= 500 && distance <= 6) {
+                    setLiquidToggleTarget(toggle, toggle.committed ? 0 : 1, {
+                        delayMs: 120,
+                    });
+                } else {
+                    setLiquidToggleTarget(toggle, toggle.committed);
+                }
+                toggle.committed = toggle.target;
+                toggle.releaseHoldMs = wasDragging ? 45 : 50;
+                toggle.suppressPointerClick = true;
+                window.setTimeout(() => {
+                    toggle.suppressPointerClick = false;
+                }, 0);
+                requestLoop();
+            }
+
+            function createLiquidToggle(root) {
+                const initial = Number(root.dataset.initial) >= 0.5 ? 1 : 0;
+                const toggle = {
+                    root,
+                    status: root.closest(".liquid-toggle-row")
+                        .querySelector("[data-toggle-status]"),
+                    progress: initial,
+                    target: initial,
+                    committed: initial,
+                    activity: 0,
+                    activityVelocity: 0,
+                    velocityPx: 0,
+                    pointerActive: false,
+                    dragging: false,
+                    pointerId: null,
+                    startClientX: 0,
+                    startProgress: initial,
+                    pressTime: 0,
+                    delayMs: 0,
+                    releaseHoldMs: 0,
+                    suppressPointerClick: false,
+                    motionOff: reduceMotionQuery.matches,
+                };
+
+                root.addEventListener("pointerdown", (event) => {
+                    if (event.pointerType === "mouse" && event.button !== 0) return;
+                    ensureToggleGlassRenderer(toggle);
+                    toggle.pointerActive = true;
+                    toggle.dragging = false;
+                    toggle.pointerId = event.pointerId;
+                    toggle.startClientX = event.clientX;
+                    toggle.startProgress = toggle.progress;
+                    toggle.pressTime = performance.now();
+                    toggle.delayMs = 0;
+                    toggle.releaseHoldMs = 0;
+                    toggle.velocityPx = 0;
+                    root.setPointerCapture?.(event.pointerId);
+                    requestLoop();
+                });
+
+                root.addEventListener("pointermove", (event) => {
+                    if (
+                        !toggle.pointerActive
+                        || event.pointerId !== toggle.pointerId
+                    ) return;
+                    const dx = event.clientX - toggle.startClientX;
+                    if (!toggle.dragging && Math.abs(dx) <= 6) return;
+                    toggle.dragging = true;
+                    const previous = toggle.progress;
+                    toggle.progress = Math.max(
+                        0,
+                        Math.min(1, toggle.startProgress + dx / 56)
+                    );
+                    toggle.velocityPx = (
+                        toggle.progress - previous
+                    ) * 56;
+                    requestLoop();
+                });
+
+                root.addEventListener("pointerup", (event) => {
+                    endLiquidTogglePointer(toggle, event);
+                });
+                root.addEventListener("pointercancel", (event) => {
+                    endLiquidTogglePointer(toggle, event);
+                });
+                root.addEventListener("lostpointercapture", (event) => {
+                    if (toggle.pointerActive) {
+                        endLiquidTogglePointer(toggle, event);
+                    }
+                });
+                root.addEventListener("click", (event) => {
+                    if (event.detail !== 0 || toggle.suppressPointerClick) {
+                        event.preventDefault();
+                        return;
+                    }
+                    ensureToggleGlassRenderer(toggle);
+                    setLiquidToggleTarget(toggle, toggle.committed ? 0 : 1, {
+                        delayMs: reduceMotionQuery.matches ? 0 : 80,
+                    });
+                    toggle.committed = toggle.target;
+                });
+                root.addEventListener("focus", () => {
+                    ensureToggleGlassRenderer(toggle);
+                });
+
+                createToggleGlassBar(toggle);
+                globalState.toggles.push(toggle);
+                renderLiquidToggle(toggle);
+                return toggle;
+            }
+
+            function updateLiquidToggle(toggle, dt) {
+                const frameScale = Math.max(0.5, Math.min(2, dt / 16.667));
+                if (toggle.motionOff) {
+                    toggle.progress = toggle.target;
+                    toggle.activity = 0;
+                    toggle.activityVelocity = 0;
+                    toggle.velocityPx = 0;
+                    renderLiquidToggle(toggle);
+                    return;
+                }
+
+                toggle.delayMs = Math.max(0, toggle.delayMs - dt);
+                toggle.releaseHoldMs = Math.max(0, toggle.releaseHoldMs - dt);
+                const wasMoving = Math.abs(toggle.target - toggle.progress) >= 0.001;
+
+                if (
+                    !toggle.pointerActive
+                    && !toggle.dragging
+                    && toggle.delayMs <= 0
+                    && wasMoving
+                ) {
+                    const previous = toggle.progress;
+                    const ease = 1 - Math.exp(-dt / 48);
+                    toggle.progress += (toggle.target - toggle.progress) * ease;
+                    toggle.velocityPx = (toggle.progress - previous) * 56;
+                    if (Math.abs(toggle.target - toggle.progress) < 0.001) {
+                        toggle.progress = toggle.target;
+                        toggle.releaseHoldMs = 50;
+                    }
+                } else if (!toggle.dragging) {
+                    toggle.velocityPx *= Math.pow(0.58, frameScale);
+                }
+
+                const moving = (
+                    toggle.delayMs > 0
+                    || Math.abs(toggle.target - toggle.progress) >= 0.001
+                );
+                const active = (
+                    toggle.pointerActive
+                    || toggle.dragging
+                    || moving
+                    || toggle.releaseHoldMs > 0
+                );
+
+                if (active) {
+                    toggle.activityVelocity += (
+                        1 - toggle.activity
+                    ) * 0.25 * frameScale;
+                    toggle.activityVelocity *= Math.pow(0.68, frameScale);
+                    toggle.activity += toggle.activityVelocity * frameScale;
+                    toggle.activity = Math.min(1.16, toggle.activity);
+                } else {
+                    toggle.activityVelocity = 0;
+                    toggle.activity += (
+                        0 - toggle.activity
+                    ) * (1 - Math.exp(-dt / 62));
+                    if (toggle.activity < 0.002) toggle.activity = 0;
+                }
+
+                renderLiquidToggle(toggle);
+            }
+
+            function startBarTransition(bar, duration) {
+                const distance = Math.abs(bar.targetX - bar.x);
+                if (distance < 0.05 || bar.motionOff) {
+                    bar.x = bar.targetX;
+                    bar.transitioning = false;
+                    bar.transitionProgress = 1;
+                    return;
+                }
+                bar.transitionStartX = bar.x;
+                bar.transitionElapsed = 0;
+                bar.transitionDuration = duration || Math.max(
+                    140,
+                    Math.min(220, 145 + distance / Math.max(bar.width, 1) * 90)
+                );
+                bar.transitionProgress = 0;
+                bar.transitioning = true;
+                bar.releaseHoldMs = 0;
+                requestLoop();
+            }
+
+            function barsAreSettled() {
+                const barsSettled = globalState.bars.every((bar) => (
+                    !bar.pointerActive
+                    && !bar.dragging
+                    && !bar.transitioning
+                    && Math.abs(bar.x - bar.targetX) < 0.05
+                    && Math.abs(bar.velocityX) < 0.04
+                    && bar.interaction < 0.002
+                ));
+                const togglesSettled = globalState.toggles.every((toggle) => (
+                    !toggle.pointerActive
+                    && !toggle.dragging
+                    && Math.abs(toggle.progress - toggle.target) < 0.001
+                    && toggle.activity < 0.002
+                ));
+                return barsSettled && togglesSettled;
+            }
+
+            function updateBarMotion(bar, dt) {
+                if (bar.externalMotion) return;
+                const frameScale = Math.max(0.5, Math.min(2, dt / 16.667));
+                if (bar.motionOff) {
+                    bar.x = bar.targetX;
+                    bar.velocityX = 0;
+                    bar.velocityUnit = 0;
+                    bar.interaction = 0;
+                    bar.transitioning = false;
+                    return;
+                }
+
+                bar.releaseHoldMs = Math.max(0, bar.releaseHoldMs - dt);
+                const movingToTarget = (
+                    bar.transitioning
+                    || Math.abs(bar.targetX - bar.x) >= 0.05
+                );
+                const lensHeldOpen = (
+                    bar.pointerActive
+                    || bar.dragging
+                    || movingToTarget
+                    || bar.releaseHoldMs > 0
+                );
+                const desiredInteraction = lensHeldOpen ? 1 : 0;
+                const interactionRate = lensHeldOpen ? 0.38 : 0.24;
+                bar.interaction += (
+                    desiredInteraction - bar.interaction
+                ) * interactionRate * frameScale;
+
+                const previousX = bar.x;
+                if (bar.dragging) {
+                    const dragSpeed = bar.velocityX / Math.max(
+                        bar.type === "range" ? 18 : bar.segmentWidth * 0.12,
+                        1
+                    );
+                    bar.velocityUnit += (
+                        Math.max(-1, Math.min(1, dragSpeed))
+                        - bar.velocityUnit
+                    ) * 0.45;
+                    return;
+                }
+
+                if (
+                    !bar.transitioning
+                    && Math.abs(bar.targetX - bar.x) >= 0.05
+                ) {
+                    startBarTransition(bar);
+                }
+
+                if (bar.transitioning) {
+                    bar.transitionElapsed += dt;
+                    const progress = Math.min(
+                        1,
+                        bar.transitionElapsed / bar.transitionDuration
+                    );
+                    const eased = 1 - Math.pow(1 - progress, 3);
+                    bar.transitionProgress = progress;
+                    bar.x = bar.transitionStartX
+                        + (bar.targetX - bar.transitionStartX) * eased;
+                    if (progress >= 1) {
+                        bar.x = bar.targetX;
+                        bar.transitioning = false;
+                        bar.releaseHoldMs = 50;
+                    }
+                }
+
+                bar.velocityX = bar.x - previousX;
+                const rawVelocity = bar.velocityX / Math.max(
+                    bar.type === "range" ? 18 : bar.segmentWidth * 0.12,
+                    1
+                );
+                bar.velocityUnit += (
+                    Math.max(-1, Math.min(1, rawVelocity))
+                    - bar.velocityUnit
+                ) * 0.38;
+                if (!bar.transitioning) {
+                    bar.velocityUnit *= Math.pow(0.62, frameScale);
+                }
+
+                if (
+                    !bar.transitioning
+                    && Math.abs(bar.targetX - bar.x) < 0.05
+                    && Math.abs(bar.velocityX) < 0.04
+                    && bar.interaction < 0.002
+                ) {
+                    bar.x = bar.targetX;
+                    bar.velocityX = 0;
+                    bar.velocityUnit = 0;
+                    bar.interaction = 0;
+                }
+            }
+
+            function updateDiagnostics(active) {
+                const edgeOffset = 3.0 + (5.8 - 3.0) * globalState.strength;
+                window.__liquidGlassDiagnostics.frames = globalState.frames;
+                window.__liquidGlassDiagnostics.idle = !active;
+                window.__liquidGlassDiagnostics.dpr = globalState.dpr;
+                window.__liquidGlassDiagnostics.sceneVersion = globalState.frames;
+                window.__liquidGlassDiagnostics.centerOffsetPx = 0;
+                window.__liquidGlassDiagnostics.edgeOffsetPx = edgeOffset;
+                window.__liquidGlassDiagnostics.bars = globalState.bars.map((bar) => ({
+                    id: bar.root.id,
+                    renderer: bar.renderer,
+                    visible: bar.visible,
+                    dragging: bar.dragging,
+                    trackTop: Number(bar.root.dataset.trackTop || 0),
+                    trackBottom: Number(bar.root.dataset.trackBottom || 0),
+                    lensTop: Number(bar.root.dataset.lensTop || 0),
+                    lensBottom: Number(bar.root.dataset.lensBottom || 0),
+                    lensHalfWidth: Number(bar.root.dataset.lensHalfWidth || 0),
+                    lensHalfHeight: Number(bar.root.dataset.lensHalfHeight || 0),
+                    maxLensOverflow: Number(bar.root.dataset.maxLensOverflow || 0),
+                    maxCanvasClip: Number(bar.root.dataset.maxCanvasClip || 0),
+                    lensCenterX: Number(bar.root.dataset.lensCenterX || 0),
+                    targetCenterX: Number(bar.root.dataset.targetCenterX || 0),
+                    centerOffsetPx: 0,
+                    edgeOffsetPx: edgeOffset,
+                }));
+                stage.dataset.frameCount = String(globalState.frames);
+                stage.dataset.idle = String(!active);
+                rendererBadge.dataset.state = active ? "active" : "idle";
+            }
+
+            function requestLoop() {
+                if (globalState.raf || document.hidden) return;
+                globalState.lastTime = 0;
+                globalState.raf = window.requestAnimationFrame(tick);
+                updateDiagnostics(true);
+            }
+
+            function stopLoop() {
+                if (globalState.raf) {
+                    window.cancelAnimationFrame(globalState.raf);
+                }
+                globalState.raf = 0;
+                globalState.lastTime = 0;
+                updateDiagnostics(false);
+            }
+
+            function tick(now) {
+                const elapsed = globalState.lastTime
+                    ? now - globalState.lastTime
+                    : 16.667;
+                globalState.raf = 0;
+                if (
+                    globalState.lastTime
+                    && elapsed < 14
+                    && !globalState.geometryDirty
+                ) {
+                    globalState.raf = window.requestAnimationFrame(tick);
+                    return;
+                }
+                const rawDt = elapsed;
+                const dt = Math.min(Math.max(rawDt, 4), 32);
+                globalState.lastTime = now;
+
+                if (globalState.geometryDirty) {
+                    globalState.dpr = 1;
+                    globalState.bars.forEach((bar) => resizeBar(bar));
+                    globalState.geometryDirty = false;
+                }
+                if (globalState.motionEnabled) {
+                    globalState.sceneTime += dt;
+                }
+                updateMotionBlocks(globalState.sceneTime);
+                globalState.toggles.forEach((toggle) => {
+                    updateLiquidToggle(toggle, dt);
+                });
+                globalState.bars.forEach((bar) => {
+                    updateBarMotion(bar, dt);
+                    renderBar(bar);
+                });
+
+                globalState.frames += 1;
+                updateDiagnostics(true);
+
+                const shouldContinue = (
+                    globalState.motionEnabled
+                    || !barsAreSettled()
+                );
+                if (shouldContinue && !document.hidden) {
+                    globalState.raf = window.requestAnimationFrame(tick);
+                } else {
+                    stopLoop();
+                }
+            }
+
+            function resizeAll() {
+                globalState.dpr = 1;
+                updateColorBlockLayout();
+                globalState.bars.forEach((bar) => resizeBar(bar));
+                globalState.geometryDirty = false;
+                updateMotionBlocks(globalState.sceneTime);
+                requestLoop();
+            }
+
+            motionButton.addEventListener("click", () => {
+                globalState.motionEnabled = !globalState.motionEnabled;
+                if (!globalState.motionEnabled) {
+                    globalState.bars.forEach((bar) => {
+                        bar.x = bar.targetX;
+                        bar.velocityX = 0;
+                        bar.velocityUnit = 0;
+                        bar.interaction = 0;
+                        bar.releaseHoldMs = 0;
+                        bar.transitioning = false;
+                    });
+                }
+                motionButton.textContent = globalState.motionEnabled
+                    ? "Pause motion"
+                    : "Resume motion";
+                motionButton.setAttribute(
+                    "aria-pressed",
+                    String(!globalState.motionEnabled)
+                );
+                requestLoop();
+            });
+
+            reduceMotionQuery.addEventListener?.("change", (event) => {
+                globalState.bars.forEach((bar) => {
+                    bar.motionOff = event.matches;
+                });
+                globalState.toggles.forEach((toggle) => {
+                    toggle.motionOff = event.matches;
+                });
+                if (event.matches) {
+                    globalState.motionEnabled = false;
+                    motionButton.textContent = "Resume motion";
+                    motionButton.setAttribute("aria-pressed", "true");
+                }
+                requestLoop();
+            });
+
+            document.addEventListener("visibilitychange", () => {
+                if (document.hidden) stopLoop();
+                else requestLoop();
+            });
+
+            window.addEventListener("scroll", () => {
+                globalState.geometryDirty = true;
+                requestLoop();
+            }, { passive: true });
+
+            const resizeObserver = new ResizeObserver(() => resizeAll());
+            resizeObserver.observe(stage);
+            const barVisibilityObserver = "IntersectionObserver" in window
+                ? new IntersectionObserver((entries) => {
+                    entries.forEach((entry) => {
+                        const bar = globalState.bars.find(
+                            (candidate) => candidate.root === entry.target
+                        );
+                        if (!bar) return;
+                        bar.visible = entry.isIntersecting;
+                        bar.root.dataset.visible = String(entry.isIntersecting);
+                        if (entry.isIntersecting) {
+                            globalState.geometryDirty = true;
+                            requestLoop();
+                        }
+                    });
+                }, { rootMargin: "120px 0px", threshold: 0 })
+                : null;
+
+            updateColorBlockLayout();
+            document.querySelectorAll("[data-optical-switch]").forEach((root) => {
+                createOpticalBar(root);
+                barVisibilityObserver?.observe(root);
+            });
+            if (strengthRangeRoot) {
+                createLiquidRange(strengthRangeRoot);
+                barVisibilityObserver?.observe(strengthRangeRoot);
+            }
+            document.querySelectorAll("[data-liquid-toggle]").forEach((root) => {
+                createLiquidToggle(root);
+                barVisibilityObserver?.observe(root);
+            });
+            updateRendererBadge();
+            updateMotionBlocks(globalState.sceneTime);
+            if (!globalState.motionEnabled) {
+                motionButton.textContent = "Resume motion";
+                motionButton.setAttribute("aria-pressed", "true");
+            }
+            document.fonts?.ready?.then(() => requestLoop());
+            requestLoop();
+        })();
+    </script>
+</body>
+</html>

@@ -8,7 +8,7 @@ import pandas as pd
 from dotenv import load_dotenv
 import os
 from datetime import datetime
-from typing import List, Dict, Optional
+from typing import Any, List, Dict, Optional
 
 from backend.utils.accounts import get_account_credentials, get_account_paper
 
@@ -309,6 +309,13 @@ class AlpacaAdapter:
                 "short_market_value": float(a.short_market_value or 0),
                 "initial_margin": float(a.initial_margin or 0),
                 "maintenance_margin": float(a.maintenance_margin or 0),
+                # Alpaca documents multiplier=1 as cash buying power and
+                # multiplier=2/4 as margin buying power.  Execution safety uses
+                # this broker-authoritative field together with account equity
+                # before permitting target gross above 1.0.
+                "multiplier": int(getattr(a, "multiplier", 1) or 1),
+                "account_blocked": bool(getattr(a, "account_blocked", False)),
+                "trading_blocked": bool(getattr(a, "trading_blocked", False)),
                 "daytrade_count": int(dtc) if dtc is not None else 0,
                 "status": str(a.status.value) if hasattr(a.status, "value") else str(a.status),
                 "currency": a.currency,
@@ -384,6 +391,38 @@ class AlpacaAdapter:
             print(f"[AlpacaAdapter] get_orders error: {e}")
             return []
 
+    def get_open_orders_strict(self, limit: int = 500) -> List[Dict]:
+        """Return currently open orders, propagating broker errors for OMS use."""
+        from alpaca.trading.requests import GetOrdersRequest
+        from alpaca.trading.enums import QueryOrderStatus
+
+        req = GetOrdersRequest(
+            status=QueryOrderStatus.OPEN,
+            limit=max(1, min(int(limit), 500)),
+            nested=True,
+        )
+        orders = self.trading_client.get_orders(filter=req)
+        return [
+            {
+                "id": str(order.id),
+                "symbol": str(order.symbol),
+                "status": (
+                    order.status.value
+                    if hasattr(order.status, "value")
+                    else str(order.status)
+                ),
+            }
+            for order in orders
+        ]
+
+    def get_order_by_id(self, order_id: str):
+        """Return one broker order without changing or masking the SDK result."""
+        return self.trading_client.get_order_by_id(order_id)
+
+    def cancel_order_by_id(self, order_id: str):
+        """Cancel one broker order, allowing any broker error to propagate."""
+        return self.trading_client.cancel_order_by_id(order_id)
+
     def get_activities(self, limit: int = 200) -> List[Dict]:
         try:
             all_acts = []
@@ -424,6 +463,145 @@ class AlpacaAdapter:
         except Exception as e:
             print(f"[AlpacaAdapter] get_activities error: {e}")
             return []
+
+    def get_cash_activities(
+        self,
+        limit: Optional[int] = None,
+        after: Optional[str] = None,
+        until: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Return normalized external cash transfers from Alpaca.
+
+        Alpaca's ``TRANS`` activity group contains cash deposits (``CSD``) and
+        cash withdrawals (``CSW``).  Unlike display-oriented adapter methods,
+        this method is used in performance accounting, so an API or schema
+        failure is raised explicitly instead of being converted into an empty
+        list (which would incorrectly turn a deposit into trading profit).
+        """
+        if limit is not None:
+            try:
+                limit = int(limit)
+            except (TypeError, ValueError) as exc:
+                raise ValueError("cash activity limit must be an integer or None") from exc
+            if limit < 0:
+                raise ValueError("cash activity limit cannot be negative")
+            if limit == 0:
+                return []
+
+        def _field(row: Any, name: str) -> Any:
+            if isinstance(row, dict):
+                return row.get(name)
+            return getattr(row, name, None)
+
+        def _text(value: Any) -> str:
+            if hasattr(value, "value"):
+                value = value.value
+            return str(value).strip() if value is not None else ""
+
+        def _normalize_time(value: Any) -> tuple[str, str]:
+            if isinstance(value, datetime):
+                return value.date().isoformat(), value.isoformat()
+            raw = _text(value)
+            if not raw:
+                raise RuntimeError("Alpaca cash activity is missing its activity date")
+            try:
+                parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+                return parsed.date().isoformat(), parsed.isoformat()
+            except ValueError:
+                try:
+                    parsed = datetime.strptime(raw[:10], "%Y-%m-%d")
+                except ValueError as exc:
+                    raise RuntimeError(
+                        f"Alpaca cash activity has invalid activity date {raw!r}"
+                    ) from exc
+                return parsed.date().isoformat(), raw
+
+        rows: List[Any] = []
+        page_token: Optional[str] = None
+        seen_page_tokens = set()
+        while limit is None or len(rows) < limit:
+            remaining = 100 if limit is None else min(100, limit - len(rows))
+            params: Dict[str, Any] = {
+                "page_size": remaining,
+                "direction": "asc",
+            }
+            if after:
+                params["after"] = str(after)
+            if until:
+                params["until"] = str(until)
+            if page_token:
+                params["page_token"] = page_token
+
+            try:
+                page = self.trading_client.get("/account/activities/TRANS", params)
+            except Exception as exc:
+                raise RuntimeError(
+                    f"Alpaca cash activity request failed: {exc}"
+                ) from exc
+            if not isinstance(page, list):
+                raise RuntimeError(
+                    "Alpaca cash activity request returned a non-list response"
+                )
+            if not page:
+                break
+
+            rows.extend(page)
+            if len(page) < remaining:
+                break
+            next_token = _text(_field(page[-1], "id"))
+            if not next_token:
+                raise RuntimeError(
+                    "Alpaca cash activity page cannot be continued because its last item has no id"
+                )
+            if next_token in seen_page_tokens:
+                raise RuntimeError(
+                    f"Alpaca cash activity pagination repeated page token {next_token!r}"
+                )
+            seen_page_tokens.add(next_token)
+            page_token = next_token
+
+        normalized: List[Dict[str, Any]] = []
+        for row in rows[:limit] if limit is not None else rows:
+            activity_id = _text(_field(row, "id"))
+            if not activity_id:
+                raise RuntimeError("Alpaca cash activity is missing its id")
+            activity_type = _text(_field(row, "activity_type")).upper()
+            if activity_type not in {"CSD", "CSW"}:
+                raise RuntimeError(
+                    "Alpaca TRANS activity returned unsupported type "
+                    f"{activity_type or '<missing>'!r}"
+                )
+            raw_amount = _field(row, "net_amount")
+            if raw_amount is None:
+                raw_amount = _field(row, "amount")
+            try:
+                magnitude = abs(float(raw_amount))
+            except (TypeError, ValueError) as exc:
+                raise RuntimeError(
+                    f"Alpaca cash activity {activity_id!r} has invalid net_amount {raw_amount!r}"
+                ) from exc
+            amount = magnitude if activity_type == "CSD" else -magnitude
+            # Preserve the most precise broker timestamp when Alpaca supplies
+            # both a settlement ``date`` and an intraday transaction time.
+            # A date-only transfer cannot support exact time-weighted return
+            # attribution, so callers also receive an explicit precision flag.
+            timestamp_value = _field(row, "transaction_time") or _field(row, "at")
+            time_precision = "timestamp" if timestamp_value else "date_only"
+            date_str, time_str = _normalize_time(
+                timestamp_value or _field(row, "date")
+            )
+            normalized.append({
+                "id": activity_id,
+                "activity_type": activity_type,
+                "date": date_str,
+                "time": time_str,
+                "time_precision": time_precision,
+                "amount": round(amount, 2),
+                # Keep Alpaca's field name for callers that already consume it.
+                "net_amount": round(amount, 2),
+                "direction": "deposit" if activity_type == "CSD" else "withdrawal",
+            })
+        return normalized
 
     def get_clock(self) -> Dict:
         try:

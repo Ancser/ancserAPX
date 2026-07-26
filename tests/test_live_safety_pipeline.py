@@ -504,6 +504,246 @@ class TrackerAndAccountTests(unittest.TestCase):
         self.assertIn(("open_orders", "cancel_failed"), calls)
 
 
+class LastRebalanceRecoveryTests(unittest.TestCase):
+    @staticmethod
+    def _write(path: Path, value):
+        path.write_text(json.dumps(value), encoding="utf-8")
+
+    def test_partial_latest_falls_back_to_legacy_completed_rebalance(self):
+        with tempfile.TemporaryDirectory() as tmp, \
+                patch.object(scheduler, "DAILY_LOCK_DIR", tmp):
+            root = Path(tmp)
+            self._write(root / "last_rebalance_Main.json", {
+                "rebalance_date": "2026-07-17",
+                "snapshot_kind": "rebalance",
+                "order_summary": {"status": "partial"},
+            })
+            self._write(root / "rebalance_history_Main.json", [
+                {
+                    "rebalance_date": "2026-07-09",
+                    "positions": {"AAA": {"weight": 1.0}},
+                },
+                {
+                    "rebalance_date": "2026-07-17",
+                    "snapshot_kind": "rebalance",
+                    "order_summary": {"status": "partial"},
+                },
+            ])
+
+            self.assertEqual(
+                scheduler._last_rebalance_date("Main"),
+                datetime(2026, 7, 9).date(),
+            )
+
+    def test_valid_completed_latest_snapshot_is_authoritative(self):
+        with tempfile.TemporaryDirectory() as tmp, \
+                patch.object(scheduler, "DAILY_LOCK_DIR", tmp):
+            root = Path(tmp)
+            self._write(root / "last_rebalance_Main.json", {
+                "rebalance_date": "2026-07-17",
+                "snapshot_kind": "rebalance",
+                "order_summary": {"status": "completed"},
+            })
+            # A malformed/future history row must not displace the valid,
+            # terminal snapshot used by cadence.
+            self._write(root / "rebalance_history_Main.json", [
+                {
+                    "rebalance_date": "2026-07-18",
+                    "snapshot_kind": "rebalance",
+                    "order_summary": {"status": "completed"},
+                },
+            ])
+
+            self.assertEqual(
+                scheduler._last_rebalance_date("Main"),
+                datetime(2026, 7, 17).date(),
+            )
+
+    def test_history_uses_newest_eligible_and_ignores_non_rebalances(self):
+        with tempfile.TemporaryDirectory() as tmp, \
+                patch.object(scheduler, "DAILY_LOCK_DIR", tmp):
+            root = Path(tmp)
+            self._write(root / "last_rebalance_Main.json", {
+                "rebalance_date": "2026-07-20",
+                "snapshot_kind": "rebalance",
+                "order_summary": {"status": "pending"},
+            })
+            self._write(root / "rebalance_history_Main.json", [
+                {"rebalance_date": "2026-07-09"},
+                {
+                    "rebalance_date": "2026-07-16",
+                    "snapshot_kind": "risk_overlay",
+                    "order_summary": {"status": "completed"},
+                },
+                {
+                    "rebalance_date": "2026-07-15",
+                    "snapshot_kind": "rebalance",
+                    "order_summary": {"status": "completed"},
+                },
+                {
+                    "rebalance_date": "2026-07-17",
+                    "snapshot_kind": "rebalance",
+                    "order_summary": {"status": "failed"},
+                },
+            ])
+
+            self.assertEqual(
+                scheduler._last_rebalance_date("Main"),
+                datetime(2026, 7, 15).date(),
+            )
+
+    def test_all_partial_history_returns_none(self):
+        with tempfile.TemporaryDirectory() as tmp, \
+                patch.object(scheduler, "DAILY_LOCK_DIR", tmp):
+            root = Path(tmp)
+            self._write(root / "last_rebalance_Main.json", {
+                "rebalance_date": "2026-07-17",
+                "snapshot_kind": "rebalance",
+                "order_summary": {"status": "partial"},
+            })
+            self._write(root / "rebalance_history_Main.json", [
+                {
+                    "rebalance_date": "2026-07-10",
+                    "snapshot_kind": "rebalance",
+                    "order_summary": {"status": "pending"},
+                },
+                {
+                    "rebalance_date": "2026-07-17",
+                    "snapshot_kind": "rebalance",
+                    "order_summary": {"status": "partial"},
+                },
+            ])
+
+            self.assertIsNone(scheduler._last_rebalance_date("Main"))
+
+    def test_malformed_files_fail_safe(self):
+        with tempfile.TemporaryDirectory() as tmp, \
+                patch.object(scheduler, "DAILY_LOCK_DIR", tmp):
+            root = Path(tmp)
+            (root / "last_rebalance_Main.json").write_text(
+                "{incomplete", encoding="utf-8"
+            )
+            self._write(root / "rebalance_history_Main.json", {
+                "rebalance_date": "2026-07-09"
+            })
+
+            self.assertIsNone(scheduler._last_rebalance_date("Main"))
+
+
+class MarginEligibilitySafetyTests(unittest.TestCase):
+    def test_below_2000_caps_requested_outer_gross_at_one(self):
+        weights, audit = scheduler._apply_margin_eligibility_cap(
+            {"AAA": 0.75, "BBB": 0.75},
+            {
+                "equity": 1868.42, "multiplier": 2, "status": "ACTIVE",
+                "account_blocked": False, "trading_blocked": False,
+            },
+        )
+
+        self.assertAlmostEqual(sum(abs(value) for value in weights.values()), 1.0)
+        self.assertTrue(audit["triggered"])
+        self.assertIn("equity_below_2000_margin_minimum", audit["reasons"])
+
+    def test_cash_only_broker_multiplier_caps_even_above_2000(self):
+        weights, audit = scheduler._apply_margin_eligibility_cap(
+            {"AAA": 1.5},
+            {
+                "equity": 5000.0, "multiplier": 1, "status": "ACTIVE",
+                "account_blocked": False, "trading_blocked": False,
+            },
+        )
+
+        self.assertEqual(weights, {"AAA": 1.0})
+        self.assertIn("broker_multiplier_is_cash_only", audit["reasons"])
+
+    def test_margin_eligible_account_preserves_requested_target(self):
+        weights, audit = scheduler._apply_margin_eligibility_cap(
+            {"AAA": 0.75, "BBB": 0.75},
+            {
+                "equity": 5000.0, "multiplier": 2, "status": "ACTIVE",
+                "account_blocked": False, "trading_blocked": False,
+            },
+        )
+
+        self.assertEqual(weights, {"AAA": 0.75, "BBB": 0.75})
+        self.assertFalse(audit["triggered"])
+
+    def test_missing_margin_fields_blocks_leveraged_target(self):
+        with self.assertRaisesRegex(RuntimeError, "eligibility fields"):
+            scheduler._apply_margin_eligibility_cap(
+                {"AAA": 1.5}, {
+                    "equity": 5000.0, "status": "ACTIVE",
+                    "account_blocked": False, "trading_blocked": False,
+                }
+            )
+
+    def test_invalid_margin_multiplier_blocks_leveraged_target(self):
+        for multiplier in (float("nan"), True):
+            with self.subTest(multiplier=multiplier), self.assertRaisesRegex(
+                RuntimeError, "eligibility fields are invalid"
+            ):
+                scheduler._apply_margin_eligibility_cap(
+                    {"AAA": 1.5}, {
+                        "equity": 5000.0, "multiplier": multiplier,
+                        "status": "ACTIVE", "account_blocked": False,
+                        "trading_blocked": False,
+                    }
+                )
+
+    def test_nan_target_weight_is_hard_blocked(self):
+        with self.assertRaisesRegex(RuntimeError, "weight.*finite"):
+            scheduler._apply_margin_eligibility_cap(
+                {"AAA": float("nan")},
+                {"equity": 5000.0, "status": "ACTIVE"},
+            )
+
+    def test_nonfinite_requested_gross_is_hard_blocked(self):
+        with self.assertRaisesRegex(RuntimeError, "gross must be finite"):
+            scheduler._apply_margin_eligibility_cap(
+                {"AAA": 1e308, "BBB": 1e308},
+                {"equity": 5000.0, "status": "ACTIVE"},
+            )
+
+    def test_nan_equity_is_hard_blocked_at_one_x(self):
+        with self.assertRaisesRegex(RuntimeError, "equity must be finite"):
+            scheduler._apply_margin_eligibility_cap(
+                {"AAA": 1.0},
+                {"equity": float("nan"), "status": "ACTIVE"},
+            )
+
+    def test_non_active_status_is_hard_blocked(self):
+        with self.assertRaisesRegex(RuntimeError, "not ACTIVE.*REJECTED"):
+            scheduler._apply_margin_eligibility_cap(
+                {"AAA": 1.0},
+                {"equity": 5000.0, "status": "REJECTED"},
+            )
+
+    def test_broker_block_flags_are_hard_blocks_at_or_below_one_x(self):
+        for flag in ("account_blocked", "trading_blocked"):
+            with self.subTest(flag=flag), self.assertRaisesRegex(
+                RuntimeError, "account or trading is blocked"
+            ):
+                scheduler._apply_margin_eligibility_cap(
+                    {"AAA": 0.75},
+                    {
+                        "equity": 5000.0, "status": "ACTIVE",
+                        flag: True,
+                    },
+                )
+
+    def test_active_unblocked_one_x_does_not_require_margin_multiplier(self):
+        weights, audit = scheduler._apply_margin_eligibility_cap(
+            {"AAA": 0.6, "BBB": 0.4},
+            {
+                "equity": 5000.0, "status": "ACTIVE",
+                "account_blocked": False, "trading_blocked": False,
+            },
+        )
+
+        self.assertEqual(weights, {"AAA": 0.6, "BBB": 0.4})
+        self.assertFalse(audit["triggered"])
+        self.assertIsNone(audit["multiplier"])
+
 class SafeExecutionPipelineTests(unittest.TestCase):
     @staticmethod
     def _tracker(events):
@@ -656,18 +896,24 @@ class SafeExecutionPipelineTests(unittest.TestCase):
 
         class OMS:
             def __init__(self, account):
-                self.last_summary = {"status": "submitted", "failed": 0}
+                self.last_summary = {"status": "completed", "failed": 0}
 
             def generate_and_execute_orders(self, *args, **kwargs):
                 calls.append("oms")
                 observed["oms_universe"] = list(args[1]["universe"])
                 return []
 
+        account_adapter = SimpleNamespace(get_account=lambda: {
+            "equity": 5000.0, "status": "ACTIVE",
+            "account_blocked": False, "trading_blocked": False,
+        })
+
         with tempfile.TemporaryDirectory() as tmp, \
                 patch("backend.data.fetcher.sync_and_validate_live_data", side_effect=sync), \
                 patch("backend.execution.strategy.LiveStrategy", Strategy), \
                 patch("backend.execution.oms.OrderManagementSystem", OMS), \
                 patch("backend.execution.tracker.LiveTracker", self._tracker(events)), \
+                patch.object(scheduler, "AlpacaAdapter", return_value=account_adapter), \
                 patch.object(scheduler, "_evaluate_daily_risk", side_effect=lambda *a: calls.append("risk") or {"in_market": True}), \
                 patch.object(scheduler, "_write_lock", side_effect=lambda *a: calls.append("lock")), \
                 patch.object(scheduler, "record_broker_observation", side_effect=lambda *a, **k: calls.append("observe") or {}), \
@@ -681,6 +927,45 @@ class SafeExecutionPipelineTests(unittest.TestCase):
         self.assertEqual(calls, ["sync", "risk", "targets", "oms", "lock", "observe"])
         self.assertEqual(observed["strategy_universe"], ["AAA"])
         self.assertEqual(observed["oms_universe"], ["AAA"])
+
+    def test_one_x_rebalance_checks_account_hard_block_before_oms(self):
+        events = []
+
+        class Strategy:
+            def __init__(self, account):
+                pass
+
+            def calculate_targets(self, config):
+                return {
+                    "allocations": {"AAA": 1.0},
+                    "as_of_date": "2026-07-13",
+                    "factor_weights": {},
+                    "vol_metrics": {},
+                }
+
+        account_adapter = SimpleNamespace(get_account=lambda: {
+            "equity": 5000.0, "status": "ACTIVE",
+            "account_blocked": True, "trading_blocked": False,
+        })
+        with tempfile.TemporaryDirectory() as tmp, \
+                patch("backend.data.fetcher.sync_and_validate_live_data", return_value={
+                    "passed": True, "expected_as_of": "2026-07-13",
+                    "effective_universe": ["AAA"],
+                }), \
+                patch("backend.execution.strategy.LiveStrategy", Strategy), \
+                patch("backend.execution.oms.OrderManagementSystem") as oms, \
+                patch("backend.execution.tracker.LiveTracker", self._tracker(events)), \
+                patch.object(scheduler, "AlpacaAdapter", return_value=account_adapter), \
+                patch.object(scheduler, "_evaluate_daily_risk", return_value={"in_market": True}), \
+                patch.object(scheduler, "_is_nyse_session_today", return_value=True), \
+                patch.object(scheduler, "_stop_flag_path", return_value=Path(tmp) / "absent"):
+            result = scheduler.execute_account_rebalance(
+                "Main", {"universe": ["AAA"]}
+            )
+
+        self.assertEqual(result["stage"], "margin_eligibility")
+        self.assertIn("account or trading is blocked", result["error"])
+        oms.assert_not_called()
 
     def test_target_outside_effective_universe_never_reaches_oms(self):
         events = []
@@ -718,7 +1003,7 @@ class SafeExecutionPipelineTests(unittest.TestCase):
         self.assertEqual(result["unauthorized_targets"], ["OLD"])
         oms.assert_not_called()
 
-    def test_elapsed_preopen_window_blocks_scheduled_but_force_can_bypass(self):
+    def test_elapsed_execution_window_blocks_scheduled_but_force_can_bypass(self):
         events = []
         oms_calls = []
 
@@ -736,7 +1021,7 @@ class SafeExecutionPipelineTests(unittest.TestCase):
 
         class OMS:
             def __init__(self, account):
-                self.last_summary = {"status": "submitted", "failed": 0}
+                self.last_summary = {"status": "completed", "failed": 0}
 
             def generate_and_execute_orders(self, *args, **kwargs):
                 oms_calls.append("submitted")
@@ -747,12 +1032,17 @@ class SafeExecutionPipelineTests(unittest.TestCase):
             "expected_as_of": "2026-07-13",
             "effective_universe": ["AAA"],
         }
+        account_adapter = SimpleNamespace(get_account=lambda: {
+            "equity": 5000.0, "status": "ACTIVE",
+            "account_blocked": False, "trading_blocked": False,
+        })
         with tempfile.TemporaryDirectory() as tmp, \
                 patch.object(scheduler, "DAILY_LOCK_DIR", tmp), \
                 patch("backend.data.fetcher.sync_and_validate_live_data", return_value=sync_report), \
                 patch("backend.execution.strategy.LiveStrategy", Strategy), \
                 patch("backend.execution.oms.OrderManagementSystem", OMS), \
                 patch("backend.execution.tracker.LiveTracker", self._tracker(events)), \
+                patch.object(scheduler, "AlpacaAdapter", return_value=account_adapter), \
                 patch.object(scheduler, "_evaluate_daily_risk", return_value={"in_market": True}), \
                 patch.object(scheduler, "_inside_scheduled_window", return_value=False), \
                 patch.object(scheduler, "_is_nyse_session_today", return_value=True), \
@@ -766,7 +1056,7 @@ class SafeExecutionPipelineTests(unittest.TestCase):
                 "Main", {"universe": ["AAA"]}, force=True
             )
 
-        self.assertEqual(scheduled["stage"], "preopen_window")
+        self.assertEqual(scheduled["stage"], "execution_window")
         self.assertTrue(forced["success"])
         self.assertEqual(oms_calls, ["submitted"])
 
@@ -810,10 +1100,13 @@ class SafeExecutionPipelineTests(unittest.TestCase):
 
     def test_scheduled_window_is_new_york_time(self):
         self.assertTrue(scheduler._inside_scheduled_window(
-            datetime(2026, 7, 14, 9, 25, tzinfo=scheduler.MARKET_TZ)
+            datetime(2026, 7, 14, 9, 35, tzinfo=scheduler.MARKET_TZ)
         ))
         self.assertFalse(scheduler._inside_scheduled_window(
-            datetime(2026, 7, 14, 9, 30, tzinfo=scheduler.MARKET_TZ)
+            datetime(2026, 7, 14, 9, 29, tzinfo=scheduler.MARKET_TZ)
+        ))
+        self.assertFalse(scheduler._inside_scheduled_window(
+            datetime(2026, 7, 14, 9, 45, tzinfo=scheduler.MARKET_TZ)
         ))
 
     def test_daily_risk_scales_actual_drifted_broker_weights(self):
@@ -826,8 +1119,11 @@ class SafeExecutionPipelineTests(unittest.TestCase):
                 pass
 
             def get_account(self):
-                return {"equity": 100.0, "long_market_value": 100.0,
-                        "short_market_value": 0.0}
+                return {
+                    "equity": 100.0, "long_market_value": 100.0,
+                    "short_market_value": 0.0, "status": "ACTIVE",
+                    "account_blocked": False, "trading_blocked": False,
+                }
 
             def get_positions(self):
                 return [
@@ -837,7 +1133,7 @@ class SafeExecutionPipelineTests(unittest.TestCase):
 
         class OMS:
             def __init__(self, account):
-                self.last_summary = {"status": "submitted"}
+                self.last_summary = {"status": "completed"}
 
             def generate_and_execute_orders(self, weights, *args, **kwargs):
                 captured.update(weights)
@@ -868,12 +1164,12 @@ class SafeExecutionPipelineTests(unittest.TestCase):
                 "Main", {"universe": ["AAA", "BBB", "OLD"], "leverage": 1.5,
                          "risk_management": {"regime_mode": "throttle"}}
             )
-        self.assertEqual(result["status"], "submitted")
+        self.assertEqual(result["status"], "completed")
         self.assertAlmostEqual(captured["AAA"], 0.45)
         self.assertAlmostEqual(captured["BBB"], 0.30)
         self.assertEqual(risk_universe, ["AAA", "BBB"])
 
-    def test_daily_risk_elapsed_preopen_window_never_reaches_oms(self):
+    def test_daily_risk_nan_position_weight_never_reaches_oms(self):
         events = []
 
         class Adapter:
@@ -881,8 +1177,51 @@ class SafeExecutionPipelineTests(unittest.TestCase):
                 pass
 
             def get_account(self):
-                return {"equity": 100.0, "long_market_value": 100.0,
-                        "short_market_value": 0.0}
+                return {
+                    "equity": 100.0, "long_market_value": 100.0,
+                    "short_market_value": 0.0, "status": "ACTIVE",
+                    "account_blocked": False, "trading_blocked": False,
+                }
+
+            def get_positions(self):
+                return [{"symbol": "AAA", "market_value": float("nan")}]
+
+        with tempfile.TemporaryDirectory() as tmp, \
+                patch("backend.data.fetcher.sync_and_validate_live_data", return_value={
+                    "passed": True, "expected_as_of": "2026-07-13",
+                    "effective_universe": ["AAA"],
+                }), \
+                patch.object(scheduler, "_evaluate_daily_risk", return_value={
+                    "active": True, "desired_leverage": 0.75,
+                    "transition": None, "in_market": False,
+                }), \
+                patch.object(scheduler, "AlpacaAdapter", Adapter), \
+                patch("backend.execution.oms.OrderManagementSystem") as oms, \
+                patch("backend.execution.tracker.LiveTracker", self._tracker(events)), \
+                patch.object(scheduler, "_is_nyse_session_today", return_value=True), \
+                patch.object(scheduler, "_stop_flag_path", return_value=Path(tmp) / "absent"):
+            result = scheduler.execute_daily_risk_overlay(
+                "Main", {"universe": ["AAA"], "leverage": 1.0,
+                         "risk_management": {"regime_mode": "throttle"}}
+            )
+
+        self.assertEqual(result["stage"], "risk_positions")
+        self.assertIn("weight", result["error"])
+        oms.assert_not_called()
+
+    def test_daily_risk_elapsed_execution_window_never_reaches_oms(self):
+        events = []
+
+        class Adapter:
+            def __init__(self, account):
+                pass
+
+            def get_account(self):
+                return {
+                    "equity": 100.0, "long_market_value": 100.0,
+                    "short_market_value": 0.0, "status": "ACTIVE",
+                    "account_blocked": False, "trading_blocked": False,
+                }
 
             def get_positions(self):
                 return [{"symbol": "AAA", "market_value": 100.0}]
@@ -908,7 +1247,7 @@ class SafeExecutionPipelineTests(unittest.TestCase):
                          "risk_management": {"regime_mode": "throttle"}}
             )
 
-        self.assertEqual(result["stage"], "preopen_window")
+        self.assertEqual(result["stage"], "execution_window")
         oms.assert_not_called()
 
     def test_stateful_regime_exits_at_200ema_and_reenters_at_20ema(self):
