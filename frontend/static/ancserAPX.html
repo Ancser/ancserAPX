@@ -20,7 +20,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+TC:wght@300;400;500;700&family=Orbitron:wght@400;500;600;700&display=swap" rel="stylesheet">
     <!-- Reuse the ancserTPX design system / component styles -->
-    <link rel="stylesheet" href="/static/ancserTPX.css?v=glass1">
+    <link rel="stylesheet" href="/static/ancserTPX.css?v=glass16">
     <style>
         /* ── ancserAPX-specific overrides ── */
         /* one factor per line: checkbox+label on the left, weight dropdown right-aligned */
@@ -121,9 +121,6 @@
 
         /* Workspace tabs, persistent result history, and live dashboard. */
         [data-workspace-view].workspace-hidden { display: none !important; }
-        .history-list { width: 100%; min-height: 104px; font-family: 'IBM Plex Mono', monospace; font-size: 9px; }
-        .history-actions { display: flex; gap: 5px; margin-top: 5px; }
-        .history-actions .btn { flex: 1; padding: 5px 4px; font-size: 9px; }
         .live-state-row {
             display: flex; justify-content: space-between; gap: 8px; line-height: 1.8;
             font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--text2);
@@ -168,6 +165,10 @@
                 <button class="btn btn-primary apx-glass-action apx-glass-action--amber" id="btn-connect" onclick="connectAPI()">CONNECT &amp; SYNC</button>
             </div>
         </div>
+        <label class="apx-theme-switch apx-glass-switch" title="Light / dark mode">
+            <span class="apx-theme-icon" id="theme-icon">☾</span>
+            <input type="checkbox" id="theme-toggle" onchange="setTheme(this.checked ? 'light' : 'dark')">
+        </label>
         <div id="clock">--:--:-- UTC</div>
     </div>
 </div>
@@ -400,17 +401,8 @@
             <div class="live-state-row"><span>MARKET</span><span class="value" id="live-market-value">--</span></div>
         </div>
 
-        <!-- IndexedDB-backed unified history: backtests, sweeps, and live snapshots. -->
-        <div class="panel apx-glass-container" id="result-history-panel" data-apx-glass="container">
-            <div class="panel-title">RESULT HISTORY</div>
-            <select id="result-history-select" class="history-list" size="5" onchange="loadSelectedHistory()">
-                <option value="">No saved results yet</option>
-            </select>
-            <div class="history-actions">
-                <button class="btn btn-outline apx-glass-action" type="button" onclick="loadSelectedHistory()">LOAD</button>
-                <button class="btn btn-outline apx-glass-action" type="button" onclick="deleteSelectedHistory()">DELETE</button>
-            </div>
-        </div>
+        <!-- Results still persist to IndexedDB (saveHistoryRecord); the sidebar
+             picker was removed on request. Every reader is null-guarded. -->
     </div><!-- /sidebar -->
 
     <!-- Main content -->
@@ -468,6 +460,8 @@
     </div><!-- /content -->
 </div>
 
-<script src="/static/ancserAPX.js?v=apx15"></script>
+<script src="/static/ancserAPX.js?v=apx18"></script>
+<!-- WebGL liquid glass renderer; falls back to the CSS glass standard on its own -->
+<script src="/static/apx-liquid-glass.js?v=glass18"></script>
 </body>
 </html>

@@ -29,6 +29,7 @@ const HISTORY_DB_VERSION = 1;
 
 // ── Init ─────────────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
+    initTheme();
     startClock();
     initWebSocket();
     loadConfig();
@@ -122,6 +123,45 @@ function syncApxFactorSwitches(root = document) {
     });
 }
 
+// ── Light / dark mode ─────────────────────────────────────────────────────
+// The palette lives in CSS custom properties, so switching themes is a single
+// attribute flip; the chart and the WebGL glass renderer are told to re-read.
+const APX_THEME_KEY = 'ancserAPXTheme';
+
+function chartThemeOptions() {
+    const light = document.documentElement.dataset.theme === 'light';
+    const border = light ? '#d3d5d0' : '#1c1e28';
+    return {
+        layout: {
+            background: { color: light ? '#f3f3ef' : '#08090d' },
+            textColor: light ? '#5b6474' : '#8a8f9e',
+        },
+        grid: { vertLines: { color: border }, horzLines: { color: border } },
+        rightPriceScale: { borderColor: border },
+        timeScale: { borderColor: border },
+    };
+}
+
+function setTheme(theme, opts = {}) {
+    const light = theme === 'light';
+    document.documentElement.dataset.theme = light ? 'light' : 'dark';
+    const toggle = document.getElementById('theme-toggle');
+    if (toggle && toggle.checked !== light) toggle.checked = light;
+    const icon = document.getElementById('theme-icon');
+    if (icon) icon.textContent = light ? '☀' : '☾';
+    if (_chart) _chart.applyOptions(chartThemeOptions());
+    if (window.ApxGlass) window.ApxGlass.invalidate(true);
+    if (!opts.silent) {
+        try { localStorage.setItem(APX_THEME_KEY, light ? 'light' : 'dark'); } catch (e) {}
+    }
+}
+
+function initTheme() {
+    let stored = null;
+    try { stored = localStorage.getItem(APX_THEME_KEY); } catch (e) {}
+    setTheme(stored === 'light' ? 'light' : 'dark', { silent: true });
+}
+
 function initApxGlassStandard(root = document) {
     root.querySelectorAll('input[type=range].apx-glass-range').forEach(input => {
         syncApxGlassRange(input);
@@ -131,6 +171,8 @@ function initApxGlassStandard(root = document) {
         input.addEventListener('change', () => syncApxGlassRange(input));
     });
     syncApxFactorSwitches(root);
+    // apx-liquid-glass.js mounts the WebGL surfaces; it is a no-op without it.
+    if (window.ApxGlass) window.ApxGlass.refresh();
 }
 
 function getAccountDetail(account) {
@@ -484,7 +526,7 @@ function buildFactorChecks(factors, presets) {
     const defaultOn = presets['Baseline 70/30'] || presets['Balanced'] || factors.slice(0, 2);
     factors.forEach(f => {
         const label = document.createElement('label');
-        label.className = 'factor-chk apx-factor-switch';
+        label.className = 'factor-chk apx-factor-switch apx-glass-switch';
         const cb = document.createElement('input');
         cb.type = 'checkbox';
         cb.value = f;
@@ -1443,11 +1485,9 @@ function renderComparisonChart(result) {
     _chart = LightweightCharts.createChart(container, {
         width: container.clientWidth,
         height: container.clientHeight,
-        layout: { background: { color: '#08090d' }, textColor: '#8a8f9e' },
-        grid: { vertLines: { color: '#1c1e28' }, horzLines: { color: '#1c1e28' } },
+        ...chartThemeOptions(),
         crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
-        rightPriceScale: { borderColor: '#1c1e28' },
-        timeScale: { borderColor: '#1c1e28', timeVisible: false, secondsVisible: false },
+        timeScale: { ...chartThemeOptions().timeScale, timeVisible: false, secondsVisible: false },
         localization: {
             dateFormat: 'MM.dd.yyyy',
             timeFormatter: (t) => {
@@ -1775,11 +1815,9 @@ function renderLiveChart(curve, account) {
     _chart = LightweightCharts.createChart(container, {
         width: container.clientWidth,
         height: container.clientHeight,
-        layout: { background: { color: '#08090d' }, textColor: '#8a8f9e' },
-        grid: { vertLines: { color: '#1c1e28' }, horzLines: { color: '#1c1e28' } },
+        ...chartThemeOptions(),
         crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
-        rightPriceScale: { borderColor: '#1c1e28' },
-        timeScale: { borderColor: '#1c1e28', timeVisible: false, secondsVisible: false },
+        timeScale: { ...chartThemeOptions().timeScale, timeVisible: false, secondsVisible: false },
     });
     _liveSeries = _chart.addLineSeries({ color: '#64dcff', lineWidth: 2, title: `${account} Live` });
     _liveSeries.setData(curveToChartData(curve, getChartViewMode()));

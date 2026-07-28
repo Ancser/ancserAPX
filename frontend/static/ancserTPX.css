@@ -22,11 +22,56 @@
             --white:  #eaf0ff;
             --apx-glass-bg: rgba(12, 15, 22, 0.42);
             --apx-glass-bg-strong: rgba(18, 22, 31, 0.62);
-            --apx-glass-border: rgba(234, 240, 255, 0.16);
-            --apx-glass-edge: rgba(234, 240, 255, 0.28);
+            --apx-glass-border: rgba(255, 255, 255, 0.26);
+            --apx-glass-edge: rgba(255, 255, 255, 0.40);
             --apx-glass-shadow: rgba(0, 0, 0, 0.34);
             --apx-glass-radius: 22px;
             --apx-glass-radius-sm: 16px;
+        }
+
+        /* ── Light mode ──────────────────────────────────────────────────
+           Set by setTheme() in ancserAPX.js. Only the palette moves; every
+           component keeps its structure. apx-liquid-glass.js reads the same
+           tokens for its backdrop and scene fills. */
+        :root[data-theme="light"] {
+            color-scheme: light;
+            --bg:     #f3f3ef;
+            --bg2:    #e9eae6;
+            --bg3:    #e0e1dd;
+            --bg4:    #d6d7d2;
+            --border: rgba(20, 50, 70, 0.14);
+            --border-h: rgba(20, 50, 70, 0.30);
+            --text:   #1a2030;
+            --text2:  #5b6474;
+            --text3:  #8a92a2;
+            --cyan:   #0a7ca8;
+            --cyan2:  rgba(10, 124, 168, 0.16);
+            --cyan3:  rgba(10, 124, 168, 0.06);
+            --green:  #00845a;
+            --green2: rgba(0, 132, 90, 0.14);
+            --red:    #cc1f3c;
+            --red2:   rgba(204, 31, 60, 0.12);
+            --amber:  #a8680a;
+            --amber2: rgba(168, 104, 10, 0.14);
+            --white:  #0d1119;
+            --apx-glass-bg: rgba(255, 255, 255, 0.52);
+            --apx-glass-bg-strong: rgba(255, 255, 255, 0.72);
+            --apx-glass-border: rgba(18, 28, 44, 0.14);
+            --apx-glass-edge: rgba(18, 28, 44, 0.24);
+            --apx-glass-shadow: rgba(30, 45, 70, 0.14);
+        }
+        :root[data-theme="light"] body {
+            background:
+                radial-gradient(circle at 16% 22%, rgba(255, 167, 38, 0.20), transparent 26%),
+                radial-gradient(circle at 72% 18%, rgba(100, 200, 255, 0.20), transparent 28%),
+                radial-gradient(circle at 76% 76%, rgba(0, 200, 150, 0.18), transparent 26%),
+                linear-gradient(135deg, #f6f6f2 0%, #ececE6 48%, #f2f2ee 100%);
+        }
+        :root[data-theme="light"] .main::before {
+            background:
+                linear-gradient(120deg, rgba(0,0,0,0.03), transparent 34%),
+                radial-gradient(circle at 30% 36%, rgba(204, 31, 60, 0.09), transparent 30%),
+                radial-gradient(circle at 83% 46%, rgba(10, 124, 168, 0.09), transparent 32%);
         }
 
         body {
@@ -69,67 +114,47 @@
             position: relative;
             z-index: 1;
         }
-        .sidebar {
-            background: rgba(7, 9, 13, 0.66);
-            backdrop-filter: blur(18px) saturate(130%);
-        }
+        /* Flat translucent glass: no sheen gradient, no top light line, no
+           coloured bloom at the bottom. */
         .apx-glass-container,
         .panel.apx-glass-container {
             margin: 10px;
             overflow: hidden;
             border: 1px solid var(--apx-glass-border);
             border-radius: var(--apx-glass-radius);
-            background:
-                linear-gradient(135deg, rgba(255,255,255,0.105), rgba(255,255,255,0.018) 38%, rgba(0,0,0,0.10)),
-                var(--apx-glass-bg);
+            background: var(--apx-glass-bg);
             backdrop-filter: blur(18px) saturate(145%);
-            box-shadow:
-                inset 0 1px 0 rgba(255,255,255,0.13),
-                inset 0 -22px 48px rgba(0,0,0,0.12),
-                0 18px 46px var(--apx-glass-shadow);
+            box-shadow: 0 18px 46px var(--apx-glass-shadow);
         }
         .panel.apx-glass-container {
             border-bottom: 1px solid var(--apx-glass-border);
         }
-        .panel.apx-glass-container::before {
-            top: 0;
-            bottom: auto;
-            width: 100%;
-            height: 1px;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.34), transparent);
-        }
+        .panel.apx-glass-container::before,
         .panel.apx-glass-container::after {
-            height: 64px;
-            background:
-                radial-gradient(ellipse at 20% 100%, rgba(255,167,38,0.12), transparent 66%),
-                radial-gradient(ellipse at 80% 100%, rgba(100,220,255,0.10), transparent 68%);
+            display: none;
         }
-        .apx-glass-container--live {
-            background:
-                linear-gradient(135deg, rgba(100,220,255,0.105), rgba(255,255,255,0.018) 42%, rgba(0,0,0,0.10)),
-                rgba(8, 12, 18, 0.48);
-        }
+        .apx-glass-container--live,
         .apx-glass-container--ready {
-            background:
-                linear-gradient(135deg, rgba(0,229,160,0.10), rgba(255,255,255,0.018) 42%, rgba(0,0,0,0.10)),
-                rgba(8, 12, 18, 0.48);
+            background: rgba(8, 12, 18, 0.48);
         }
 
+        /* No bar, no frame: just tabs with a selection lens behind them. */
         .apx-glass-nav {
             display: inline-flex;
             align-items: center;
             gap: 0;
             padding: 4px;
-            border: 1px solid var(--apx-glass-border);
-            border-radius: 999px;
-            background:
-                linear-gradient(135deg, rgba(255,255,255,0.115), rgba(255,255,255,0.025)),
-                rgba(7, 10, 15, 0.44);
-            backdrop-filter: blur(18px) saturate(150%);
-            box-shadow:
-                inset 0 1px 0 rgba(255,255,255,0.14),
-                inset 0 -14px 34px rgba(0,0,0,0.18),
-                0 14px 32px rgba(0,0,0,0.28);
+            border: 0;
+            background: none;
+            box-shadow: none;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+        .apx-glass-nav .tab,
+        .apx-glass-nav .bottom-tab {
+            user-select: none;
+            -webkit-user-select: none;
         }
         .header-tabs.apx-glass-nav {
             height: auto;
@@ -138,12 +163,16 @@
         }
         .header-tabs.apx-glass-nav .tab,
         .bottom-tabs.apx-glass-nav .bottom-tab {
+            display: flex;
+            align-items: center;
+            justify-content: center;
             height: auto;
             min-height: 28px;
             padding: 0 18px;
             border: 0;
             border-radius: 999px;
-            color: rgba(200, 208, 224, 0.62);
+            line-height: 1;
+            color: var(--text2);
             transition: color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
         }
         .header-tabs.apx-glass-nav .tab.active,
@@ -165,8 +194,11 @@
             align-self: flex-start;
             margin: 8px 10px 6px;
             padding: 4px;
-            border-bottom: 1px solid var(--apx-glass-border);
+            border-bottom: 0;
             flex-shrink: 0;
+            /* must outrank the sticky <thead> (z-index 3) below it */
+            position: relative;
+            z-index: 5;
         }
 
         .apx-glass-status,
@@ -191,39 +223,57 @@
             gap: 8px;
             padding: 4px 0;
         }
+        /* The row is layout only — the switch is the control, so the row gets
+           no pill of its own around the label and weight input.
+           (`.form-group label { display: block }` outranks `.factor-chk`,
+           which is why the row needs its display restated here.) */
+        .form-group .factor-chk.apx-factor-switch,
         .factor-chk.apx-factor-switch {
-            min-height: 38px;
-            padding: 7px 8px;
+            display: flex;
+            align-items: center;
+            min-height: 34px;
+            padding: 2px 2px;
             gap: 9px;
-            border: 1px solid rgba(234, 240, 255, 0.10);
-            border-radius: 999px;
-            background: rgba(9, 11, 16, 0.36);
-            backdrop-filter: blur(12px) saturate(135%);
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.07);
+            border: 0;
+            background: none;
+            box-shadow: none;
         }
-        .factor-chk.apx-factor-switch:has(input[type="checkbox"]:checked) {
-            border-color: rgba(0,229,160,0.28);
-            background:
-                linear-gradient(135deg, rgba(0,229,160,0.105), rgba(255,255,255,0.018)),
-                rgba(9, 11, 16, 0.42);
+        /* switch sits alone on the right edge, label and weight to its left */
+        .factor-chk.apx-factor-switch .factor-name {
+            flex: 1 1 auto;
+            min-width: 0;
         }
-        .factor-chk.apx-factor-switch input[type="checkbox"] {
+        .factor-chk.apx-factor-switch .apx-glass-mount,
+        .factor-chk.apx-factor-switch > input[type="checkbox"] {
+            order: 9;
+            margin-left: 4px;
+        }
+        /* Shared switch pill — factor rows and the theme switch use the same
+           control, so apx-liquid-glass.js can mount them with one selector. */
+        .apx-glass-switch input[type="checkbox"] {
             flex: 0 0 auto;
             appearance: none;
-            width: 34px;
-            height: 20px;
-            border: 1px solid rgba(234,240,255,0.18);
+            width: 56px;
+            height: 26px;
+            margin: 0;
+            border: 1px solid var(--apx-glass-border);
             border-radius: 999px;
-            background: rgba(21, 24, 31, 0.84);
-            box-shadow: inset 0 1px 5px rgba(0,0,0,0.38);
+            background: rgb(68, 74, 86);
+            box-shadow: inset 0 1px 5px rgba(0,0,0,0.30);
+            cursor: pointer;
+            touch-action: none;
         }
-        .factor-chk.apx-factor-switch input[type="checkbox"]::after {
+        :root[data-theme="light"] .apx-glass-switch input[type="checkbox"] {
+            background: rgb(138, 146, 162);
+            box-shadow: inset 0 1px 4px rgba(20,30,50,0.28);
+        }
+        .apx-glass-switch input[type="checkbox"]::after {
             content: '';
             position: absolute;
             top: 50%;
-            left: 3px;
-            width: 14px;
-            height: 14px;
+            left: 4px;
+            width: 26px;
+            height: 18px;
             border-radius: 999px;
             background:
                 linear-gradient(135deg, rgba(255,255,255,0.28), rgba(255,255,255,0.04)),
@@ -231,15 +281,30 @@
             transform: translateY(-50%);
             transition: left 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
         }
-        .factor-chk.apx-factor-switch input[type="checkbox"]:checked {
+        .apx-glass-switch input[type="checkbox"]:checked {
             border-color: rgba(0,229,160,0.42);
-            background:
-                linear-gradient(105deg, rgba(0,190,84,0.96), rgba(48,209,88,0.96));
+            background: var(--green);
         }
-        .factor-chk.apx-factor-switch input[type="checkbox"]:checked::after {
-            left: 16px;
+        .apx-glass-switch input[type="checkbox"]:checked::after {
+            left: 26px;
             background: rgba(240, 255, 247, 0.94);
             box-shadow: 0 0 12px rgba(0,229,160,0.42);
+        }
+
+        /* header light/dark switch */
+        .apx-theme-switch {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            cursor: pointer;
+            user-select: none;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 11px;
+            color: var(--text2);
+        }
+        .apx-theme-switch .apx-theme-icon {
+            font-size: 12px;
+            line-height: 1;
         }
         .factor-chk.apx-factor-switch .factor-weight {
             border-color: rgba(234,240,255,0.12);
@@ -348,6 +413,172 @@
                 inset 0 1px 0 rgba(255,255,255,0.16),
                 inset 0 -14px 28px rgba(0,0,0,0.12),
                 0 14px 30px rgba(0,0,0,0.28);
+        }
+
+        /* ── WebGL glass layer (apx-liquid-glass.js) ───────────────────────
+           While the shared WebGL2 context is live the canvas IS the visible
+           surface, so the CSS fills underneath it are switched off per control
+           via [data-apx-renderer="webgl"]. Nothing carries that attribute when
+           WebGL is unavailable, so the CSS standard above stays the fallback.
+
+           These use !important on purpose: a theme rule such as
+           `:root[data-theme="light"] .apx-glass-switch input` outranks a plain
+           hand-off rule and would leave its own fill painting over the canvas.
+           The hand-off is a hard boundary — when the canvas owns the surface,
+           CSS always yields.
+        */
+        .apx-glass-canvas {
+            position: absolute;
+            z-index: 0;
+            display: block;
+            pointer-events: none;
+        }
+        .apx-glass-mount {
+            position: relative;
+            display: block;
+            overflow: visible;
+        }
+        .apx-glass-mount > :not(canvas) {
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Labels stay in the DOM; the canvas only paints the selection lens
+           that slides behind them. */
+        .apx-glass-nav[data-apx-renderer="webgl"] .tab,
+        .apx-glass-nav[data-apx-renderer="webgl"] .bottom-tab,
+        .apx-glass-nav[data-apx-renderer="webgl"] .tab.active,
+        .apx-glass-nav[data-apx-renderer="webgl"] .bottom-tab.active {
+            position: relative;
+            z-index: 1;
+            background: none !important;
+            box-shadow: none !important;
+        }
+
+        /* The track stays CSS (the demo does the same); only the sliding thumb
+           is a lens, so the CSS thumb is what has to go. */
+        /* Demo layering: track (z0) → glass canvas (z1) → solid thumb (z2) →
+           the input on top purely as the hit target. Track and thumb are DOM,
+           so nothing the renderer draws can be covered by a theme rule. */
+        .apx-glass-switch input[type="checkbox"][data-apx-renderer="webgl"],
+        .apx-glass-switch input[type="checkbox"][data-apx-renderer="webgl"]:checked {
+            position: relative;
+            z-index: 3;
+            background: none !important;
+            border-color: transparent !important;
+            box-shadow: none !important;
+        }
+        .apx-switch-shell > .apx-switch-track {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            overflow: hidden;
+            border-radius: 999px;
+            background: var(--apx-switch-off, rgb(68, 74, 86));
+        }
+        .apx-switch-shell > .apx-switch-track::before {
+            position: absolute;
+            inset: 0;
+            content: '';
+            border-radius: inherit;
+            background: var(--apx-switch-on, rgb(0, 176, 122));
+            opacity: var(--apx-switch-progress, 0);
+        }
+        .apx-switch-shell > .apx-glass-canvas {
+            z-index: 1;
+            opacity: var(--apx-switch-glass, 0);
+        }
+        .apx-switch-shell > .apx-switch-thumb {
+            position: absolute;
+            top: 50%;
+            left: var(--apx-switch-anchor, 13px);
+            z-index: 2;
+            width: var(--apx-switch-w, 26px);
+            height: var(--apx-switch-h, 18px);
+            border-radius: 999px;
+            background: var(--apx-switch-solid, #fff);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.30);
+            opacity: calc(1 - var(--apx-switch-glass, 0));
+            translate: calc(var(--apx-switch-travel, 0px) - 50%) -50%;
+            pointer-events: none;
+            will-change: width, height, translate;
+        }
+        .apx-glass-switch input[type="checkbox"][data-apx-renderer="webgl"]::after,
+        .apx-glass-switch input[type="checkbox"][data-apx-renderer="webgl"]:checked::after {
+            display: none;
+        }
+
+        input[type="range"].apx-glass-range[data-apx-renderer="webgl"] {
+            height: 30px;
+            background: none !important;
+            box-shadow: none !important;
+        }
+        input[type="range"].apx-glass-range[data-apx-renderer="webgl"]::-webkit-slider-thumb {
+            width: 26px;
+            height: 26px;
+            margin-top: -8px;
+            border-color: transparent;
+            background: none;
+            box-shadow: none;
+        }
+        input[type="range"].apx-glass-range[data-apx-renderer="webgl"]::-moz-range-thumb {
+            width: 26px;
+            height: 26px;
+            border-color: transparent;
+            background: transparent;
+        }
+
+        /* dual-handle year range: canvas paints track + both thumbs */
+        .dual-range[data-apx-renderer="webgl"] {
+            height: 30px;
+        }
+        .dual-range[data-apx-renderer="webgl"] .dr-track,
+        .dual-range[data-apx-renderer="webgl"] .dr-fill {
+            display: none;
+        }
+        .dual-range[data-apx-renderer="webgl"] input[type="range"] {
+            height: 30px;
+        }
+        .dual-range[data-apx-renderer="webgl"] input[type="range"]::-webkit-slider-thumb {
+            width: 26px;
+            height: 22px;
+            margin-top: -9px;
+            border: 0 !important;
+            border-radius: 0 !important;
+            background: transparent !important;
+            box-shadow: none !important;
+        }
+        .dual-range[data-apx-renderer="webgl"] input[type="range"]::-moz-range-thumb {
+            width: 22px;
+            height: 22px;
+            border: 0;
+            background: transparent;
+        }
+
+        .panel.apx-glass-container[data-apx-renderer="webgl"] {
+            background: none !important;
+            border-color: transparent !important;
+            box-shadow: none !important;
+            backdrop-filter: none !important;
+        }
+        .btn.apx-glass-action[data-apx-renderer="webgl"],
+        .toggle-field.apx-glass-toggle[data-apx-renderer="webgl"],
+        .conn-trigger.apx-glass-status[data-apx-renderer="webgl"],
+        .account-badge.apx-glass-badge[data-apx-renderer="webgl"] {
+            background: none !important;
+            border-color: transparent !important;
+            box-shadow: none !important;
+            backdrop-filter: none !important;
+        }
+        /* Hover brightens the label only. No transform, no size change — the
+           lens reacts on the canvas and moving the box would desync it. */
+        .btn.apx-glass-action[data-apx-renderer="webgl"]:hover:not(:disabled),
+        .toggle-field.apx-glass-toggle[data-apx-renderer="webgl"]:hover,
+        .conn-trigger.apx-glass-status[data-apx-renderer="webgl"]:hover {
+            transform: none;
+            box-shadow: none;
+            border-color: transparent;
+            filter: brightness(1.35);
         }
 
         /* ── GFL2 Corner Cuts ── */
@@ -469,7 +700,9 @@
         .main { display: flex; height: calc(100vh - 48px); }
         .sidebar {
             width: 400px;
-            background: var(--bg2);
+            /* translucent so the page gradient reads through as the sidebar's
+               own background — the glass rule above sets the tint */
+            background: transparent;
             border-right: 1px solid var(--border);
             overflow-y: auto;
             flex-shrink: 0;
@@ -1020,7 +1253,7 @@
             height: 36vh;
             min-height: 80px;
             max-height: 75vh;
-            overflow: hidden;
+            overflow: visible;
             display: flex;
             flex-direction: column;
             position: relative;
@@ -1086,7 +1319,7 @@
             background: linear-gradient(to top, rgba(255,255,255,0.15), transparent);
             pointer-events: none;
         }
-        .bottom-content { flex: 1; overflow-y: auto; padding: 0; }
+        .bottom-content { flex: 1; overflow: hidden auto; padding: 0; }
         .bottom-content::-webkit-scrollbar { width: 2px; }
         .bottom-content::-webkit-scrollbar-thumb { background: var(--border-h); }
         .bottom-content::-webkit-scrollbar-track { background: transparent; }
