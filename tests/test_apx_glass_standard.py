@@ -259,6 +259,28 @@ def test_production_shader_matches_the_demo_bench():
 
     assert vertex in module, "vertex shader is out of sync with the demo bench"
     assert fragment in module, "fragment shader is out of sync with the demo bench"
+    assert "transmission: 0.84" in module
+    assert "ambientFill: 0.075" in module
+    assert "magnification: 0.07" in module
+    assert "edgeRefraction: 1.15" in module
+    assert "refractionLevel: 1" in module
+    assert "specularOpacity: 0" in module
+    assert "specularSaturation: 6" in module
+    assert "blurLevel: 0.2" in module
+    assert "progressiveBlur: 0" in module
+    assert "glassBackgroundOpacity: 0.5" in module
+    assert "fresnelStrength: 0.32" in module
+    assert "specularStrength: 0.22" in module
+    assert "innerRimStrength: 0.20" in module
+    assert "darkRimStrength: 0.14" in module
+    assert "opticTuning: gl.getUniformLocation" in module
+    assert "lightTuning: gl.getUniformLocation" in module
+    assert "kubeTuning: gl.getUniformLocation" in module
+    assert "kubeMaterialTuning: gl.getUniformLocation" in module
+    assert "state.uniforms.opticTuning" in module
+    assert "state.uniforms.lightTuning" in module
+    assert "state.uniforms.kubeTuning" in module
+    assert "state.uniforms.kubeMaterialTuning" in module
     # The single documented deviation from the bench.
     assert "uniform float uCornerRadiusPx;" in fragment
     assert module.count("uCornerRadiusPx") >= 3

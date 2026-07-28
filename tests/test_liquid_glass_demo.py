@@ -9,6 +9,7 @@ DEMO_PATH = (
     / "demos"
     / "liquid-glass-switch.html"
 )
+DEMO_ASSETS_PATH = DEMO_PATH.parent / "assets"
 
 
 class _DemoMarkupParser(HTMLParser):
@@ -121,6 +122,8 @@ def test_liquid_glass_demo_is_isolated_and_accessible():
 def test_liquid_glass_demo_uses_local_scene_refraction_not_blur_effects():
     source = DEMO_PATH.read_text(encoding="utf-8")
 
+    assert (DEMO_ASSETS_PATH / "kube-switch-displacement.png").is_file()
+    assert (DEMO_ASSETS_PATH / "kube-switch-specular.png").is_file()
     assert 'getContext("webgl2"' in source
     assert "texture(uScene" in source
     assert "sceneAt" in source
@@ -144,6 +147,9 @@ def test_liquid_glass_demo_uses_local_scene_refraction_not_blur_effects():
     assert "uniform vec4 uRimTuning;" in source
     assert "uniform vec4 uRoundTuning;" in source
     assert "uniform vec4 uTransitionTuning;" in source
+    assert "uniform vec4 uOpticTuning;" in source
+    assert "uniform vec4 uLightTuning;" in source
+    assert "uniform vec4 uKubeTuning;" in source
     assert "trackMask * uTrackVisibility" in source
     assert "trackSignedDistanceAt" in source
     assert "neutralTrackBand" in source
@@ -167,6 +173,12 @@ def test_liquid_glass_demo_uses_local_scene_refraction_not_blur_effects():
     assert "shoulderBand" in source
     assert "directionalLight" in source
     assert "fresnel = pow(edgeProgress, 6.0)" in source
+    assert "fresnelRim" in source
+    assert "ambientGlassFill" in source
+    assert "darkCompensation" in source
+    assert "specularLobe" in source
+    assert "innerRimBand" in source
+    assert "oppositeEdgeOcclusion" in source
     assert "coreBand" in source
     assert "vec3(0.50)" not in source
     assert "vec3(0.62)" not in source
@@ -176,6 +188,7 @@ def test_liquid_glass_demo_uses_local_scene_refraction_not_blur_effects():
     assert "boundaryMappedPx" in source
     assert "interiorContentBand" in source
     assert "contentSampleScale" in source
+    assert "magnificationScale" in source
     assert "uShapeTuning.z" in source
     assert "floatingLensWeight * uShapeTuning.w" in source
     assert "compressedContentPx" in source
@@ -184,6 +197,9 @@ def test_liquid_glass_demo_uses_local_scene_refraction_not_blur_effects():
     assert "transitionWidthPx" in source
     assert "transitionProgress" in source
     assert "transitionDecay" in source
+    assert "transmissionMix" in source
+    assert "opticalTransmission" in source
+    assert "ambientFillStrength" in source
     assert "exp(-transitionLinear * transitionDecay)" in source
     assert "rgbBandWidthPx" in source
     assert "rgbHaloBand" in source
@@ -193,6 +209,10 @@ def test_liquid_glass_demo_uses_local_scene_refraction_not_blur_effects():
     assert "sceneAt(chromaticBasePx)" in source
     assert "edgeTaperPower" in source
     assert "edgeOpticBand" in source
+    assert "edgeRefractionRamp" in source
+    assert "edgeRefractionStrength" in source
+    assert "kubeRefractionLevelPx" in source
+    assert "max(uKubeTuning.x, 0.0) * 22.0 * uPixelRatio" in source
     assert "edgeFoldCurve" in source
     assert "sideRoundPull" in source
     assert "innerRefractionPullPx" in source
@@ -302,6 +322,27 @@ def test_liquid_glass_demo_uses_local_scene_refraction_not_blur_effects():
     assert "Independent center-to-edge shoulder width" not in source
     assert '"transitionDecay"' in source
     assert 'label: "Transition decay"' in source
+    assert '"transmission"' in source
+    assert 'label: "Transmission"' in source
+    assert '"ambientFill"' in source
+    assert 'label: "Dark fill"' in source
+    assert '"magnification"' in source
+    assert 'label: "Center lens"' in source
+    assert '"edgeRefraction"' in source
+    assert 'label: "Edge refraction"' in source
+    assert '"refractionLevel"' in source
+    assert 'label: "Refraction level"' in source
+    assert 'value: 1,' in source
+    assert '"specularOpacity"' in source
+    assert 'label: "Specular opacity"' in source
+    assert '"specularSaturation"' in source
+    assert 'label: "Specular saturation"' in source
+    assert '"blurLevel"' in source
+    assert 'label: "Blur level"' in source
+    assert '"progressiveBlur"' in source
+    assert 'label: "Progressive blur"' in source
+    assert '"glassBackgroundOpacity"' in source
+    assert 'label: "Glass bg opacity"' in source
     assert "Exponential falloff" not in source
     assert '"rgbBandWidth"' in source
     assert 'label: "RGB band width"' in source
@@ -316,15 +357,47 @@ def test_liquid_glass_demo_uses_local_scene_refraction_not_blur_effects():
     assert 'label: "Warp pull"' not in source
     assert '"centerShrink"' in source
     assert '"rimStrength"' in source
+    assert '"fresnelStrength"' in source
+    assert 'label: "Fresnel rim"' in source
+    assert '"specularStrength"' in source
+    assert 'label: "Specular"' in source
+    assert '"innerRimStrength"' in source
+    assert 'label: "Inner rim"' in source
+    assert '"darkRimStrength"' in source
+    assert 'label: "Dark rim"' in source
+    assert '"motionStretch"' in source
+    assert 'label: "Motion stretch"' in source
     assert "How deep the center-to-edge transition starts." not in source
     assert "Content distortion before it reaches the rim." not in source
     assert "Higher value makes center-to-edge blend stronger." not in source
     assert "Delay center color folding into rim." not in source
     assert "shapeTuning: gl.getUniformLocation" in source
     assert "transitionTuning: gl.getUniformLocation" in source
+    assert "opticTuning: gl.getUniformLocation" in source
+    assert "lightTuning: gl.getUniformLocation" in source
+    assert "kubeTuning: gl.getUniformLocation" in source
+    assert "kubeMaterialTuning: gl.getUniformLocation" in source
+    assert "tuning.refractionLevel * sizeScale" in source
+    assert "tuning.progressiveBlur * sizeScale" in source
+    assert "tuning.blurLevel * sizeScale" in source
+    assert "tuning.glassBackgroundOpacity" in source
+    assert "tuning.specularOpacity" in source
+    assert "tuning.specularSaturation" in source
+    assert "uniform vec4 uKubeMaterialTuning;" in source
+    assert "kubeSpecularOpacity" in source
+    assert "kubeSpecularSaturation" in source
+    assert "kubeBlurLevelPx" in source
+    assert "kubeGlassBackgroundOpacity" in source
+    assert "kubeProgressiveBlurPx" in source
+    assert "magnificationScale = min(" in source
+    assert "refractionBridgeProgress" in source
+    assert "refractionBridgeBand" in source
+    assert "solidRefractionBand" in source
     assert "gl.uniform4f(" in source
-    assert "* 0.78" in source
-    assert "* 1.18" in source
+    assert "* 0.34" in source
+    assert "* 0.46" in source
+    assert "mix(0.32, 0.78, opticalTransmission)" in source
+    assert "* 1.18" not in source
     assert "#30d158" in source
     assert "rgb(48 209 88)" in source
     assert "colorA:" not in source
@@ -344,7 +417,46 @@ def test_liquid_glass_demo_uses_local_scene_refraction_not_blur_effects():
     assert "dataset.chromaticLayer" in source
     assert '? "inner"' in source
     assert "--edge-gray:" in source
-    assert "backdrop-filter:" not in source
+    assert "Implementation split" not in source
+    assert 'data-implementation="' not in source
+    assert "id=\"kube-refraction-filter\"" in source
+    assert "id=\"kube-displacement-image\"" in source
+    assert "id=\"kube-refraction-map\"" in source
+    assert "id=\"kube-thumb-filter\"" in source
+    assert "assets/kube-switch-displacement.png" in source
+    assert "assets/kube-switch-specular.png" in source
+    assert "kube-thumb-displacement" in source
+    assert "kube-thumb-saturation" in source
+    assert "kube-thumb-specular-alpha" in source
+    assert "feDisplacementMap" in source
+    assert "feSpecularLighting" in source
+    assert "kube-magnifier" in source
+    assert "kube-search" in source
+    assert "kube-nav" in source
+    assert "kube-player" in source
+    assert "kube-container" in source
+    assert "kube-switch" in source
+    assert "kube-slider" in source
+    assert "Specular opacity" in source
+    assert "Specular saturation" in source
+    assert "Refraction level" in source
+    assert "Blur level" in source
+    assert "Glass bg opacity" in source
+    assert "--kube-refraction-level" in source
+    assert "--kube-blue-opacity" in source
+    assert "--kube-glass-background-opacity" in source
+    assert "--kube-specular-opacity" in source
+    assert "--kube-progressive-blur" in source
+    assert "kubeSmootherstep" in source
+    assert "kubeConvexSquircle" in source
+    assert "buildKubeDisplacementMap" in source
+    assert "updateKubeDisplacementMap" in source
+    assert "stageDisplacement?.setAttribute" in source
+    assert "state.refractionLevel * 50.08645714048877" in source
+    assert "backdrop-filter:" in source
+    assert "url(\"#kube-refraction-filter\")" in source
+    assert "url(\"#kube-thumb-filter\")" in source
+    assert "initKubeSettings" in source
     assert "filter: blur(" not in source
     assert "infinite" not in source
     assert "rgba(255,255,255" not in source
@@ -384,9 +496,12 @@ def test_liquid_glass_demo_has_motion_contrast_and_browser_fallbacks():
     assert 'event?.type === "pointercancel"' in source
     assert "function startBarTransition" in source
     assert "bar.transitionDuration" in source
-    assert "const eased = 1 - Math.pow(1 - progress, 3);" in source
+    assert "const springBase = 1 - Math.pow(1 - progress, 3);" in source
+    assert "const springOvershoot" in source
+    assert "springBase + springOvershoot" in source
     assert "startBarTransition(bar, 150)" in source
     assert "transitionPulse" in source
+    assert "motionStretch" in source
     assert "velocityUnit" in source
     assert "function createLiquidToggle" in source
     assert "function createToggleGlassBar" in source

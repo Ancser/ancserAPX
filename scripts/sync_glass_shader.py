@@ -17,6 +17,7 @@ the suite when the two files drift apart.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Tuple
 
@@ -77,17 +78,41 @@ def build_production_shaders() -> Tuple[str, str]:
     return vertex, fragment
 
 
+def _replace_shader_const(module: str, const_name: str, shader: str) -> str:
+    pattern = rf"const {const_name} = `[\s\S]*?`;"
+    replacement = f"const {const_name} = `{shader}`;"
+    updated, count = re.subn(pattern, replacement, module, count=1)
+    if count != 1:
+        raise ValueError(f"could not replace {const_name}")
+    return updated
+
+
 def main() -> int:
     vertex, fragment = build_production_shaders()
     module = MODULE_PATH.read_text(encoding="utf-8")
-    if VERTEX_MARKER not in module or FRAGMENT_MARKER not in module:
+    if VERTEX_MARKER in module and FRAGMENT_MARKER in module:
+        module = module.replace(VERTEX_MARKER, vertex, 1)
+        module = module.replace(FRAGMENT_MARKER, fragment, 1)
+    elif (
+        "const VERTEX_SHADER_SOURCE = `" in module
+        and "const FRAGMENT_SHADER_SOURCE = `" in module
+    ):
+        module = _replace_shader_const(
+            module,
+            "VERTEX_SHADER_SOURCE",
+            vertex,
+        )
+        module = _replace_shader_const(
+            module,
+            "FRAGMENT_SHADER_SOURCE",
+            fragment,
+        )
+    else:
         print(
-            "apx-liquid-glass.js has no shader markers left; restore "
-            f"{VERTEX_MARKER} / {FRAGMENT_MARKER} before syncing."
+            "apx-liquid-glass.js has no shader markers or shader constants "
+            "that can be synced."
         )
         return 1
-    module = module.replace(VERTEX_MARKER, vertex, 1)
-    module = module.replace(FRAGMENT_MARKER, fragment, 1)
     MODULE_PATH.write_text(module, encoding="utf-8")
     print(f"synced vertex ({len(vertex)} chars) and fragment ({len(fragment)} chars)")
     return 0

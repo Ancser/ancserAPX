@@ -61,6 +61,10 @@
                 uniform vec4 uRimTuning;
                 uniform vec4 uRoundTuning;
                 uniform vec4 uTransitionTuning;
+                uniform vec4 uOpticTuning;
+                uniform vec4 uLightTuning;
+                uniform vec4 uKubeTuning;
+                uniform vec4 uKubeMaterialTuning;
 
                 in vec2 vUV;
                 out vec4 fragColor;
@@ -72,6 +76,14 @@
 
                 vec4 sceneAt(vec2 px) {
                     return texture(uScene, safeUV(px));
+                }
+
+                vec3 saturateRGB(vec3 color, float saturation) {
+                    float luma = dot(
+                        color,
+                        vec3(0.2126, 0.7152, 0.0722)
+                    );
+                    return mix(vec3(luma), color, saturation);
                 }
 
                 float capsuleDistance(
@@ -249,6 +261,39 @@
                     float edgeWidthPx =
                         mix(uShapeTuning.x, uShapeTuning.y, uInteraction)
                             * uPixelRatio;
+                    float opticalTransmission = clamp(
+                        uOpticTuning.x,
+                        0.0,
+                        1.0
+                    );
+                    float ambientFillStrength = max(uOpticTuning.y, 0.0);
+                    float magnificationStrength = clamp(
+                        uOpticTuning.z,
+                        0.0,
+                        0.35
+                    );
+                    float edgeRefractionStrength = max(
+                        uOpticTuning.w,
+                        0.0
+                    );
+                    float kubeRefractionLevelPx =
+                        max(uKubeTuning.x, 0.0) * 22.0 * uPixelRatio;
+                    float kubeProgressiveBlurPx =
+                        max(uKubeTuning.y, 0.0) * uPixelRatio;
+                    float kubeBlurLevelPx =
+                        max(uKubeTuning.z, 0.0) * uPixelRatio;
+                    float kubeGlassBackgroundOpacity = clamp(
+                        uKubeTuning.w,
+                        0.0,
+                        1.0
+                    );
+                    float kubeSpecularOpacity = clamp(
+                        uKubeMaterialTuning.x,
+                        0.0,
+                        1.0
+                    );
+                    float kubeSpecularSaturation =
+                        max(uKubeMaterialTuning.y, 0.0);
                     float floatingLensWeight = 1.0 - uTrackVisibility;
                     float transitionWidthPx = max(
                         edgeWidthPx
@@ -284,8 +329,18 @@
                         )
                             * uInteraction
                             * mix(0.72, 1.0, uStrength);
+                    float magnificationScale = min(
+                        1.0,
+                        max(
+                            0.82,
+                            contentSampleScale
+                                - magnificationStrength
+                                    * glassActivation
+                                    * mix(0.55, 1.0, normalizedLensDepth)
+                        )
+                    );
                     vec2 compressedContentPx =
-                        uLensCenterPx + d * contentSampleScale;
+                        uLensCenterPx + d * magnificationScale;
                     vec4 compressedContent = sceneAt(compressedContentPx);
                     float transitionLinear = smoothstep(
                         -transitionWidthPx,
@@ -330,12 +385,19 @@
                             * 0.36
                             * edgeFoldCurve;
                     vec4 innerWarpedContent = sceneAt(innerWarpedContentPx);
+                    float transmissionMix =
+                        lensMask
+                        * glassActivation
+                        * opticalTransmission
+                        * mix(0.46, 1.0, interiorContentBand);
                     base = mix(
                         base,
                         compressedContent,
                         max(
-                            interiorContentBand,
-                            lensMask * smoothstep(0.02, 0.14, uInteraction)
+                            interiorContentBand * opticalTransmission,
+                            lensMask
+                                * smoothstep(0.02, 0.14, uInteraction)
+                                * opticalTransmission
                         )
                     );
                     base = mix(
@@ -343,6 +405,12 @@
                         innerWarpedContent,
                         innerEdgeProgress
                             * mix(uBlendTuning.x, uBlendTuning.y, uInteraction)
+                            * mix(0.64, 1.0, opticalTransmission)
+                    );
+                    base = mix(
+                        base,
+                        compressedContent,
+                        transmissionMix * 0.34
                     );
 
                     float edgeProgress = smoothstep(
@@ -381,8 +449,22 @@
                         ))
                         * lensMask
                         * glassActivation;
+                    float refractionBridgeProgress =
+                        smoothstep(
+                            -transitionWidthPx,
+                            -0.12 * uPixelRatio,
+                            lensSignedDistance
+                        )
+                        * lensMask
+                        * glassActivation;
+                    float refractionBridgeBand =
+                        refractionBridgeProgress
+                        * mix(0.32, 0.78, opticalTransmission);
 
-                    if (max(edgeBand, rgbHaloBand) <= 0.001) {
+                    if (
+                        max(max(edgeBand, rgbHaloBand), refractionBridgeBand)
+                            <= 0.001
+                    ) {
                         fragColor = vec4(base.rgb * outputMask, outputMask);
                         return;
                     }
@@ -396,10 +478,14 @@
                         edgeInnerTaper,
                         0.62
                     );
+                    float edgeRefractionRamp = pow(
+                        max(edgeProgress, refractionBridgeProgress * 0.58),
+                        mix(1.62, 0.94, clamp(edgeRefractionStrength, 0.0, 1.6))
+                    );
                     float displacementPx =
-                        mix(5.0, 9.0, uStrength)
-                        * uPixelRatio
-                        * mix(0.82, 1.16, uInteraction);
+                        kubeRefractionLevelPx
+                        * mix(0.82, 1.16, uInteraction)
+                        * edgeRefractionStrength;
                     vec2 trackToLensRatio = clamp(
                         uTrackHalfSizePx / uLensHalfSizePx,
                         vec2(0.05),
@@ -410,12 +496,13 @@
                     vec2 refractedPx = mix(
                         fragPx,
                         boundaryMappedPx,
-                        edgeProgress
+                        edgeRefractionRamp
                             * uInteraction
                             * mix(0.64, 0.88, uStrength)
                     ) - normal2D
                         * displacementPx
                         * pow(edgeProgress, 1.35)
+                        * edgeRefractionRamp
                         + vec2(
                             -uVelocity
                                 * 3.2
@@ -432,8 +519,11 @@
                         - normal2D * mirroredDepthPx
                         + tangent * dot(d, tangent) * 0.30;
 
-                    float blurRadiusPx =
-                        uEdgeTuning.x * uPixelRatio;
+                    float blurRadiusPx = max(
+                        uEdgeTuning.x * uPixelRatio,
+                        kubeBlurLevelPx
+                            * mix(0.035, 0.14, edgeProgress)
+                    );
                     vec4 refracted =
                         sceneAt(refractedPx) * 0.40
                         + sceneAt(
@@ -510,7 +600,7 @@
                         rgbHaloBand
                             * rgbHaloProgress
                             * mix(uRoundTuning.z, uRoundTuning.w, uInteraction)
-                            * 0.78
+                            * 0.34
                     );
                     vec4 reflected = sceneAt(reflectedPx);
                     float reflectionMix =
@@ -523,12 +613,16 @@
                         * mix(0.72, 1.0, uInteraction)
                         * mix(0.58, 1.0, uNeutralWeight);
                     vec4 edgePixels = mix(refracted, reflected, reflectionMix);
+                    edgePixels.rgb = saturateRGB(
+                        edgePixels.rgb,
+                        mix(1.0, kubeSpecularSaturation, kubeSpecularOpacity)
+                    );
                     edgePixels.rgb = mix(
                         edgePixels.rgb,
                         dispersedRGB,
                         chromaticBand
                             * mix(uRoundTuning.z, uRoundTuning.w, uInteraction)
-                            * 1.18
+                            * 0.46
                             * (1.0 - reflectionMix * 0.45)
                     );
                     float rimFoldBand =
@@ -589,10 +683,23 @@
                         clearRimTone,
                         clearRimBand * uRimTuning.y * uInteraction
                     );
+                    float solidRefractionBand = max(
+                        edgeOpticBand,
+                        max(edgeBand * 0.92, refractionBridgeBand)
+                    );
                     vec4 glassPixels = mix(
                         base,
                         edgePixels,
-                        max(edgeOpticBand, clearRimBand * 0.96)
+                        max(solidRefractionBand, clearRimBand * 0.96)
+                    );
+                    vec3 kubeGlassFill = vec3(0.72, 0.86, 1.0)
+                        * kubeGlassBackgroundOpacity;
+                    glassPixels.rgb = mix(
+                        glassPixels.rgb,
+                        glassPixels.rgb + kubeGlassFill,
+                        lensMask
+                            * glassActivation
+                            * mix(0.035, 0.12, floatingLensWeight)
                     );
 
                     float shoulderWidthPx =
@@ -623,6 +730,84 @@
                     float rimLuma = dot(
                         glassPixels.rgb,
                         vec3(0.2126, 0.7152, 0.0722)
+                    );
+                    float darkCompensation = 1.0 - smoothstep(
+                        0.07,
+                        0.42,
+                        rimLuma
+                    );
+                    vec3 ambientGlassFill =
+                        vec3(0.78, 0.82, 0.90)
+                        * ambientFillStrength
+                        * darkCompensation
+                        * lensMask
+                        * glassActivation
+                        * mix(0.46, 1.0, edgeProgress);
+                    glassPixels.rgb += ambientGlassFill;
+                    rimLuma = dot(
+                        glassPixels.rgb,
+                        vec3(0.2126, 0.7152, 0.0722)
+                    );
+                    float fresnelRim =
+                        fresnel
+                        * lensMask
+                        * glassActivation
+                        * (0.44 + directionalLight * 0.56);
+                    vec3 fresnelTone = mix(
+                        vec3(0.58, 0.62, 0.68),
+                        vec3(0.98, 0.97, 0.92),
+                        directionalLight
+                    );
+                    glassPixels.rgb = mix(
+                        glassPixels.rgb,
+                        max(glassPixels.rgb, fresnelTone),
+                        fresnelRim
+                            * uLightTuning.x
+                            * mix(0.64, 1.26, darkCompensation)
+                    );
+                    float specularGuide =
+                        1.0 - smoothstep(
+                            0.0,
+                            max(lensRadiusPx * 0.62, 1.0),
+                            abs(dot(d, tangent))
+                        );
+                    float specularLobe =
+                        smoothstep(0.18, 0.92, -normal2D.y)
+                        * smoothstep(
+                            -lensRadiusPx * 0.92,
+                            -lensRadiusPx * 0.22,
+                            d.y
+                        )
+                        * specularGuide
+                        * lensMask
+                        * glassActivation;
+                    glassPixels.rgb +=
+                        vec3(0.95, 0.93, 0.86)
+                        * specularLobe
+                        * max(uLightTuning.y, kubeSpecularOpacity)
+                        * mix(0.62, 1.22, darkCompensation);
+                    float progressiveBlurBand =
+                        smoothstep(-0.10, 0.86, normal2D.y)
+                        * smoothstep(
+                            -lensRadiusPx * 0.70,
+                            lensRadiusPx * 0.88,
+                            d.y
+                        )
+                        * lensMask
+                        * glassActivation;
+                    vec4 progressiveBlurSample =
+                        sceneAt(fragPx + normal2D * kubeProgressiveBlurPx)
+                            * 0.50
+                        + sceneAt(fragPx - normal2D * kubeProgressiveBlurPx)
+                            * 0.25
+                        + sceneAt(fragPx + tangent * kubeProgressiveBlurPx)
+                            * 0.25;
+                    glassPixels.rgb = mix(
+                        glassPixels.rgb,
+                        progressiveBlurSample.rgb,
+                        progressiveBlurBand
+                            * smoothstep(0.0, 0.1, kubeProgressiveBlurPx)
+                            * 0.28
                     );
                     vec3 shoulderTone = clamp(
                         glassPixels.rgb * mix(
@@ -674,6 +859,29 @@
                             * mix(0.24, 1.0, uNeutralWeight)
                     );
 
+                    float innerRimBand =
+                        coreBand
+                        * smoothstep(0.10, 0.82, 1.0 - abs(normal2D.y))
+                        * glassActivation;
+                    vec3 innerRimTone = clamp(
+                        glassPixels.rgb
+                            + vec3(0.06, 0.075, 0.095)
+                                * mix(0.44, 1.0, darkCompensation),
+                        0.0,
+                        1.0
+                    );
+                    glassPixels.rgb = mix(
+                        glassPixels.rgb,
+                        innerRimTone,
+                        innerRimBand * uLightTuning.z
+                    );
+                    float oppositeEdgeOcclusion =
+                        coreBand
+                        * smoothstep(0.18, 0.92, normal2D.y)
+                        * glassActivation;
+                    glassPixels.rgb *=
+                        1.0 - oppositeEdgeOcclusion * uLightTuning.w;
+
                     float topShadowBand =
                         coreBand
                         * smoothstep(0.15, 0.92, -normal2D.y)
@@ -711,6 +919,16 @@
         innerSpanFloating: 4.6,
         transitionSpread: 42,
         transitionDecay: 0.2,
+        transmission: 0.84,
+        ambientFill: 0.075,
+        magnification: 0.07,
+        edgeRefraction: 1.15,
+        refractionLevel: 1,
+        specularOpacity: 0,
+        specularSaturation: 6,
+        blurLevel: 0.2,
+        progressiveBlur: 0,
+        glassBackgroundOpacity: 0.5,
         innerMixMin: 0,
         innerMixMax: 1,
         sideRoundMin: 0.2,
@@ -728,6 +946,10 @@
         edgeCrispEnd: 1,
         shoulderWidth: 2.4,
         coreWidth: 9.5,
+        fresnelStrength: 0.32,
+        specularStrength: 0.22,
+        innerRimStrength: 0.20,
+        darkRimStrength: 0.14,
     };
 
     // Demo strength slider default (52 / 100).
@@ -1005,6 +1227,10 @@
                 rimTuning: gl.getUniformLocation(program, 'uRimTuning'),
                 roundTuning: gl.getUniformLocation(program, 'uRoundTuning'),
                 transitionTuning: gl.getUniformLocation(program, 'uTransitionTuning'),
+                opticTuning: gl.getUniformLocation(program, 'uOpticTuning'),
+                lightTuning: gl.getUniformLocation(program, 'uLightTuning'),
+                kubeTuning: gl.getUniformLocation(program, 'uKubeTuning'),
+                kubeMaterialTuning: gl.getUniformLocation(program, 'uKubeMaterialTuning'),
             };
             state.available = true;
             document.documentElement.dataset.apxGlassRenderer = 'webgl';
@@ -1447,6 +1673,34 @@
             tuning.transitionDecay,
             tuning.rgbBandWidth * scale,
             tuning.edgeTaper
+        );
+        gl.uniform4f(
+            state.uniforms.opticTuning,
+            tuning.transmission,
+            tuning.ambientFill,
+            tuning.magnification,
+            tuning.edgeRefraction
+        );
+        gl.uniform4f(
+            state.uniforms.lightTuning,
+            tuning.fresnelStrength,
+            tuning.specularStrength,
+            tuning.innerRimStrength,
+            tuning.darkRimStrength
+        );
+        gl.uniform4f(
+            state.uniforms.kubeTuning,
+            tuning.refractionLevel * scale,
+            tuning.progressiveBlur * scale,
+            tuning.blurLevel * scale,
+            tuning.glassBackgroundOpacity
+        );
+        gl.uniform4f(
+            state.uniforms.kubeMaterialTuning,
+            tuning.specularOpacity,
+            tuning.specularSaturation,
+            0,
+            0
         );
 
         // A control can carry more than one lens (the year range has two

@@ -1,0 +1,2639 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Liquid Optics Component Lab</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #090a0f;
+            --panel: #121319;
+            --panel-2: #0f1016;
+            --line: rgb(255 255 255 / 0.10);
+            --text: #f8f8fb;
+            --muted: #9697a3;
+            --green: #30d158;
+            --blue: #5ac8fa;
+            --pink: #ff375f;
+            --spring: cubic-bezier(.2, .82, .22, 1.08);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            min-height: 100%;
+            margin: 0;
+            background: var(--bg);
+        }
+
+        body {
+            color: var(--text);
+            font-family:
+                ui-rounded, "SF Pro Rounded", "SF Pro Display",
+                Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        button,
+        input,
+        select {
+            font: inherit;
+        }
+
+        button {
+            color: inherit;
+        }
+
+        .filter-root {
+            position: fixed;
+            width: 0;
+            height: 0;
+            overflow: hidden;
+            pointer-events: none;
+        }
+
+        .app {
+            display: grid;
+            grid-template-columns: 330px minmax(0, 1fr);
+            min-height: 100vh;
+        }
+
+        .tuner {
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            overflow: auto;
+            padding: 22px 18px;
+            border-right: 1px solid var(--line);
+            background: #08090d;
+        }
+
+        .tuner h1 {
+            margin: 0 0 6px;
+            font-size: 24px;
+            letter-spacing: -0.045em;
+        }
+
+        .tuner-copy {
+            margin: 0 0 16px;
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .target-picker {
+            display: grid;
+            gap: 7px;
+            margin-bottom: 12px;
+        }
+
+        .target-picker label,
+        .group-title {
+            color: #a9aab3;
+            font-size: 10px;
+            font-weight: 850;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+
+        .target-picker select {
+            width: 100%;
+            border: 1px solid rgb(255 255 255 / 0.13);
+            border-radius: 14px;
+            padding: 10px 12px;
+            color: #fff;
+            background: #111218;
+            outline: none;
+        }
+
+        .control-groups {
+            display: grid;
+            gap: 12px;
+        }
+
+        .control-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .group-title {
+            grid-column: 1 / -1;
+            margin: 4px 2px -1px;
+        }
+
+        .control {
+            min-width: 0;
+            padding: 10px;
+            border: 1px solid rgb(255 255 255 / 0.08);
+            border-radius: 16px;
+            background: #111218;
+        }
+
+        .control.wide {
+            grid-column: 1 / -1;
+        }
+
+        .control-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
+            margin-bottom: 7px;
+            color: #aaaab4;
+            font-size: 9px;
+            font-weight: 850;
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+        }
+
+        .control output {
+            color: #fff;
+            font-size: 10px;
+            letter-spacing: 0;
+            text-transform: none;
+            white-space: nowrap;
+        }
+
+        .control input[type="range"] {
+            width: 100%;
+            margin: 0;
+            accent-color: var(--green);
+        }
+
+        .control select {
+            width: 100%;
+            border: 0;
+            border-radius: 10px;
+            padding: 7px 8px;
+            color: #fff;
+            background: #090a0f;
+            outline: none;
+            font-size: 11px;
+        }
+
+        .kernel {
+            margin-top: 12px;
+            padding: 12px;
+            border: 1px solid rgb(255 255 255 / 0.08);
+            border-radius: 18px;
+            background: #0f1016;
+        }
+
+        .kernel-head {
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 8px;
+            color: #aaaab4;
+            font-size: 10px;
+            font-weight: 850;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .kernel-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .kernel img {
+            display: block;
+            width: 100%;
+            aspect-ratio: 1.25;
+            border: 1px solid rgb(255 255 255 / 0.08);
+            border-radius: 11px;
+            background: #050608;
+            object-fit: fill;
+        }
+
+        .reset {
+            width: 100%;
+            margin-top: 10px;
+            border: 1px solid rgb(255 255 255 / 0.12);
+            border-radius: 14px;
+            padding: 10px;
+            color: #fff;
+            background: #14151b;
+            cursor: pointer;
+            font-weight: 800;
+        }
+
+        .gallery {
+            min-width: 0;
+            width: 100%;
+            max-width: 1540px;
+            margin: 0 auto;
+            padding: 24px 28px 64px;
+        }
+
+        .exhibit-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 22px;
+            margin-top: 22px;
+        }
+
+        .exhibit {
+            min-width: 0;
+            overflow: hidden;
+            border: 1px solid rgb(255 255 255 / 0.085);
+            border-radius: 34px;
+            padding: 0 28px 28px;
+            background: var(--panel);
+        }
+
+        .exhibit.hero {
+            grid-column: 1 / -1;
+            padding-inline: 34px;
+        }
+
+        .exhibit-heading {
+            display: grid;
+            justify-items: center;
+            gap: 10px;
+            min-height: 176px;
+            padding: 0 18px 26px;
+            text-align: center;
+        }
+
+        .exhibit:not(.hero) .exhibit-heading {
+            min-height: 190px;
+        }
+
+        .number {
+            min-width: 62px;
+            padding: 10px 16px;
+            border-radius: 0 0 999px 999px;
+            color: #9899a4;
+            background: #202127;
+            font-size: 14px;
+            font-weight: 850;
+            letter-spacing: 0.08em;
+        }
+
+        .exhibit h2 {
+            margin: 4px 0 0;
+            font-size: clamp(27px, 3vw, 40px);
+            line-height: 1;
+            letter-spacing: -0.055em;
+        }
+
+        .exhibit-heading p {
+            max-width: 560px;
+            margin: 0;
+            color: var(--muted);
+            font-size: 15px;
+            line-height: 1.45;
+        }
+
+        .stage {
+            position: relative;
+            min-height: 420px;
+            overflow: hidden;
+            border-radius: 28px;
+            background: #08090e;
+            isolation: isolate;
+            touch-action: none;
+        }
+
+        .hero .stage {
+            min-height: 520px;
+        }
+
+        .stage::before,
+        .stage::after {
+            content: "";
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(55px);
+            opacity: 0.52;
+            pointer-events: none;
+        }
+
+        .stage::before {
+            width: 260px;
+            height: 260px;
+            left: 8%;
+            top: 18%;
+            background: var(--stage-a, #143c78);
+        }
+
+        .stage::after {
+            width: 280px;
+            height: 280px;
+            right: 4%;
+            bottom: 2%;
+            background: var(--stage-b, #27123f);
+        }
+
+        .precision-stage {
+            --stage-a: #151729;
+            --stage-b: #090a0f;
+        }
+
+        .precision-world {
+            position: absolute;
+            inset: 0;
+            display: grid;
+            grid-template-columns: minmax(280px, 0.9fr) minmax(420px, 1.15fr);
+            align-items: center;
+            gap: clamp(24px, 5vw, 82px);
+            padding: 34px;
+        }
+
+        .precision-copy {
+            position: relative;
+            z-index: 2;
+        }
+
+        .kicker {
+            display: block;
+            margin-bottom: 8px;
+            color: #aaaab4;
+            font-size: 11px;
+            font-weight: 850;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+
+        .precision-copy h3 {
+            margin: 0;
+            font-size: clamp(60px, 7vw, 104px);
+            line-height: 0.84;
+            letter-spacing: -0.075em;
+        }
+
+        .precision-copy p {
+            margin: 22px 0 0;
+            color: #aaaab4;
+            font-size: 18px;
+        }
+
+        .precision-image {
+            position: relative;
+            z-index: 2;
+            height: min(420px, 38vw);
+            min-height: 330px;
+            overflow: hidden;
+            border-radius: 28px;
+        }
+
+        .precision-image img {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            pointer-events: none;
+            user-select: none;
+        }
+
+        .optical-surface {
+            position: absolute;
+            z-index: 5;
+            overflow: hidden;
+            border: 1px solid rgb(235 242 255 / 0.42);
+            border-radius: 999px;
+            background: rgb(255 255 255 / 0.008);
+            box-shadow:
+                inset 0 1px 1px rgb(255 255 255 / 0.18),
+                inset 0 -1px 1px rgb(0 0 0 / 0.34),
+                0 10px 26px rgb(0 0 0 / 0.22);
+            contain: paint;
+            clip-path: inset(0 round 999px);
+            -webkit-clip-path: inset(0 round 999px);
+            transform-origin: center;
+            will-change: transform;
+        }
+
+        .optical-layer {
+            position: absolute;
+            z-index: 0;
+            inset: 0;
+            display: block;
+            overflow: visible;
+            border-radius: inherit;
+            pointer-events: none;
+            will-change: filter;
+        }
+
+        .optical-world {
+            position: absolute;
+            left: 0;
+            top: 0;
+            display: block;
+            pointer-events: none;
+            will-change: transform;
+        }
+
+        .optical-stage-copy {
+            position: absolute !important;
+            inset: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            margin: 0 !important;
+        }
+
+        .optical-stage-copy [data-optical] {
+            visibility: hidden !important;
+        }
+
+        .optical-background-copy .control-source-content {
+            visibility: hidden !important;
+        }
+
+        .optical-content-copy * {
+            visibility: hidden !important;
+        }
+
+        .optical-content-copy .control-source-content,
+        .optical-content-copy .control-source-content * {
+            visibility: visible !important;
+        }
+
+        .optical-content-layer {
+            z-index: 1;
+        }
+
+        .optical-world .optical-layer {
+            display: none !important;
+        }
+
+        .surface-content {
+            position: relative;
+            z-index: 2;
+        }
+
+        .fab-button .surface-content {
+            display: block;
+            transition: transform 80ms linear;
+        }
+
+        .precision-lens {
+            width: 200px;
+            height: 140px;
+            left: 7%;
+            top: 54%;
+            cursor: grab;
+        }
+
+        .precision-lens.dragging {
+            cursor: grabbing;
+        }
+
+        .experiment-stage {
+            display: grid;
+            place-items: center;
+            padding: 28px;
+        }
+
+        .slider-stage {
+            --stage-a: #113f72;
+            --stage-b: #06223e;
+        }
+
+        .switch-stage {
+            --stage-a: #3b1546;
+            --stage-b: #121531;
+        }
+
+        .dock-stage {
+            --stage-a: #5d3510;
+            --stage-b: #201205;
+        }
+
+        .segment-stage {
+            --stage-a: #5b172d;
+            --stage-b: #2e0c1b;
+        }
+
+        .input-stage {
+            --stage-a: #681c2e;
+            --stage-b: #28103e;
+        }
+
+        .volume-stage {
+            --stage-a: #69400d;
+            --stage-b: #251404;
+        }
+
+        .fab-stage {
+            --stage-a: #102e59;
+            --stage-b: #07172e;
+        }
+
+        .stepper-stage {
+            --stage-a: #087a9a;
+            --stage-b: #06263b;
+        }
+
+        .fluid-slider {
+            position: relative;
+            z-index: 2;
+            width: min(88%, 410px);
+            height: 86px;
+            cursor: ew-resize;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-user-drag: none;
+        }
+
+        .slider-track {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 50%;
+            height: 16px;
+            border-radius: 999px;
+            background: rgb(0 0 0 / 0.40);
+            box-shadow: inset 0 1px 4px rgb(0 0 0 / 0.42);
+            transform: translateY(-50%);
+        }
+
+        .slider-fill {
+            width: 42%;
+            height: 100%;
+            border-radius: inherit;
+            background: linear-gradient(90deg, #32d474, #5ac8fa);
+            will-change: width;
+        }
+
+        .fluid-slider.endpoint-transition .slider-fill {
+            transition: width 130ms cubic-bezier(.2, .82, .22, 1);
+        }
+
+        .slider-thumb {
+            left: 0;
+            top: 13px;
+            width: 112px;
+            height: 60px;
+            border-color: transparent;
+            background: rgb(43 47 54);
+            box-shadow: none;
+        }
+
+        .slider-thumb .optical-layer {
+            opacity: var(--slider-glass, 0);
+        }
+
+        .fluid-slider.interacting .slider-thumb {
+            border-color: rgb(235 242 255 / 0.42);
+            background: rgb(255 255 255 / 0.008);
+            box-shadow:
+                inset 0 1px 1px rgb(255 255 255 / 0.18),
+                inset 0 -1px 1px rgb(0 0 0 / 0.34),
+                0 10px 26px rgb(0 0 0 / 0.22);
+        }
+
+        .switch-track {
+            --switch-progress: 1;
+            --switch-track-color: rgb(48 209 88);
+            --switch-thumb-color: rgb(255 255 255);
+            position: relative;
+            z-index: 2;
+            width: 172px;
+            height: 72px;
+            border: 0;
+            border-radius: 999px;
+            padding: 0;
+            overflow: visible;
+            background: var(--switch-track-color);
+            box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08);
+            cursor: pointer;
+            touch-action: none;
+        }
+
+        .switch-thumb {
+            left: 5px;
+            top: 5px;
+            width: 92px;
+            height: 62px;
+            border-color: transparent;
+            background: var(--switch-thumb-color);
+            box-shadow: none;
+            transition:
+                background 70ms linear,
+                border-color 70ms linear,
+                box-shadow 70ms linear;
+        }
+
+        .switch-thumb .optical-layer {
+            opacity: var(--switch-glass, 0);
+        }
+
+        .switch-track.interacting .switch-thumb {
+            border-color: rgb(235 242 255 / 0.42);
+            background: rgb(255 255 255 / 0.28);
+            box-shadow:
+                inset 0 1px 1px rgb(255 255 255 / 0.18),
+                inset 0 -1px 1px rgb(0 0 0 / 0.34),
+                0 10px 26px rgb(0 0 0 / 0.22);
+        }
+
+        .switch-track.interacting .switch-thumb .optical-layer {
+            opacity: 1;
+        }
+
+        .dock-track,
+        .segment-track {
+            position: relative;
+            z-index: 2;
+            display: grid;
+            align-items: center;
+            width: min(92%, 430px);
+            height: 82px;
+            border: 1px solid rgb(255 255 255 / 0.10);
+            border-radius: 999px;
+            background: rgb(0 0 0 / 0.30);
+            touch-action: none;
+        }
+
+        .dock-track {
+            grid-template-columns: repeat(5, 1fr);
+            padding: 7px;
+        }
+
+        .segment-track {
+            grid-template-columns: repeat(3, 1fr);
+            height: 66px;
+            padding: 4px;
+        }
+
+        .dock-track button,
+        .segment-track button {
+            position: relative;
+            z-index: 6;
+            height: 100%;
+            border: 0;
+            background: transparent;
+            cursor: pointer;
+            font-weight: 800;
+        }
+
+        .control-source-content {
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+            display: grid;
+            place-items: center;
+            pointer-events: none;
+            will-change: clip-path;
+        }
+
+        .dock-track .control-source-content {
+            display: grid;
+            place-items: center;
+            place-content: center;
+            gap: 0;
+            font-size: 21px;
+            line-height: 0.9;
+        }
+
+        .dock-track small {
+            color: #aaaab4;
+            font-size: 9px;
+        }
+
+        .dock-bubble {
+            left: 7px;
+            top: 7px;
+            width: calc((100% - 14px) / 5);
+            height: 66px;
+        }
+
+        .segment-indicator {
+            left: 4px;
+            top: 4px;
+            width: calc((100% - 8px) / 3);
+            height: 58px;
+        }
+
+        .dock-bubble,
+        .segment-indicator {
+            pointer-events: none;
+            border-color: transparent;
+            background: rgb(255 255 255 / 0.075);
+            box-shadow: none;
+            backdrop-filter: blur(11px) saturate(1.12);
+            -webkit-backdrop-filter: blur(11px) saturate(1.12);
+            transition:
+                background 90ms linear,
+                border-color 90ms linear,
+                box-shadow 90ms linear;
+        }
+
+        .dock-bubble .optical-layer,
+        .segment-indicator .optical-layer {
+            opacity: var(--control-glass, 0);
+        }
+
+        .dock-track.interacting .dock-bubble,
+        .segment-track.interacting .segment-indicator {
+            border-color: rgb(235 242 255 / 0.42);
+            background: rgb(255 255 255 / 0.008);
+            box-shadow:
+                inset 0 1px 1px rgb(255 255 255 / 0.18),
+                inset 0 -1px 1px rgb(0 0 0 / 0.34),
+                0 10px 26px rgb(0 0 0 / 0.22);
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+        }
+
+        .fluid-input-shell {
+            position: relative;
+            z-index: 2;
+            width: min(86%, 390px);
+            height: 68px;
+        }
+
+        .fluid-input-shell input {
+            position: relative;
+            z-index: 3;
+            width: 100%;
+            height: 100%;
+            border: 0;
+            outline: 0;
+            padding: 0 28px;
+            color: #fff;
+            background: transparent;
+            font-size: 18px;
+            font-weight: 750;
+        }
+
+        .fluid-input-shell input::placeholder {
+            color: rgb(255 255 255 / 0.44);
+        }
+
+        .volume-zone {
+            position: relative;
+            z-index: 2;
+            width: 150px;
+            height: 360px;
+            border-radius: 999px;
+            outline: none;
+            touch-action: none;
+            cursor: ns-resize;
+        }
+
+        .volume-zone:focus-visible {
+            box-shadow: none;
+        }
+
+        .volume-zone:focus-visible .volume-glass {
+            outline: 1px solid rgb(255 229 138 / 0.52);
+            outline-offset: 2px;
+        }
+
+        .volume-reservoir {
+            position: absolute;
+            z-index: 3;
+            left: 30px;
+            top: 10px;
+            width: 90px;
+            height: 340px;
+            overflow: hidden;
+            border-radius: 999px;
+            background: rgb(0 0 0 / 0.38);
+            box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.06);
+            pointer-events: none;
+            transform-origin: center;
+            will-change: transform;
+        }
+
+        .volume-fill {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 52%;
+            border-radius: 0;
+            background: linear-gradient(180deg, #ffd84d, #ffb800);
+            box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.48);
+            will-change: height;
+        }
+
+        .volume-glass {
+            left: 30px;
+            top: 10px;
+            width: 90px;
+            height: 340px;
+            pointer-events: none;
+        }
+
+        .volume-glass-fill {
+            position: absolute;
+            z-index: 2;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 52%;
+            border-radius: 0;
+            background: linear-gradient(180deg, #ffe46b, #ffb800);
+            box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.58);
+            opacity: 0.76;
+            mix-blend-mode: screen;
+            pointer-events: none;
+            will-change: height;
+        }
+
+        .fab-world {
+            position: relative;
+            z-index: 2;
+            width: min(90%, 430px);
+            height: 310px;
+        }
+
+        .fab-lettering {
+            position: absolute;
+            inset: 0;
+            display: grid;
+            place-items: center;
+            color: rgb(255 255 255 / 0.035);
+            font-size: 180px;
+            font-weight: 950;
+            letter-spacing: -0.12em;
+        }
+
+        .fab-button,
+        .fab-action {
+            display: grid;
+            place-items: center;
+            width: 76px;
+            height: 76px;
+            border: 0;
+            padding: 0;
+            cursor: pointer;
+            font-size: 28px;
+        }
+
+        .fab-button {
+            right: 14px;
+            bottom: 14px;
+        }
+
+        .fab-action {
+            right: 21px;
+            bottom: 14px;
+            width: 62px;
+            height: 62px;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .fab-action.open {
+            pointer-events: auto;
+        }
+
+        .stepper {
+            position: relative;
+            z-index: 2;
+            display: grid;
+            grid-template-columns: 64px 70px 64px;
+            align-items: center;
+            width: 198px;
+            height: 76px;
+        }
+
+        .stepper button {
+            position: relative;
+            z-index: 3;
+            height: 100%;
+            border: 0;
+            background: transparent;
+            cursor: pointer;
+            font-size: 28px;
+        }
+
+        .stepper output {
+            position: relative;
+            z-index: 3;
+            text-align: center;
+            font-size: 28px;
+            font-weight: 900;
+        }
+
+        @media (max-width: 1050px) {
+            .app {
+                grid-template-columns: 280px minmax(0, 1fr);
+            }
+
+            .exhibit-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .precision-world {
+                grid-template-columns: 1fr;
+                align-content: center;
+            }
+
+            .hero .stage {
+                min-height: 680px;
+            }
+
+            .precision-image {
+                height: 320px;
+                min-height: 0;
+            }
+        }
+
+        @media (max-width: 760px) {
+            .app {
+                grid-template-columns: 1fr;
+            }
+
+            .tuner {
+                position: relative;
+                height: auto;
+                border-right: 0;
+                border-bottom: 1px solid var(--line);
+            }
+
+            .gallery {
+                padding: 16px;
+            }
+
+            .exhibit {
+                padding: 0 14px 14px;
+                border-radius: 26px;
+            }
+
+            .stage {
+                min-height: 390px;
+            }
+
+            .precision-world {
+                padding: 22px;
+            }
+
+            .precision-copy h3 {
+                font-size: 58px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <svg class="filter-root" aria-hidden="true">
+        <defs id="filterDefs"></defs>
+    </svg>
+
+    <div class="app">
+        <aside class="tuner">
+            <h1>Liquid Optics Core</h1>
+            <p class="tuner-copy">Each component keeps an independent optical kernel and motion preset.</p>
+
+            <div class="target-picker">
+                <label for="targetSelect">Target component</label>
+                <select id="targetSelect"></select>
+            </div>
+
+            <div class="control-groups" id="controls"></div>
+
+            <div class="kernel">
+                <div class="kernel-head">
+                    <span>Selected kernel</span>
+                    <span id="kernelSize">—</span>
+                </div>
+                <div class="kernel-grid">
+                    <img id="displacementPreview" alt="RG displacement map">
+                    <img id="specularPreview" alt="Specular map">
+                </div>
+            </div>
+
+            <button class="reset" id="resetButton" type="button">Reset selected component</button>
+        </aside>
+
+        <main class="gallery">
+            <section class="exhibit hero" data-component-card="precision">
+                <header class="exhibit-heading">
+                    <span class="number">01</span>
+                    <h2>Precision Lens</h2>
+                    <p>Drag the capsule to bend the visual space. A physical magnifying glass.</p>
+                </header>
+                <div class="stage precision-stage" data-stage="precision">
+                    <div class="precision-world">
+                        <div class="precision-copy">
+                            <span class="kicker">Optics study</span>
+                            <h3>Soft<br>Focus</h3>
+                            <p>Gentle curves and deep contrast.</p>
+                        </div>
+                        <div class="precision-image">
+                            <img src="https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=86&amp;w=1400&amp;auto=format&amp;fit=crop" alt="Colorful abstract liquid forms" draggable="false">
+                        </div>
+                    </div>
+                    <div class="optical-surface precision-lens" data-optical="precision" id="precisionLens"></div>
+                </div>
+            </section>
+
+            <div class="exhibit-grid">
+                <article class="exhibit" data-component-card="slider">
+                    <header class="exhibit-heading">
+                        <span class="number">02</span>
+                        <h2>Fluid Slider</h2>
+                        <p>Squishy pill reacting to drag velocity.</p>
+                    </header>
+                    <div class="stage experiment-stage slider-stage" data-stage="slider">
+                        <div class="fluid-slider" id="fluidSlider">
+                            <div class="slider-track"><div class="slider-fill" id="sliderFill"></div></div>
+                            <div class="optical-surface slider-thumb" data-optical="slider" id="sliderThumb"></div>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="exhibit" data-component-card="switch">
+                    <header class="exhibit-heading">
+                        <span class="number">03</span>
+                        <h2>Tactile Switch</h2>
+                        <p>Press compression and spring travel reveal the glass thumb.</p>
+                    </header>
+                    <div class="stage experiment-stage switch-stage" data-stage="switch">
+                        <button class="switch-track on" id="tactileSwitch" type="button" aria-pressed="true">
+                            <span class="optical-surface switch-thumb" data-optical="switch" id="switchThumb"></span>
+                        </button>
+                    </div>
+                </article>
+
+                <article class="exhibit" data-component-card="dock">
+                    <header class="exhibit-heading">
+                        <span class="number">04</span>
+                        <h2>Drag Dock</h2>
+                        <p>Kinematic snapping pill highlighting icons.</p>
+                    </header>
+                    <div class="stage experiment-stage dock-stage" data-stage="dock">
+                        <nav class="dock-track" id="dragDock" aria-label="Drag dock">
+                            <span class="optical-surface dock-bubble" data-optical="dock" id="dockBubble"></span>
+                            <button type="button" data-dock-index="0"><span class="control-source-content">⌁<small>Scan</small></span></button>
+                            <button type="button" data-dock-index="1"><span class="control-source-content">▦<small>Rank</small></span></button>
+                            <button type="button" data-dock-index="2"><span class="control-source-content">◉<small>Live</small></span></button>
+                            <button type="button" data-dock-index="3"><span class="control-source-content">⌘<small>Flow</small></span></button>
+                            <button type="button" data-dock-index="4"><span class="control-source-content">⚙<small>Setup</small></span></button>
+                        </nav>
+                    </div>
+                </article>
+
+                <article class="exhibit" data-component-card="segment">
+                    <header class="exhibit-heading">
+                        <span class="number">07</span>
+                        <h2>Segment Control</h2>
+                        <p>Glass pill rapidly scales over items.</p>
+                    </header>
+                    <div class="stage experiment-stage segment-stage" data-stage="segment">
+                        <nav class="segment-track" id="segmentControl" aria-label="Segment control">
+                            <span class="optical-surface segment-indicator" data-optical="segment" id="segmentIndicator"></span>
+                            <button type="button" data-segment-index="0"><span class="control-source-content">Core</span></button>
+                            <button type="button" data-segment-index="1"><span class="control-source-content">System</span></button>
+                            <button type="button" data-segment-index="2"><span class="control-source-content">Logs</span></button>
+                        </nav>
+                    </div>
+                </article>
+
+                <article class="exhibit" data-component-card="input">
+                    <header class="exhibit-heading">
+                        <span class="number">09</span>
+                        <h2>Fluid Input</h2>
+                        <p>Typing triggers micro-vibrations across the glass box.</p>
+                    </header>
+                    <div class="stage experiment-stage input-stage" data-stage="input">
+                        <label class="optical-surface fluid-input-shell" data-optical="input" id="fluidInputShell">
+                            <input class="surface-content" id="fluidInput" placeholder="Provide input..." autocomplete="off">
+                        </label>
+                    </div>
+                </article>
+
+                <article class="exhibit" data-component-card="volume">
+                    <header class="exhibit-heading">
+                        <span class="number">10</span>
+                        <h2>Squish Volume</h2>
+                        <p>Y-axis bounds scaling applied during over-drag.</p>
+                    </header>
+                    <div class="stage experiment-stage volume-stage" data-stage="volume">
+                        <div class="volume-zone" id="volumeZone" role="slider" tabindex="0" aria-label="Volume" aria-valuemin="0" aria-valuemax="100" aria-valuenow="52">
+                            <div class="volume-reservoir"><div class="volume-fill" id="volumeFill"></div></div>
+                            <div class="optical-surface volume-glass" data-optical="volume" id="volumeGlass">
+                                <div class="volume-glass-fill" id="volumeGlassFill"></div>
+                            </div>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="exhibit" data-component-card="fab">
+                    <header class="exhibit-heading">
+                        <span class="number">11</span>
+                        <h2>Layered FAB</h2>
+                        <p>Elements push each other physically.</p>
+                    </header>
+                    <div class="stage experiment-stage fab-stage" data-stage="fab">
+                        <div class="fab-world">
+                            <div class="fab-lettering">MENU</div>
+                            <button class="optical-surface fab-action" data-optical="fab" data-fab-action="0" type="button"><span class="surface-content">＋</span></button>
+                            <button class="optical-surface fab-action" data-optical="fab" data-fab-action="1" type="button"><span class="surface-content">◇</span></button>
+                            <button class="optical-surface fab-action" data-optical="fab" data-fab-action="2" type="button"><span class="surface-content">⌁</span></button>
+                            <button class="optical-surface fab-button" data-optical="fab" id="fabButton" type="button" aria-expanded="false"><span class="surface-content">≡</span></button>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="exhibit" data-component-card="stepper">
+                    <header class="exhibit-heading">
+                        <span class="number">12</span>
+                        <h2>Magnetic Stepper</h2>
+                        <p>Kinematic mass shifts upon tap interaction.</p>
+                    </header>
+                    <div class="stage experiment-stage stepper-stage" data-stage="stepper">
+                        <div class="optical-surface stepper" data-optical="stepper" id="magneticStepper">
+                            <button class="surface-content" id="stepDown" type="button" aria-label="Decrease">−</button>
+                            <output class="surface-content" id="stepValue">2</output>
+                            <button class="surface-content" id="stepUp" type="button" aria-label="Increase">＋</button>
+                        </div>
+                    </div>
+                </article>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        (() => {
+            "use strict";
+
+            const profiles = {
+                "convex-circle": (x) => Math.sqrt(1 - (1 - x) ** 2),
+                "convex-squircle": (x) => (1 - (1 - x) ** 4) ** 0.25,
+                "concave": (x) => 1 - Math.sqrt(1 - (1 - x) ** 2),
+                "lip": (x) => {
+                    const smooth = x ** 3 * (x * (x * 6 - 15) + 10);
+                    const convex = Math.sqrt(1 - (1 - x) ** 2);
+                    return (1 - smooth) * convex + smooth * (1 - convex);
+                },
+            };
+
+            const defaults = {
+                precision: { profile: "convex-squircle", bezel: 30, refraction: 1.50, thickness: 150, shrink: 0.00, specular: 0.16, blur: 0.35, saturation: 1.30, idleScale: 0.86, activeScale: 1.00, stiffness: 400, damping: 25, stretch: 0.15 },
+                slider: { profile: "convex-squircle", bezel: 16, refraction: 0.85, thickness: 80, shrink: 0.00, specular: 0.14, blur: 0.10, saturation: 1.25, idleScale: 1.00, activeScale: 1.08, stiffness: 900, damping: 54, stretch: 0.17 },
+                switch: { profile: "convex-squircle", bezel: 19, refraction: 0.90, thickness: 47, shrink: 0.30, specular: 0.14, blur: 0.18, saturation: 1.25, idleScale: 1.00, activeScale: 1.50, stiffness: 820, damping: 48, stretch: 0.12 },
+                dock: { profile: "convex-squircle", bezel: 18, refraction: 0.92, thickness: 70, shrink: 0.30, specular: 0.15, blur: 0.20, saturation: 1.22, idleScale: 0.90, activeScale: 1.50, stiffness: 520, damping: 34, stretch: 0.16 },
+                segment: { profile: "convex-squircle", bezel: 18, refraction: 0.88, thickness: 68, shrink: 0.30, specular: 0.15, blur: 0.18, saturation: 1.25, idleScale: 0.94, activeScale: 1.50, stiffness: 760, damping: 42, stretch: 0.14 },
+                input: { profile: "convex-squircle", bezel: 18, refraction: 0.72, thickness: 66, shrink: 0.30, specular: 0.12, blur: 0.18, saturation: 1.20, idleScale: 1.00, activeScale: 1.015, stiffness: 580, damping: 32, stretch: 0.08 },
+                volume: { profile: "convex-squircle", bezel: 22, refraction: 0.82, thickness: 90, shrink: 0.00, specular: 0.14, blur: 0.16, saturation: 1.22, idleScale: 1.00, activeScale: 1.02, stiffness: 520, damping: 34, stretch: 0.24 },
+                fab: { profile: "convex-squircle", bezel: 14, refraction: 0.86, thickness: 64, shrink: 0.30, specular: 0.16, blur: 0.16, saturation: 1.22, idleScale: 0.88, activeScale: 1.00, stiffness: 540, damping: 32, stretch: 0.18 },
+                stepper: { profile: "convex-squircle", bezel: 16, refraction: 0.82, thickness: 66, shrink: 0.30, specular: 0.15, blur: 0.16, saturation: 1.24, idleScale: 0.96, activeScale: 1.03, stiffness: 620, damping: 34, stretch: 0.15 },
+            };
+
+            const settings = Object.fromEntries(
+                Object.entries(defaults).map(([key, value]) => [key, { ...value }])
+            );
+
+            const names = {
+                precision: "Precision Lens",
+                slider: "Fluid Slider",
+                switch: "Tactile Switch",
+                dock: "Drag Dock",
+                segment: "Segment Control",
+                input: "Fluid Input",
+                volume: "Squish Volume",
+                fab: "Layered FAB",
+                stepper: "Magnetic Stepper",
+            };
+
+            const controlDefinitions = [
+                { group: "Optics", key: "profile", label: "Profile", type: "select", options: [
+                    ["convex-circle", "Convex Circle"],
+                    ["convex-squircle", "Convex Squircle"],
+                    ["concave", "Concave"],
+                    ["lip", "Lip"],
+                ] },
+                { group: "Optics", key: "bezel", label: "Bezel", min: 2, max: 42, step: 1, format: (v) => `${v}px` },
+                { group: "Optics", key: "refraction", label: "Refraction", min: 0, max: 2.2, step: 0.01, format: (v) => `${Number(v).toFixed(2)}x` },
+                { group: "Optics", key: "thickness", label: "Thickness", min: 10, max: 220, step: 1, format: (v) => `${v}px` },
+                { group: "Optics", key: "shrink", label: "Center shrink", min: 0, max: 0.6, step: 0.01, format: (v) => `${Math.round(Number(v) * 100)}%` },
+                { group: "Optics", key: "specular", label: "Specular", min: 0, max: 0.6, step: 0.01, format: (v) => Number(v).toFixed(2) },
+                { group: "Optics", key: "blur", label: "Blur", min: 0, max: 2, step: 0.01, format: (v) => `${Number(v).toFixed(2)}px` },
+                { group: "Optics", key: "saturation", label: "Saturation", min: 0.5, max: 3, step: 0.01, format: (v) => `${Number(v).toFixed(2)}x` },
+                { group: "Motion", key: "idleScale", label: "Idle scale", min: 0.45, max: 1.2, step: 0.01, format: (v) => Number(v).toFixed(2) },
+                { group: "Motion", key: "activeScale", label: "Active scale", min: 0.6, max: 2, step: 0.01, format: (v) => Number(v).toFixed(2) },
+                { group: "Motion", key: "stiffness", label: "Stiffness", min: 120, max: 1400, step: 10, format: (v) => String(v) },
+                { group: "Motion", key: "damping", label: "Damping", min: 10, max: 90, step: 1, format: (v) => String(v) },
+                { group: "Motion", key: "stretch", label: "Stretch", min: 0, max: 0.4, step: 0.01, format: (v) => Number(v).toFixed(2) },
+            ];
+
+            const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+            const byId = (id) => document.getElementById(id);
+            let selectedComponent = "precision";
+            const surfaces = [];
+            let pendingFilterFrame = 0;
+            let pendingSyncFrame = 0;
+            const activeSpringLoops = new Set();
+
+            class Spring {
+                constructor(value, stiffness = 500, damping = 32) {
+                    this.value = value;
+                    this.target = value;
+                    this.velocity = 0;
+                    this.stiffness = stiffness;
+                    this.damping = damping;
+                }
+
+                update(dt, config) {
+                    this.stiffness = config.stiffness;
+                    this.damping = config.damping;
+                    const force = (this.target - this.value) * this.stiffness;
+                    this.velocity += (force - this.velocity * this.damping) * dt;
+                    this.value += this.velocity * dt;
+                    return this.value;
+                }
+
+                settled(epsilon = 0.001) {
+                    return (
+                        Math.abs(this.target - this.value) < epsilon
+                        && Math.abs(this.velocity) < epsilon
+                    );
+                }
+            }
+
+            function fastReturn(spring, target, retain = 0.38) {
+                spring.value = target + (spring.value - target) * retain;
+                spring.target = target;
+                spring.velocity *= 0.18;
+            }
+
+            function cutOriginalContentUnderLens(contentLayers, lens, active) {
+                if (!active) {
+                    contentLayers.forEach((content) => {
+                        content.style.clipPath = "";
+                        content.style.webkitClipPath = "";
+                    });
+                    return;
+                }
+
+                const lensRect = lens.getBoundingClientRect();
+                contentLayers.forEach((content) => {
+                    const rect = content.getBoundingClientRect();
+                    const seam = 0.75;
+                    const left = lensRect.left - rect.left - seam;
+                    const top = lensRect.top - rect.top - seam;
+                    const right = lensRect.right - rect.left + seam;
+                    const bottom = lensRect.bottom - rect.top + seam;
+                    const width = Math.max(0, right - left);
+                    const height = Math.max(0, bottom - top);
+                    const radius = Math.min(width, height) / 2;
+                    const number = (value) => Math.round(value * 100) / 100;
+                    const outer = [
+                        "M 0 0",
+                        `H ${number(rect.width)}`,
+                        `V ${number(rect.height)}`,
+                        "H 0 Z",
+                    ].join(" ");
+                    const hole = [
+                        `M ${number(left + radius)} ${number(top)}`,
+                        `H ${number(right - radius)}`,
+                        `A ${number(radius)} ${number(radius)} 0 0 1 ${number(right)} ${number(top + radius)}`,
+                        `V ${number(bottom - radius)}`,
+                        `A ${number(radius)} ${number(radius)} 0 0 1 ${number(right - radius)} ${number(bottom)}`,
+                        `H ${number(left + radius)}`,
+                        `A ${number(radius)} ${number(radius)} 0 0 1 ${number(left)} ${number(bottom - radius)}`,
+                        `V ${number(top + radius)}`,
+                        `A ${number(radius)} ${number(radius)} 0 0 1 ${number(left + radius)} ${number(top)}`,
+                        "Z",
+                    ].join(" ");
+                    const clip = `path(evenodd, "${outer} ${hole}")`;
+                    content.style.clipPath = clip;
+                    content.style.webkitClipPath = clip;
+                });
+            }
+
+            function physicalProfile(config, bezelWidth, sampleCount = 256) {
+                const surface = profiles[config.profile] || profiles["convex-squircle"];
+                const eta = 1 / 1.5;
+                const values = [];
+                for (let i = 0; i < sampleCount; i += 1) {
+                    const x = i / sampleCount;
+                    const y = surface(x);
+                    const dx = x < 1 ? 0.0001 : -0.0001;
+                    const derivative =
+                        (surface(clamp(x + dx, 0, 1)) - y) / dx;
+                    const magnitude = Math.hypot(derivative, 1) || 1;
+                    const normalX = -derivative / magnitude;
+                    const normalY = -1 / magnitude;
+                    const dot = normalY;
+                    const k = 1 - eta * eta * (1 - dot * dot);
+                    if (k < 0) {
+                        values.push(0);
+                        continue;
+                    }
+                    const root = Math.sqrt(k);
+                    const refractedX = -(eta * dot + root) * normalX;
+                    const refractedY = eta - (eta * dot + root) * normalY;
+                    values.push(
+                        Math.abs(refractedY) < 1e-6
+                            ? 0
+                            : refractedX
+                                * ((y * bezelWidth + config.thickness) / refractedY)
+                    );
+                }
+                return values;
+            }
+
+            function capsuleCoordinate(value, size, radius) {
+                const body = size - radius * 2;
+                if (value < radius) return value - radius;
+                if (value >= size - radius) return value - radius - body;
+                return 0;
+            }
+
+            function createDisplacementMap(config, width, height, radius) {
+                const canvas = document.createElement("canvas");
+                canvas.width = width;
+                canvas.height = height;
+                const context = canvas.getContext("2d");
+                const image = context.createImageData(width, height);
+                const data = image.data;
+                const safeRadius = clamp(radius, 2, Math.min(width, height) / 2 - 1);
+                const bezel = clamp(config.bezel, 2, Math.max(2, safeRadius - 2));
+                const profile = physicalProfile(config, bezel);
+                const maximum = Math.max(1e-6, ...profile.map((v) => Math.abs(v)));
+                const outerSquared = (safeRadius + 1) ** 2;
+                const radiusSquared = safeRadius ** 2;
+                const innerSquared = Math.max(0, safeRadius - bezel) ** 2;
+
+                for (let y = 0; y < height; y += 1) {
+                    for (let x = 0; x < width; x += 1) {
+                        const offset = (y * width + x) * 4;
+                        data[offset] = 128;
+                        data[offset + 1] = 128;
+                        data[offset + 2] = 128;
+                        data[offset + 3] = 255;
+                        const cx = capsuleCoordinate(x, width, safeRadius);
+                        const cy = capsuleCoordinate(y, height, safeRadius);
+                        const distanceSquared = cx * cx + cy * cy;
+                        if (distanceSquared > outerSquared || distanceSquared < innerSquared) {
+                            continue;
+                        }
+                        const distance = Math.sqrt(distanceSquared);
+                        const alpha = distanceSquared < radiusSquared
+                            ? 1
+                            : 1 - (distance - safeRadius)
+                                / (Math.sqrt(outerSquared) - safeRadius);
+                        const index = Math.floor(
+                            clamp((safeRadius - distance) / bezel, 0, 1)
+                            * profile.length
+                        );
+                        const displacement =
+                            profile[clamp(index, 0, profile.length - 1)] || 0;
+                        const nx = distance > 0 ? -cx / distance : 0;
+                        const ny = distance > 0 ? -cy / distance : 0;
+                        data[offset] = Math.round(clamp(
+                            128 + nx * (displacement / maximum) * 127 * alpha,
+                            0,
+                            255
+                        ));
+                        data[offset + 1] = Math.round(clamp(
+                            128 + ny * (displacement / maximum) * 127 * alpha,
+                            0,
+                            255
+                        ));
+                    }
+                }
+                context.putImageData(image, 0, 0);
+                return { url: canvas.toDataURL("image/png"), maximum, bezel };
+            }
+
+            function createShrinkMap(config, width, height, radius) {
+                const canvas = document.createElement("canvas");
+                canvas.width = width;
+                canvas.height = height;
+                const context = canvas.getContext("2d");
+                const image = context.createImageData(width, height);
+                const data = image.data;
+                const shrink = clamp(config.shrink || 0, 0, 0.8);
+                const zoomOut = shrink > 0 ? 1 / (1 - shrink) - 1 : 0;
+                const maximum = Math.max(
+                    1e-6,
+                    width * 0.5 * zoomOut,
+                    height * 0.5 * zoomOut
+                );
+
+                for (let y = 0; y < height; y += 1) {
+                    for (let x = 0; x < width; x += 1) {
+                        const offset = (y * width + x) * 4;
+                        const dx = (x - width / 2) * zoomOut;
+                        const dy = (y - height / 2) * zoomOut;
+                        data[offset] = Math.round(clamp(
+                            128 + dx / maximum * 127,
+                            0,
+                            255
+                        ));
+                        data[offset + 1] = Math.round(clamp(
+                            128 + dy / maximum * 127,
+                            0,
+                            255
+                        ));
+                        data[offset + 2] = 128;
+                        data[offset + 3] = 255;
+                    }
+                }
+                context.putImageData(image, 0, 0);
+                return {
+                    url: canvas.toDataURL("image/png"),
+                    scale: shrink > 0 ? maximum * 2 : 0,
+                };
+            }
+
+            function createSpecularMap(config, width, height, radius) {
+                const canvas = document.createElement("canvas");
+                canvas.width = width;
+                canvas.height = height;
+                const context = canvas.getContext("2d");
+                const image = context.createImageData(width, height);
+                const data = image.data;
+                const safeRadius = clamp(radius, 2, Math.min(width, height) / 2 - 1);
+                const outerSquared = (safeRadius + 1) ** 2;
+                const innerSquared = Math.max(0, safeRadius - 1.8) ** 2;
+                const lightX = Math.cos(-Math.PI * 0.72);
+                const lightY = Math.sin(-Math.PI * 0.72);
+
+                for (let y = 0; y < height; y += 1) {
+                    for (let x = 0; x < width; x += 1) {
+                        const cx = capsuleCoordinate(x, width, safeRadius);
+                        const cy = capsuleCoordinate(y, height, safeRadius);
+                        const squared = cx * cx + cy * cy;
+                        if (squared > outerSquared || squared < innerSquared) continue;
+                        const distance = Math.sqrt(squared);
+                        const nx = distance > 0 ? cx / distance : 0;
+                        const ny = distance > 0 ? -cy / distance : 0;
+                        const dot = Math.abs(nx * lightX + ny * lightY);
+                        const edge = clamp((safeRadius - distance) / 1.8, 0, 1);
+                        const curve = dot * Math.sqrt(1 - (1 - edge) ** 2);
+                        const channel = Math.round(clamp(255 * curve, 0, 255));
+                        const offset = (y * width + x) * 4;
+                        data[offset] = channel;
+                        data[offset + 1] = channel;
+                        data[offset + 2] = channel;
+                        data[offset + 3] = Math.round(channel * curve);
+                    }
+                }
+                context.putImageData(image, 0, 0);
+                return canvas.toDataURL("image/png");
+            }
+
+            function createOpticalFilter(id) {
+                const ns = "http://www.w3.org/2000/svg";
+                const filter = document.createElementNS(ns, "filter");
+                filter.setAttribute("id", id);
+                filter.setAttribute("x", "-100%");
+                filter.setAttribute("y", "-100%");
+                filter.setAttribute("width", "300%");
+                filter.setAttribute("height", "300%");
+                filter.setAttribute("color-interpolation-filters", "sRGB");
+                filter.innerHTML = `
+                    <feGaussianBlur data-node="blur" in="SourceGraphic" stdDeviation="0.2" result="blurred"></feGaussianBlur>
+                    <feImage data-node="shrink-image" x="0" y="0" width="100" height="60" preserveAspectRatio="none" result="shrinkMap"></feImage>
+                    <feDisplacementMap data-node="shrink-displacement" in="blurred" in2="shrinkMap" scale="0" xChannelSelector="R" yChannelSelector="G" result="shrunk"></feDisplacementMap>
+                    <feImage data-node="displacement-image" x="0" y="0" width="100" height="60" preserveAspectRatio="none" result="displacementMap"></feImage>
+                    <feDisplacementMap data-node="displacement" in="shrunk" in2="displacementMap" scale="50" xChannelSelector="R" yChannelSelector="G" result="refracted"></feDisplacementMap>
+                    <feColorMatrix data-node="saturation" in="refracted" type="saturate" values="1.3" result="refractedSaturated"></feColorMatrix>
+                    <feImage data-node="specular-image" x="0" y="0" width="100" height="60" preserveAspectRatio="none" result="specularMap"></feImage>
+                    <feComponentTransfer in="specularMap" result="specularFaded">
+                        <feFuncA data-node="specular-alpha" type="linear" slope="0.15"></feFuncA>
+                    </feComponentTransfer>
+                    <feBlend in="specularFaded" in2="refractedSaturated" mode="screen"></feBlend>
+                `;
+                byId("filterDefs").appendChild(filter);
+                return {
+                    filter,
+                    blur: filter.querySelector('[data-node="blur"]'),
+                    shrinkImage: filter.querySelector('[data-node="shrink-image"]'),
+                    shrinkDisplacement: filter.querySelector('[data-node="shrink-displacement"]'),
+                    displacementImage: filter.querySelector('[data-node="displacement-image"]'),
+                    displacement: filter.querySelector('[data-node="displacement"]'),
+                    saturation: filter.querySelector('[data-node="saturation"]'),
+                    specularImage: filter.querySelector('[data-node="specular-image"]'),
+                    specularAlpha: filter.querySelector('[data-node="specular-alpha"]'),
+                };
+            }
+
+            function setHref(node, value) {
+                node.setAttribute("href", value);
+                node.setAttributeNS("http://www.w3.org/1999/xlink", "href", value);
+            }
+
+            function sanitizeClone(root) {
+                root.removeAttribute("id");
+                root.setAttribute("aria-hidden", "true");
+                root.querySelectorAll("[id]").forEach((node) => node.removeAttribute("id"));
+                root.querySelectorAll("button, input, select, [tabindex]").forEach((node) => {
+                    node.setAttribute("tabindex", "-1");
+                });
+            }
+
+            function buildOpticalSurfaces() {
+                const stages = Array.from(document.querySelectorAll("[data-stage]"));
+                const templates = new Map();
+                stages.forEach((stage) => {
+                    const copy = stage.cloneNode(true);
+                    sanitizeClone(copy);
+                    copy.classList.add("optical-stage-copy");
+                    templates.set(stage, copy);
+                });
+
+                Array.from(document.querySelectorAll("[data-optical]")).forEach((element, index) => {
+                    const component = element.dataset.optical;
+                    const stage = element.closest("[data-stage]");
+                    const layer = document.createElement("span");
+                    const world = document.createElement("span");
+                    const stageCopy = templates.get(stage).cloneNode(true);
+                    const filterNodes = createOpticalFilter(`optical-filter-${index}`);
+                    const needsContentBypass = component === "dock" || component === "segment";
+                    let contentLayer = null;
+                    let contentWorld = null;
+                    let contentStageCopy = null;
+                    let contentFilterNodes = null;
+                    layer.className = "optical-layer";
+                    layer.setAttribute("aria-hidden", "true");
+                    layer.style.filter = `url(#optical-filter-${index})`;
+                    world.className = "optical-world";
+                    if (needsContentBypass) {
+                        stageCopy.classList.add("optical-background-copy");
+                        contentLayer = document.createElement("span");
+                        contentWorld = document.createElement("span");
+                        contentStageCopy = templates.get(stage).cloneNode(true);
+                        contentFilterNodes = createOpticalFilter(
+                            `optical-content-filter-${index}`
+                        );
+                        contentLayer.className = "optical-layer optical-content-layer";
+                        contentLayer.setAttribute("aria-hidden", "true");
+                        contentLayer.style.filter =
+                            `url(#optical-content-filter-${index})`;
+                        contentWorld.className = "optical-world";
+                        contentStageCopy.classList.add("optical-content-copy");
+                        contentWorld.appendChild(contentStageCopy);
+                        contentLayer.appendChild(contentWorld);
+                    }
+                    world.appendChild(stageCopy);
+                    layer.appendChild(world);
+                    element.prepend(layer);
+                    if (contentLayer) element.prepend(contentLayer);
+                    surfaces.push({
+                        component,
+                        element,
+                        stage,
+                        layer,
+                        world,
+                        stageCopy,
+                        filterNodes,
+                        contentLayer,
+                        contentWorld,
+                        contentStageCopy,
+                        contentFilterNodes,
+                        lastMap: null,
+                        lastSpecular: null,
+                    });
+                });
+
+                const observer = new ResizeObserver(() => {
+                    scheduleOpticalSync();
+                    scheduleFilterRebuild();
+                });
+                stages.forEach((stage) => observer.observe(stage));
+                syncOpticalSurfaces();
+                rebuildFilters();
+            }
+
+            function logicalOffsetWithin(element, ancestor) {
+                let x = 0;
+                let y = 0;
+                let node = element;
+                while (node && node !== ancestor) {
+                    x += node.offsetLeft;
+                    y += node.offsetTop;
+                    node = node.offsetParent;
+                }
+                if (node === ancestor) return { x, y };
+                const elementRect = element.getBoundingClientRect();
+                const ancestorRect = ancestor.getBoundingClientRect();
+                return {
+                    x: elementRect.left - ancestorRect.left,
+                    y: elementRect.top - ancestorRect.top,
+                };
+            }
+
+            function syncDynamicSample(surface) {
+                if (surface.component === "slider") {
+                    const source = byId("sliderFill");
+                    const sample = surface.stageCopy.querySelector(".slider-fill");
+                    if (source && sample) sample.style.width = source.style.width;
+                    return;
+                }
+                if (surface.component === "switch") {
+                    const source = byId("tactileSwitch");
+                    const sample = surface.stageCopy.querySelector(".switch-track");
+                    if (!source || !sample) return;
+                    [
+                        "--switch-progress",
+                        "--switch-track-color",
+                        "--switch-thumb-color",
+                    ].forEach((property) => {
+                        sample.style.setProperty(property, source.style.getPropertyValue(property));
+                    });
+                    sample.classList.toggle("on", source.classList.contains("on"));
+                    return;
+                }
+                if (surface.component === "volume") {
+                    const source = byId("volumeFill");
+                    const sample = surface.stageCopy.querySelector(".volume-fill");
+                    if (source && sample) sample.style.height = source.style.height;
+                    const sourceReservoir = byId("volumeZone")
+                        ?.querySelector(".volume-reservoir");
+                    const sampleReservoir = surface.stageCopy
+                        .querySelector(".volume-reservoir");
+                    if (sourceReservoir && sampleReservoir) {
+                        sampleReservoir.style.transform = sourceReservoir.style.transform;
+                    }
+                }
+            }
+
+            function syncOpticalSurfaces(component = null) {
+                pendingSyncFrame = 0;
+                surfaces.forEach((surface) => {
+                    if (component && surface.component !== component) return;
+                    syncDynamicSample(surface);
+                    const elementRect = surface.element.getBoundingClientRect();
+                    const stageRect = surface.stage.getBoundingClientRect();
+                    const logical = logicalOffsetWithin(surface.element, surface.stage);
+                    const scaleX = Math.max(
+                        0.01,
+                        elementRect.width / Math.max(1, surface.element.offsetWidth)
+                    );
+                    const scaleY = Math.max(
+                        0.01,
+                        elementRect.height / Math.max(1, surface.element.offsetHeight)
+                    );
+                    const scaleInsetX = (
+                        surface.element.offsetWidth - elementRect.width
+                    ) / 2;
+                    const scaleInsetY = (
+                        surface.element.offsetHeight - elementRect.height
+                    ) / 2;
+                    const x = (logical.x + scaleInsetX) / scaleX;
+                    const y = (logical.y + scaleInsetY) / scaleY;
+                    [
+                        [surface.world, surface.stageCopy],
+                        [surface.contentWorld, surface.contentStageCopy],
+                    ].forEach(([world, stageCopy]) => {
+                        if (!world || !stageCopy) return;
+                        world.style.width = `${stageRect.width}px`;
+                        world.style.height = `${stageRect.height}px`;
+                        stageCopy.style.width = `${stageRect.width}px`;
+                        stageCopy.style.height = `${stageRect.height}px`;
+                        world.style.transformOrigin = "0 0";
+                        world.style.transform =
+                            `translate3d(${-x}px, ${-y}px, 0) scale(${1 / scaleX}, ${1 / scaleY})`;
+                    });
+                });
+            }
+
+            function scheduleOpticalSync() {
+                if (pendingSyncFrame) cancelAnimationFrame(pendingSyncFrame);
+                pendingSyncFrame = requestAnimationFrame(() => syncOpticalSurfaces());
+            }
+
+            function rebuildSurface(surface) {
+                const config = settings[surface.component];
+                const width = Math.max(2, Math.round(surface.element.offsetWidth));
+                const height = Math.max(2, Math.round(surface.element.offsetHeight));
+                const computed = getComputedStyle(surface.element);
+                const radius = clamp(
+                    parseFloat(computed.borderTopLeftRadius) || height / 2,
+                    2,
+                    Math.min(width, height) / 2
+                );
+                const shrink = createShrinkMap(config, width, height, radius);
+                const displacement = createDisplacementMap(config, width, height, radius);
+                const specular = createSpecularMap(config, width, height, radius);
+                const configureNodes = (nodes, shrinkScale, specularStrength) => {
+                    if (!nodes) return;
+                    setHref(nodes.shrinkImage, shrink.url);
+                    setHref(nodes.displacementImage, displacement.url);
+                    setHref(nodes.specularImage, specular);
+                    [
+                        nodes.shrinkImage,
+                        nodes.displacementImage,
+                        nodes.specularImage,
+                    ].forEach((node) => {
+                        node.setAttribute("width", String(width));
+                        node.setAttribute("height", String(height));
+                    });
+                    nodes.shrinkDisplacement.setAttribute(
+                        "scale",
+                        shrinkScale.toFixed(3)
+                    );
+                    nodes.displacement.setAttribute(
+                        "scale",
+                        (displacement.maximum * config.refraction).toFixed(3)
+                    );
+                    nodes.blur.setAttribute("stdDeviation", config.blur.toFixed(3));
+                    nodes.saturation.setAttribute("values", config.saturation.toFixed(3));
+                    nodes.specularAlpha.setAttribute(
+                        "slope",
+                        specularStrength.toFixed(3)
+                    );
+                };
+                configureNodes(surface.filterNodes, shrink.scale, config.specular);
+                configureNodes(surface.contentFilterNodes, 0, 0);
+                surface.lastMap = displacement.url;
+                surface.lastSpecular = specular;
+                surface.kernelSize = `${width}×${height}`;
+            }
+
+            function rebuildFilters(component = null) {
+                pendingFilterFrame = 0;
+                surfaces.forEach((surface) => {
+                    if (!component || surface.component === component) rebuildSurface(surface);
+                });
+                updateKernelPreview();
+                scheduleOpticalSync();
+            }
+
+            function scheduleFilterRebuild(component = null) {
+                if (pendingFilterFrame) cancelAnimationFrame(pendingFilterFrame);
+                pendingFilterFrame = requestAnimationFrame(() => rebuildFilters(component));
+            }
+
+            function updateKernelPreview() {
+                const surface = surfaces.find((item) => item.component === selectedComponent);
+                if (!surface?.lastMap) return;
+                byId("displacementPreview").src = surface.lastMap;
+                byId("specularPreview").src = surface.lastSpecular;
+                byId("kernelSize").textContent = surface.kernelSize;
+            }
+
+            function buildTuner() {
+                const picker = byId("targetSelect");
+                picker.innerHTML = Object.entries(names)
+                    .map(([value, label]) => `<option value="${value}">${label}</option>`)
+                    .join("");
+                picker.value = selectedComponent;
+                picker.addEventListener("change", () => {
+                    selectedComponent = picker.value;
+                    renderControls();
+                    updateKernelPreview();
+                    document.querySelector(`[data-component-card="${selectedComponent}"]`)
+                        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                });
+                renderControls();
+            }
+
+            function renderControls() {
+                const root = byId("controls");
+                const groups = ["Optics", "Motion"];
+                root.innerHTML = groups.map((group) => {
+                    const controls = controlDefinitions.filter((item) => item.group === group);
+                    return `
+                        <section class="control-group">
+                            <div class="group-title">${group}</div>
+                            ${controls.map((definition) => {
+                                const output = `<output data-output="${definition.key}"></output>`;
+                                if (definition.type === "select") {
+                                    return `
+                                        <div class="control wide">
+                                            <div class="control-row"><span>${definition.label}</span>${output}</div>
+                                            <select data-setting="${definition.key}">
+                                                ${definition.options.map(([value, label]) => `<option value="${value}">${label}</option>`).join("")}
+                                            </select>
+                                        </div>
+                                    `;
+                                }
+                                return `
+                                    <div class="control">
+                                        <div class="control-row"><span>${definition.label}</span>${output}</div>
+                                        <input type="range" data-setting="${definition.key}" min="${definition.min}" max="${definition.max}" step="${definition.step}">
+                                    </div>
+                                `;
+                            }).join("")}
+                        </section>
+                    `;
+                }).join("");
+
+                root.querySelectorAll("[data-setting]").forEach((input) => {
+                    const key = input.dataset.setting;
+                    const definition = controlDefinitions.find((item) => item.key === key);
+                    input.value = settings[selectedComponent][key];
+                    const output = root.querySelector(`[data-output="${key}"]`);
+                    output.textContent = definition.type === "select"
+                        ? input.selectedOptions[0]?.textContent
+                        : definition.format(settings[selectedComponent][key]);
+                    input.addEventListener("input", () => {
+                        settings[selectedComponent][key] =
+                            definition.type === "select" ? input.value : Number(input.value);
+                        output.textContent = definition.type === "select"
+                            ? input.selectedOptions[0]?.textContent
+                            : definition.format(settings[selectedComponent][key]);
+                        if (definition.group === "Optics") {
+                            scheduleFilterRebuild(selectedComponent);
+                        }
+                    });
+                });
+            }
+
+            function runSpringLoop(component, springs, apply, shouldContinue = null) {
+                if (activeSpringLoops.has(component)) return;
+                activeSpringLoops.add(component);
+                let previous = performance.now();
+                const frame = (now) => {
+                    const dt = Math.min(0.032, Math.max(0.001, (now - previous) / 1000));
+                    previous = now;
+                    const config = settings[component];
+                    springs.forEach((spring) => spring.update(dt, config));
+                    apply();
+                    syncOpticalSurfaces(component);
+                    const moving = shouldContinue
+                        ? shouldContinue()
+                        : springs.some((spring) => !spring.settled());
+                    if (moving) requestAnimationFrame(frame);
+                    else activeSpringLoops.delete(component);
+                };
+                requestAnimationFrame(frame);
+            }
+
+            function initPrecisionLens() {
+                const stage = document.querySelector('[data-stage="precision"]');
+                const lens = byId("precisionLens");
+                let dragging = false;
+                let pointerId = null;
+                let offsetX = 0;
+                let offsetY = 0;
+                let lastX = 0;
+                let lastY = 0;
+                let lastTime = 0;
+                const scale = new Spring(settings.precision.idleScale);
+                const stretchX = new Spring(1);
+                const stretchY = new Spring(1);
+
+                const apply = () => {
+                    lens.style.transform =
+                        `scale(${scale.value * stretchX.value}, ${scale.value * stretchY.value})`;
+                };
+
+                const startLoop = () => runSpringLoop(
+                    "precision",
+                    [scale, stretchX, stretchY],
+                    apply,
+                    () => dragging || !scale.settled() || !stretchX.settled() || !stretchY.settled()
+                );
+
+                lens.addEventListener("pointerdown", (event) => {
+                    dragging = true;
+                    pointerId = event.pointerId;
+                    lens.classList.add("dragging");
+                    lens.setPointerCapture(pointerId);
+                    const rect = lens.getBoundingClientRect();
+                    offsetX = event.clientX - rect.left;
+                    offsetY = event.clientY - rect.top;
+                    lastX = event.clientX;
+                    lastY = event.clientY;
+                    lastTime = performance.now();
+                    scale.target = settings.precision.activeScale;
+                    startLoop();
+                });
+
+                lens.addEventListener("pointermove", (event) => {
+                    if (!dragging || event.pointerId !== pointerId) return;
+                    const stageRect = stage.getBoundingClientRect();
+                    const config = settings.precision;
+                    const now = performance.now();
+                    const dt = Math.max(1, now - lastTime) / 1000;
+                    const vx = (event.clientX - lastX) / dt;
+                    const vy = (event.clientY - lastY) / dt;
+                    const speed = Math.hypot(vx, vy) || 1;
+                    const stretch = Math.min(config.stretch, speed / 6000);
+                    stretchX.target = 1 + stretch * Math.abs(vx / speed);
+                    stretchY.target = 1 + stretch * Math.abs(vy / speed);
+                    lens.style.left = `${clamp(
+                        event.clientX - stageRect.left - offsetX,
+                        0,
+                        stage.clientWidth - lens.offsetWidth
+                    )}px`;
+                    lens.style.top = `${clamp(
+                        event.clientY - stageRect.top - offsetY,
+                        0,
+                        stage.clientHeight - lens.offsetHeight
+                    )}px`;
+                    lastX = event.clientX;
+                    lastY = event.clientY;
+                    lastTime = now;
+                    syncOpticalSurfaces("precision");
+                });
+
+                const release = () => {
+                    if (!dragging) return;
+                    dragging = false;
+                    pointerId = null;
+                    lens.classList.remove("dragging");
+                    fastReturn(scale, settings.precision.idleScale);
+                    fastReturn(stretchX, 1);
+                    fastReturn(stretchY, 1);
+                    startLoop();
+                };
+                lens.addEventListener("pointerup", release);
+                lens.addEventListener("pointercancel", release);
+                apply();
+            }
+
+            function initFluidSlider() {
+                const root = byId("fluidSlider");
+                const thumb = byId("sliderThumb");
+                const fill = byId("sliderFill");
+                const scale = new Spring(settings.slider.idleScale);
+                const stretchX = new Spring(1);
+                const stretchY = new Spring(1);
+                const activity = new Spring(0);
+                let dragging = false;
+                let pointerId = null;
+                let value = 0.42;
+                let thumbX = 0;
+                let lastPointerX = 0;
+                let lastTime = 0;
+
+                const travel = () => root.clientWidth - thumb.offsetWidth;
+                const apply = () => {
+                    const center = thumbX + thumb.offsetWidth / 2;
+                    const edgeEpsilon = 0.5;
+                    const atStart = thumbX <= edgeEpsilon;
+                    const atEnd = thumbX >= travel() - edgeEpsilon;
+                    const fillWidth = atStart
+                        ? 0
+                        : atEnd
+                            ? root.clientWidth
+                            : center;
+                    root.classList.toggle("endpoint-transition", atStart || atEnd);
+                    activity.target = dragging ? 1 : 0;
+                    root.classList.toggle("interacting", dragging);
+                    root.style.setProperty(
+                        "--slider-glass",
+                        clamp(activity.value, 0, 1).toFixed(4)
+                    );
+                    fill.style.width = `${fillWidth}px`;
+                    thumb.style.left = `${thumbX}px`;
+                    thumb.style.transform =
+                        `scale(${scale.value * stretchX.value}, ${scale.value * stretchY.value})`;
+                };
+                const start = () => runSpringLoop(
+                    "slider",
+                    [scale, stretchX, stretchY, activity],
+                    apply,
+                    () => dragging || [scale, stretchX, stretchY, activity]
+                        .some((spring) => !spring.settled())
+                );
+                const update = (clientX) => {
+                    const rect = root.getBoundingClientRect();
+                    const now = performance.now();
+                    const dt = Math.max(1, now - lastTime) / 1000;
+                    const velocity = lastTime ? (clientX - lastPointerX) / dt : 0;
+                    value = clamp(
+                        (clientX - rect.left - thumb.offsetWidth / 2) / Math.max(1, travel()),
+                        0,
+                        1
+                    );
+                    thumbX = value * travel();
+                    const amount = Math.min(settings.slider.stretch, Math.abs(velocity) / 5000);
+                    stretchX.target = 1 + amount;
+                    stretchY.target = 1 - amount * 0.45;
+                    lastPointerX = clientX;
+                    lastTime = now;
+                    apply();
+                    syncOpticalSurfaces("slider");
+                };
+                root.addEventListener("pointerdown", (event) => {
+                    if (event.pointerType === "mouse" && event.button !== 0) return;
+                    event.preventDefault();
+                    if (pointerId !== null && pointerId !== event.pointerId) return;
+                    dragging = true;
+                    pointerId = event.pointerId;
+                    lastPointerX = event.clientX;
+                    lastTime = performance.now();
+                    root.setPointerCapture?.(event.pointerId);
+                    activity.value = Math.max(activity.value, 0.18);
+                    activity.target = 1;
+                    scale.target = settings.slider.activeScale;
+                    update(event.clientX);
+                    start();
+                });
+                root.addEventListener("pointermove", (event) => {
+                    if (!dragging || event.pointerId !== pointerId) return;
+                    event.preventDefault();
+                    update(event.clientX);
+                });
+                const release = (event) => {
+                    if (pointerId === null || event.pointerId !== pointerId) return;
+                    const endingPointerId = pointerId;
+                    dragging = false;
+                    pointerId = null;
+                    if (
+                        event.type !== "lostpointercapture"
+                        && root.hasPointerCapture?.(endingPointerId)
+                    ) {
+                        root.releasePointerCapture(endingPointerId);
+                    }
+                    fastReturn(scale, settings.slider.idleScale);
+                    fastReturn(stretchX, 1);
+                    fastReturn(stretchY, 1);
+                    fastReturn(activity, 0, 0.14);
+                    start();
+                };
+                root.addEventListener("pointerup", release);
+                root.addEventListener("pointercancel", release);
+                root.addEventListener("lostpointercapture", release);
+                root.addEventListener("dragstart", (event) => event.preventDefault());
+                new ResizeObserver(() => {
+                    thumbX = value * travel();
+                    apply();
+                    syncOpticalSurfaces("slider");
+                }).observe(root);
+                thumbX = value * travel();
+                apply();
+            }
+
+            function initTactileSwitch() {
+                const track = byId("tactileSwitch");
+                const thumb = byId("switchThumb");
+                const x = new Spring(0);
+                const scale = new Spring(settings.switch.idleScale);
+                const squash = new Spring(1);
+                const activity = new Spring(0);
+                let committed = 1;
+                let pointerActive = false;
+                let dragging = false;
+                let pointerId = null;
+                let startClientX = 0;
+                let startProgress = 1;
+                let pressTime = 0;
+                const travel = () => track.clientWidth - thumb.offsetWidth - 10;
+                const progress = () => clamp(x.value / Math.max(1, travel()), 0, 1);
+                const apply = () => {
+                    const current = progress();
+                    const positionMoving = !x.settled(0.002);
+                    if (!dragging) {
+                        if (pointerActive || positionMoving) {
+                            scale.target = settings.switch.activeScale;
+                        } else if (scale.target !== settings.switch.idleScale) {
+                            fastReturn(scale, settings.switch.idleScale);
+                        }
+                    }
+                    const trackColor = [30, 34, 40].map((channel, index) => {
+                        const target = [48, 209, 88][index];
+                        return Math.round(channel + (target - channel) * current);
+                    });
+                    const moving = [x, scale, squash]
+                        .some((spring) => !spring.settled(0.002));
+                    const glassShapeActive = pointerActive || positionMoving;
+                    if (glassShapeActive) {
+                        activity.target = 1;
+                    } else if (activity.target !== 0) {
+                        fastReturn(activity, 0, 0.14);
+                    }
+                    track.classList.toggle("interacting", glassShapeActive);
+                    track.classList.toggle("on", current >= 0.5);
+                    track.style.setProperty("--switch-progress", current.toFixed(4));
+                    track.style.setProperty(
+                        "--switch-glass",
+                        clamp(activity.value, 0, 1).toFixed(4)
+                    );
+                    track.style.setProperty("--switch-track-color", `rgb(${trackColor.join(" ")})`);
+                    track.style.setProperty("--switch-thumb-color", "rgb(255 255 255)");
+                    thumb.style.left = `${5 + x.value}px`;
+                    thumb.style.transform =
+                        `scale(${scale.value * squash.value}, ${scale.value / squash.value})`;
+                };
+                const start = () => runSpringLoop(
+                    "switch",
+                    [x, scale, squash, activity],
+                    apply,
+                    () => pointerActive || [x, scale, squash, activity]
+                        .some((spring) => !spring.settled())
+                );
+                const commit = (next) => {
+                    committed = next >= 0.5 ? 1 : 0;
+                    track.setAttribute("aria-pressed", String(Boolean(committed)));
+                    x.target = committed * travel();
+                    activity.value = Math.max(activity.value, 0.55);
+                    activity.target = 1;
+                    start();
+                };
+                track.addEventListener("pointerdown", (event) => {
+                    if (event.pointerType === "mouse" && event.button !== 0) return;
+                    pointerActive = true;
+                    dragging = false;
+                    pointerId = event.pointerId;
+                    startClientX = event.clientX;
+                    startProgress = progress();
+                    pressTime = performance.now();
+                    track.setPointerCapture?.(event.pointerId);
+                    activity.value = Math.max(activity.value, 0.18);
+                    activity.target = 1;
+                    scale.target = settings.switch.activeScale;
+                    squash.target = 1 + settings.switch.stretch;
+                    start();
+                });
+                track.addEventListener("pointermove", (event) => {
+                    if (!pointerActive || event.pointerId !== pointerId) return;
+                    const dx = event.clientX - startClientX;
+                    if (!dragging && Math.abs(dx) <= 6) return;
+                    dragging = true;
+                    const next = clamp(startProgress + dx / Math.max(1, travel()), 0, 1);
+                    const previous = x.value;
+                    x.value = x.target = next * travel();
+                    x.velocity = (x.value - previous) * 18;
+                    squash.target = 1 + Math.min(
+                        settings.switch.stretch,
+                        Math.abs(x.velocity) / Math.max(1, travel() * 24)
+                    );
+                    apply();
+                    syncOpticalSurfaces("switch");
+                });
+                const release = (event) => {
+                    if (!pointerActive || event.pointerId !== pointerId) return;
+                    const cancelled = event.type === "pointercancel";
+                    const elapsed = performance.now() - pressTime;
+                    const distance = Math.abs(event.clientX - startClientX);
+                    const wasDragging = dragging;
+                    pointerActive = false;
+                    dragging = false;
+                    pointerId = null;
+                    if (track.hasPointerCapture?.(event.pointerId)) {
+                        track.releasePointerCapture(event.pointerId);
+                    }
+                    squash.target = 1;
+                    if (cancelled) commit(committed);
+                    else if (wasDragging) commit(progress() >= 0.5 ? 1 : 0);
+                    else if (elapsed <= 500 && distance <= 6) commit(committed ? 0 : 1);
+                    else commit(committed);
+                };
+                track.addEventListener("pointerup", release);
+                track.addEventListener("pointercancel", release);
+                track.addEventListener("lostpointercapture", (event) => {
+                    if (pointerActive) release(event);
+                });
+                track.addEventListener("keydown", (event) => {
+                    if (event.key !== " " && event.key !== "Enter") return;
+                    event.preventDefault();
+                    commit(committed ? 0 : 1);
+                });
+                new ResizeObserver(() => {
+                    if (!pointerActive) {
+                        x.value = x.target = committed * travel();
+                        apply();
+                        syncOpticalSurfaces("switch");
+                    }
+                }).observe(track);
+                x.value = x.target = travel();
+                apply();
+            }
+
+            function initDragDock() {
+                const dock = byId("dragDock");
+                const bubble = byId("dockBubble");
+                const buttons = Array.from(dock.children)
+                    .filter((node) => node.matches("[data-dock-index]"));
+                const contentLayers = buttons.map(
+                    (button) => button.querySelector(".control-source-content")
+                );
+                const x = new Spring(0);
+                const scale = new Spring(settings.dock.idleScale);
+                const stretch = new Spring(1);
+                const activity = new Spring(0);
+                let pointerActive = false;
+                let dragging = false;
+                let pointerId = null;
+                let startClientX = 0;
+                let pressTime = 0;
+                let ignoreClickUntil = 0;
+                let selected = 2;
+                let maskActive = false;
+                let releaseTimer = 0;
+                let returningFlat = false;
+                const dragDelayMs = 140;
+                const dragDistancePx = 10;
+                const cell = () => (dock.clientWidth - 14) / buttons.length;
+                const targetFor = (index) => index * cell();
+                const apply = () => {
+                    const moving = [x, scale, stretch]
+                        .some((spring) => !spring.settled(0.002));
+                    const glassShapeActive = (dragging || moving) && !returningFlat;
+                    if (glassShapeActive) {
+                        activity.target = 1;
+                        maskActive = true;
+                    } else if (activity.target !== 0) {
+                        fastReturn(activity, 0, 0.14);
+                    }
+                    if (activity.target === 0 && activity.value <= 0.002) {
+                        activity.value = 0;
+                        activity.velocity = 0;
+                        maskActive = false;
+                    }
+                    const glassOpacity = clamp(activity.value, 0, 1);
+                    dock.classList.toggle("interacting", glassShapeActive);
+                    dock.style.setProperty("--control-glass", glassOpacity.toFixed(4));
+                    bubble.style.left = `${7 + x.value}px`;
+                    bubble.style.transform =
+                        `scale(${scale.value * stretch.value}, ${scale.value / stretch.value})`;
+                    cutOriginalContentUnderLens(
+                        contentLayers,
+                        bubble,
+                        maskActive
+                    );
+                };
+                const start = () => runSpringLoop(
+                    "dock",
+                    [x, scale, stretch, activity],
+                    apply,
+                    () => dragging || [x, scale, stretch, activity]
+                        .some((spring) => !spring.settled())
+                );
+                const beginIdleReturn = () => {
+                    returningFlat = true;
+                    fastReturn(activity, 0, 0.14);
+                    fastReturn(scale, settings.dock.idleScale);
+                    fastReturn(stretch, 1);
+                    start();
+                };
+                const pulse = () => {
+                    clearTimeout(releaseTimer);
+                    returningFlat = false;
+                    maskActive = true;
+                    activity.value = Math.max(activity.value, 0.18);
+                    activity.target = 1;
+                    scale.target = settings.dock.activeScale;
+                    start();
+                    releaseTimer = setTimeout(beginIdleReturn, 110);
+                };
+                const select = (index, animate = true) => {
+                    selected = clamp(index, 0, buttons.length - 1);
+                    x.target = targetFor(selected);
+                    buttons.forEach((button, i) => button.classList.toggle("active", i === selected));
+                    if (animate) pulse();
+                    start();
+                };
+                buttons.forEach((button, index) => {
+                    button.addEventListener("click", () => {
+                        if (performance.now() < ignoreClickUntil) return;
+                        select(index);
+                    });
+                });
+                dock.addEventListener("pointerdown", (event) => {
+                    if (event.pointerType === "mouse" && event.button !== 0) return;
+                    pointerActive = true;
+                    dragging = false;
+                    pointerId = event.pointerId;
+                    startClientX = event.clientX;
+                    pressTime = performance.now();
+                });
+                dock.addEventListener("pointermove", (event) => {
+                    if (!pointerActive || event.pointerId !== pointerId) return;
+                    const dx = event.clientX - startClientX;
+                    if (!dragging) {
+                        const elapsed = performance.now() - pressTime;
+                        if (elapsed < dragDelayMs || Math.abs(dx) < dragDistancePx) return;
+                        dragging = true;
+                        dock.setPointerCapture?.(event.pointerId);
+                        clearTimeout(releaseTimer);
+                        returningFlat = false;
+                        scale.target = settings.dock.activeScale;
+                        start();
+                    }
+                    const rect = dock.getBoundingClientRect();
+                    const raw = clamp(
+                        event.clientX - rect.left - 7 - cell() / 2,
+                        0,
+                        cell() * (buttons.length - 1)
+                    );
+                    const velocity = raw - x.target;
+                    x.target = raw;
+                    stretch.target = 1 + Math.min(settings.dock.stretch, Math.abs(velocity) / 80);
+                    selected = Math.round(raw / cell());
+                });
+                const release = (event) => {
+                    if (!pointerActive || event.pointerId !== pointerId) return;
+                    const wasDragging = dragging;
+                    pointerActive = false;
+                    dragging = false;
+                    pointerId = null;
+                    if (dock.hasPointerCapture?.(event.pointerId)) {
+                        dock.releasePointerCapture(event.pointerId);
+                    }
+                    if (!wasDragging) return;
+                    ignoreClickUntil = performance.now() + 220;
+                    beginIdleReturn();
+                    select(selected, false);
+                };
+                dock.addEventListener("pointerup", release);
+                dock.addEventListener("pointercancel", release);
+                new ResizeObserver(() => {
+                    x.value = x.target = targetFor(selected);
+                    apply();
+                    syncOpticalSurfaces("dock");
+                }).observe(dock);
+                x.value = x.target = targetFor(selected);
+                apply();
+            }
+
+            function initSegmentControl() {
+                const track = byId("segmentControl");
+                const indicator = byId("segmentIndicator");
+                const buttons = Array.from(track.children)
+                    .filter((node) => node.matches("[data-segment-index]"));
+                const contentLayers = buttons.map(
+                    (button) => button.querySelector(".control-source-content")
+                );
+                const x = new Spring(0);
+                const scale = new Spring(settings.segment.idleScale);
+                const stretch = new Spring(1);
+                const activity = new Spring(0);
+                let selected = 2;
+                let maskActive = false;
+                let releaseTimer = 0;
+                let returningFlat = false;
+                const cell = () => (track.clientWidth - 8) / buttons.length;
+                const apply = () => {
+                    const moving = [x, scale, stretch]
+                        .some((spring) => !spring.settled(0.002));
+                    const glassShapeActive = moving && !returningFlat;
+                    if (glassShapeActive) {
+                        activity.target = 1;
+                        maskActive = true;
+                    } else if (activity.target !== 0) {
+                        fastReturn(activity, 0, 0.14);
+                    }
+                    if (activity.target === 0 && activity.value <= 0.002) {
+                        activity.value = 0;
+                        activity.velocity = 0;
+                        maskActive = false;
+                    }
+                    const glassOpacity = clamp(activity.value, 0, 1);
+                    track.classList.toggle("interacting", glassShapeActive);
+                    track.style.setProperty("--control-glass", glassOpacity.toFixed(4));
+                    indicator.style.left = `${4 + x.value}px`;
+                    indicator.style.transform =
+                        `scale(${scale.value * stretch.value}, ${scale.value / stretch.value})`;
+                    cutOriginalContentUnderLens(
+                        contentLayers,
+                        indicator,
+                        maskActive
+                    );
+                };
+                const start = () => runSpringLoop(
+                    "segment",
+                    [x, scale, stretch, activity],
+                    apply
+                );
+                const beginIdleReturn = () => {
+                    returningFlat = true;
+                    fastReturn(activity, 0, 0.14);
+                    fastReturn(scale, settings.segment.idleScale);
+                    fastReturn(stretch, 1);
+                    start();
+                };
+                const pulse = () => {
+                    clearTimeout(releaseTimer);
+                    returningFlat = false;
+                    maskActive = true;
+                    activity.value = Math.max(activity.value, 0.18);
+                    activity.target = 1;
+                    scale.target = settings.segment.activeScale;
+                    stretch.target = 1 + settings.segment.stretch;
+                    start();
+                    releaseTimer = setTimeout(beginIdleReturn, 110);
+                };
+                buttons.forEach((button, index) => {
+                    button.addEventListener("pointerdown", pulse);
+                    button.addEventListener("click", () => {
+                        selected = index;
+                        x.target = selected * cell();
+                        pulse();
+                        start();
+                    });
+                });
+                const release = () => {
+                    beginIdleReturn();
+                };
+                track.addEventListener("pointerup", release);
+                track.addEventListener("pointercancel", release);
+                new ResizeObserver(() => {
+                    x.value = x.target = selected * cell();
+                    apply();
+                    syncOpticalSurfaces("segment");
+                }).observe(track);
+                x.value = x.target = selected * cell();
+                apply();
+            }
+
+            function initFluidInput() {
+                const shell = byId("fluidInputShell");
+                const input = byId("fluidInput");
+                const shakeX = new Spring(0);
+                const shakeY = new Spring(0);
+                const scale = new Spring(settings.input.idleScale);
+                const apply = () => {
+                    shell.style.left = `${shakeX.value}px`;
+                    shell.style.top = `${shakeY.value}px`;
+                    shell.style.transform = `scale(${scale.value})`;
+                };
+                const start = () => runSpringLoop("input", [shakeX, shakeY, scale], apply);
+                input.addEventListener("focus", () => {
+                    scale.target = settings.input.activeScale;
+                    start();
+                });
+                input.addEventListener("blur", () => {
+                    fastReturn(scale, settings.input.idleScale);
+                    start();
+                });
+                input.addEventListener("input", () => {
+                    const impulse = 65 * settings.input.stretch;
+                    shakeX.velocity += (Math.random() - 0.5) * impulse;
+                    shakeY.velocity += (Math.random() - 0.5) * impulse * 0.65;
+                    scale.velocity += settings.input.stretch * 0.7;
+                    shakeX.target = 0;
+                    shakeY.target = 0;
+                    start();
+                });
+                apply();
+            }
+
+            function initSquishVolume() {
+                const zone = byId("volumeZone");
+                const glass = byId("volumeGlass");
+                const reservoir = zone.querySelector(".volume-reservoir");
+                const fill = byId("volumeFill");
+                const glassFill = byId("volumeGlassFill");
+                const yScale = new Spring(settings.volume.idleScale);
+                const xScale = new Spring(settings.volume.idleScale);
+                let dragging = false;
+                let pointerId = null;
+                let value = 0.52;
+                const apply = () => {
+                    fill.style.height = `${value * 100}%`;
+                    glassFill.style.height = `${value * 100}%`;
+                    zone.setAttribute("aria-valuenow", String(Math.round(value * 100)));
+                    const transform = `scale(${xScale.value}, ${yScale.value})`;
+                    reservoir.style.transform = transform;
+                    glass.style.transform = transform;
+                };
+                const start = () => runSpringLoop(
+                    "volume",
+                    [xScale, yScale],
+                    apply,
+                    () => dragging || !xScale.settled() || !yScale.settled()
+                );
+                const update = (clientY) => {
+                    const rect = zone.getBoundingClientRect();
+                    const capsuleTop = rect.top + 10;
+                    const capsuleHeight = Math.max(1, rect.height - 20);
+                    const normalized = 1 - (clientY - capsuleTop) / capsuleHeight;
+                    value = clamp(normalized, 0, 1);
+                    const over = normalized < 0
+                        ? -normalized
+                        : normalized > 1 ? normalized - 1 : 0;
+                    yScale.target =
+                        settings.volume.activeScale
+                        + Math.min(settings.volume.stretch, over * 0.65);
+                    xScale.target =
+                        settings.volume.activeScale
+                        - Math.min(settings.volume.stretch * 0.35, over * 0.2);
+                    apply();
+                    syncOpticalSurfaces("volume");
+                };
+                zone.addEventListener("pointerdown", (event) => {
+                    if (event.pointerType === "mouse" && event.button !== 0) return;
+                    dragging = true;
+                    pointerId = event.pointerId;
+                    zone.classList.add("dragging");
+                    zone.setPointerCapture?.(event.pointerId);
+                    update(event.clientY);
+                    start();
+                });
+                zone.addEventListener("pointermove", (event) => {
+                    if (dragging && event.pointerId === pointerId) update(event.clientY);
+                });
+                const release = (event) => {
+                    if (!dragging || event.pointerId !== pointerId) return;
+                    dragging = false;
+                    pointerId = null;
+                    zone.classList.remove("dragging");
+                    if (zone.hasPointerCapture?.(event.pointerId)) {
+                        zone.releasePointerCapture(event.pointerId);
+                    }
+                    fastReturn(xScale, settings.volume.idleScale);
+                    fastReturn(yScale, settings.volume.idleScale);
+                    start();
+                };
+                zone.addEventListener("pointerup", release);
+                zone.addEventListener("pointercancel", release);
+                zone.addEventListener("keydown", (event) => {
+                    if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+                    event.preventDefault();
+                    value = clamp(value + (event.key === "ArrowUp" ? 0.05 : -0.05), 0, 1);
+                    xScale.value = settings.volume.activeScale;
+                    yScale.value = settings.volume.activeScale;
+                    fastReturn(xScale, settings.volume.idleScale);
+                    fastReturn(yScale, settings.volume.idleScale);
+                    apply();
+                    start();
+                });
+                apply();
+            }
+
+            function initLayeredFab() {
+                const main = byId("fabButton");
+                const mainContent = main.querySelector(".surface-content");
+                const actions = Array.from(main.parentElement.children)
+                    .filter((node) => node.matches("[data-fab-action]"));
+                const progress = new Spring(0);
+                const press = new Spring(settings.fab.idleScale);
+                let open = false;
+                const apply = () => {
+                    main.style.transform = `scale(${press.value})`;
+                    mainContent.style.transform = `rotate(${progress.value * 90}deg)`;
+                    actions.forEach((action, index) => {
+                        const distance = 70 * (index + 1);
+                        const delay = index * 0.08;
+                        const p = clamp(
+                            (progress.value - delay) / Math.max(0.01, 1 - delay),
+                            0,
+                            1
+                        );
+                        action.style.opacity = String(p);
+                        action.style.bottom = `${14 + distance * p}px`;
+                        action.style.transform = `scale(${0.55 + p * 0.45})`;
+                        action.classList.toggle("open", p > 0.8);
+                    });
+                };
+                const start = () => runSpringLoop("fab", [progress, press], apply);
+                main.addEventListener("pointerdown", () => {
+                    press.target = settings.fab.activeScale;
+                    start();
+                });
+                main.addEventListener("pointerup", () => {
+                    fastReturn(press, settings.fab.idleScale);
+                    start();
+                });
+                main.addEventListener("click", () => {
+                    open = !open;
+                    main.setAttribute("aria-expanded", String(open));
+                    progress.target = open ? 1 : 0;
+                    progress.velocity += (open ? 1 : -1) * settings.fab.stretch * 3;
+                    start();
+                });
+                apply();
+            }
+
+            function initMagneticStepper() {
+                const stepper = byId("magneticStepper");
+                const output = byId("stepValue");
+                const shift = new Spring(0);
+                const scale = new Spring(settings.stepper.idleScale);
+                let value = 2;
+                const apply = () => {
+                    stepper.style.left = `${shift.value}px`;
+                    stepper.style.transform = `scale(${scale.value})`;
+                };
+                const start = () => runSpringLoop("stepper", [shift, scale], apply);
+                const change = (delta) => {
+                    value += delta;
+                    output.textContent = String(value);
+                    shift.velocity += delta * settings.stepper.stretch * 90;
+                    shift.target = 0;
+                    scale.value = settings.stepper.activeScale;
+                    fastReturn(scale, settings.stepper.idleScale);
+                    start();
+                };
+                byId("stepDown").addEventListener("click", () => change(-1));
+                byId("stepUp").addEventListener("click", () => change(1));
+                apply();
+            }
+
+            function initInteractions() {
+                initPrecisionLens();
+                initFluidSlider();
+                initTactileSwitch();
+                initDragDock();
+                initSegmentControl();
+                initFluidInput();
+                initSquishVolume();
+                initLayeredFab();
+                initMagneticStepper();
+            }
+
+            byId("resetButton").addEventListener("click", () => {
+                settings[selectedComponent] = { ...defaults[selectedComponent] };
+                renderControls();
+                scheduleFilterRebuild(selectedComponent);
+            });
+
+            buildTuner();
+            buildOpticalSurfaces();
+            initInteractions();
+        })();
+    </script>
+</body>
+</html>
